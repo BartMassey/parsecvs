@@ -138,8 +138,8 @@ time_compare (time_t a, time_t b)
 void
 rev_list_patch_vendor_branch (rev_list *rl)
 {
-    rev_head	*trunk;
-    rev_head	*vendor;
+    rev_head	*trunk = NULL;
+    rev_head	*vendor = NULL;
     rev_head	*h;
     rev_ent	*t, *v;
     time_t	t_time, v_time, pv_time;
