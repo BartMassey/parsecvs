@@ -175,45 +175,19 @@ rev_list_patch_vendor_branch (rev_list *rl)
     }
 }
 
-rev_list *
-rev_list_cvs (cvs_file *cvs)
+/*
+ * Given a disconnected set of branches, graft the bottom
+ * of each branch where it belongs on the parent branch
+ */
+
+static void
+rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
 {
-    rev_list	*rl = calloc (1, sizeof (rev_list));
-    cvs_version	*cv;
-    cvs_symbol	*cs;
-    cvs_branch	*cb;
-    cvs_number	*one_one = lex_number ("1.1");
-    rev_head	*trunk = rev_head_cvs (cvs, one_one);
-#if 0
-    cvs_number	*one_one_one_one = lex_number ("1.1.1.1");
-    rev_head	*vendor = rev_head_cvs (cvs, one_one_one_one);
-#endif
     rev_head	*h;
     rev_ent	*e;
-    
-    /*
-     * Generate known branches
-     */
-    if (trunk) {
-	trunk->next = rl->heads;
-	rl->heads = trunk;
-    }
-#if 0
-    if (vendor) {
-	vendor->next = rl->heads;
-	rl->heads = vendor;
-    }
-#endif
-    /*
-     * Search for other branches
-     */
-    for (cv = cvs->versions; cv; cv = cv->next) {
-	for (cb = cv->branches; cb; cb = cb->next) {
-	    h = rev_head_cvs (cvs, cb->number);
-	    h->next = rl->heads;
-	    rl->heads = h;
-	}
-    }
+    cvs_version	*cv;
+    cvs_branch	*cb;
+
     /*
      * Glue branches together
      */
@@ -223,7 +197,9 @@ rev_list_cvs (cvs_file *cvs)
 	if (e) {
 	    for (cv = cvs->versions; cv; cv = cv->next) {
 		for (cb = cv->branches; cb; cb = cb->next) {
-		    if (cvs_number_compare (cb->number, e->files->number) == 0) {
+		    if (cvs_number_compare (cb->number,
+					    e->files->number) == 0)
+		    {
 			e->parent = rev_find_ent (rl, cvs->name, cv->number);
 			e->tail = 1;
 			if (!e->parent) {
@@ -235,12 +211,57 @@ rev_list_cvs (cvs_file *cvs)
 	    }
 	}
     }
+}
+
+rev_list *
+rev_list_cvs (cvs_file *cvs)
+{
+    rev_list	*rl = calloc (1, sizeof (rev_list));
+    cvs_version	*cv;
+    cvs_symbol	*cs;
+    cvs_branch	*cb;
+    cvs_number	*one_one = lex_number ("1.1");
+    rev_head	*trunk = rev_head_cvs (cvs, one_one);
+    rev_head	*h;
+    rev_ent	*e;
+    
+    /*
+     * Generate trunk branch
+     */
+    if (trunk) {
+	trunk->next = rl->heads;
+	rl->heads = trunk;
+    }
+    /*
+     * Search for other branches
+     */
+    for (cv = cvs->versions; cv; cv = cv->next) {
+	for (cb = cv->branches; cb; cb = cb->next) {
+	    h = rev_head_cvs (cvs, cb->number);
+	    h->next = rl->heads;
+	    rl->heads = h;
+	}
+    }
+    rev_list_graft_branches (rl, cvs);
     rev_list_patch_vendor_branch (rl);
     return rl;
+}
+
+rev_head *
+rev_find_branch_by_name (rev_list *rl, char *name)
+{
+    rev_head	*h;
+    rev_tag	*t;
+
+    for (h = rl->heads; h; h = h->next)
+	for (t = h->tags; t; t = t->next)
+	    if (!strcmp (t->name, name))
+		return h;
+    return NULL;
 }
 
 rev_list *
 rev_list_merge (rev_list *a, rev_list *b)
 {
-    return NULL;
+    return a;
 }

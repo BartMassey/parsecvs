@@ -167,7 +167,7 @@ main (int argc, char **argv)
 {
     int i;
     int err = 0;
-    rev_list	*rl;
+    rev_list	*rl, *all = NULL;
     for (i = 1; i < argc; i++) {
 	yyin = fopen (argv[i], "r");
 	if (!yyin) {
@@ -179,7 +179,11 @@ main (int argc, char **argv)
 	yyparse ();
 	fclose (yyin);
 	rl = rev_list_cvs (this_file);
-	dump_revlist (rl);
+	if (all)
+	    all = rev_list_merge (all, rl);
+	else
+	    all = rl;
     }
+    dump_revlist (rl);
     return err;
 }
