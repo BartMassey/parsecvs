@@ -94,11 +94,64 @@ dump_file (cvs_file *file)
     dump_patches ("patches", file->patches);
 }
 
+void
+dump_ent (rev_ent *e)
+{
+    rev_file	*f;
+    rev_tag	*t;
+    printf ("\"");
+    for (t = e->tags; t; t = t->next) {
+	printf ("%s\\n", t->name);
+    }
+    for (f = e->files; f; f = f->next) {
+	dump_number (f->name, f->number);
+	if (f->next) printf ("\\n");
+    }
+    printf ("\"");
+}
+
+void
+dump_revlist (rev_list *rl)
+{
+    rev_head	*h;
+    rev_ent	*e;
+    rev_file	*f;
+
+    printf ("graph G {\n");
+    for (h = rl->heads; h; h = h->next) {
+	for (e = h->ent; e && e->parent; e = e->parent) {
+	    printf ("\t");
+	    dump_ent (e);
+	    printf (" -- ");
+	    dump_ent (e->parent);
+	    printf ("\n");
+	    if (e->tail)
+		break;
+	}
+    }
+    printf ("}\n");
+}
+
+extern FILE *yyin;
+
 int
 main (int argc, char **argv)
 {
-    this_file = calloc (1, sizeof (cvs_file));
-    yyparse ();
-    dump_file (this_file);
-    
+    int i;
+    int err = 0;
+    rev_list	*rl;
+    for (i = 1; i < argc; i++) {
+	yyin = fopen (argv[i], "r");
+	if (!yyin) {
+	    perror (argv[i]);
+	    ++err;
+	}
+	this_file = calloc (1, sizeof (cvs_file));
+	this_file->name = argv[i];
+	yyparse ();
+	fclose (yyin);
+	rl = rev_list_cvs (this_file);
+	dump_revlist (rl);
+    }
+    return err;
 }

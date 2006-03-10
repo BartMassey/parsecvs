@@ -35,7 +35,8 @@ void yyerror (char *msg);
     cvs_file	*file;
 }
 
-%token		HEAD ACCESS SYMBOLS LOCKS COMMENT DATE BRANCHES NEXT COMMITID
+%token		HEAD BRANCH ACCESS SYMBOLS LOCKS COMMENT DATE
+%token		BRANCHES NEXT COMMITID
 %token		DESC LOG TEXT STRICT AUTHOR STATE
 %token		SEMI COLON
 %token <s>	HEX NAME DATA
@@ -65,6 +66,8 @@ headers		: header headers
 		;
 header		: HEAD NUMBER SEMI
 		  { this_file->head = $2; }
+		| BRANCH NUMBER SEMI
+		  { this_file->branch = $2; }
 		| ACCESS SEMI
 		| symbollist
 		  { this_file->symbols = $1; }

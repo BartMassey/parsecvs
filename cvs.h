@@ -61,12 +61,43 @@ typedef struct _cvs_patch {
 } cvs_patch;
 
 typedef struct {
+    char		*name;
     cvs_number		*head;
     cvs_number		*branch;
     cvs_symbol		*symbols;
     cvs_version		*versions;
     cvs_patch		*patches;
 } cvs_file;
+
+typedef struct _rev_file {
+    struct _rev_file	*next;
+    char		*name;
+    cvs_number		*number;
+    char		*log;
+} rev_file;
+
+typedef struct _rev_tag {
+    struct _rev_tag	*next;
+    char		*name;
+} rev_tag;
+
+typedef struct _rev_ent {
+    rev_file		*files;
+    rev_tag		*tags;
+    struct _rev_ent	*parent;
+    int			tail;
+} rev_ent;
+
+typedef struct _rev_head {
+    struct _rev_head	*next;
+    rev_tag		*tags;
+    char		*name;
+    rev_ent		*ent;
+} rev_head;
+
+typedef struct {
+    rev_head	*heads;
+} rev_list;
 
 extern cvs_file     *this_file;
 
@@ -77,5 +108,23 @@ lex_number (char *);
 
 time_t
 lex_date (cvs_number *n);
+
+rev_list *
+rev_list_cvs (cvs_file *cvs);
+
+rev_list *
+rev_list_merge (rev_list *a, rev_list *b);
+
+int
+cvs_is_head (cvs_number *n);
+
+int
+cvs_number_compare (cvs_number *a, cvs_number *b);
+
+cvs_patch *
+cvs_find_patch (cvs_file *f, cvs_number *n);
+
+cvs_version *
+cvs_find_version (cvs_file *cvs, cvs_number *number);
 
 #endif /* _CVS_H_ */

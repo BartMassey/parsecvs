@@ -22,6 +22,7 @@
 %s CONTENT
 %%
 <INITIAL>head			BEGIN(CONTENT); return HEAD;
+<INITIAL>branch			BEGIN(CONTENT); return BRANCH;
 <INITIAL>access			BEGIN(CONTENT); return ACCESS;
 <INITIAL>symbols		BEGIN(CONTENT); return SYMBOLS;
 <INITIAL>locks			BEGIN(CONTENT); return LOCKS;

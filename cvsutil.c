@@ -42,7 +42,7 @@ cvs_same_branch (cvs_number *a, cvs_number *b)
     if (a->c != b->c)
 	return 0;
     n = a->c;
-    for (i = 0; i < a->c; i++)
+    for (i = 0; i < a->c - 1; i++)
 	if (a->n[i] != b->n[i])
 	    return 0;
     return 1;
@@ -131,7 +131,7 @@ cvs_branch_head (cvs_file *f, cvs_number *branch)
     for (v = f->versions; v; v = v->next) {
 	if (cvs_same_branch (n, v->number) &&
 	    cvs_number_compare (n, v->number) > 0)
-	    *n = *v;
+	    *n = *v->number;
     }
     return n;
 }
@@ -148,7 +148,7 @@ cvs_branch_parent (cvs_file *f, cvs_number *branch)
 	if (cvs_same_branch (n, v->number) &&
 	    cvs_number_compare (branch, v->number) < 0 &&
 	    cvs_number_compare (n, v->number) >= 0)
-	    *n = *v;
+	    *n = *v->number;
     }
     return n;
 }
@@ -162,4 +162,19 @@ cvs_find_patch (cvs_file *f, cvs_number *n)
 	if (cvs_number_compare (p->number, n) == 0)
 	    return p;
     return NULL;
+}
+
+cvs_version *
+cvs_find_version (cvs_file *cvs, cvs_number *number)
+{
+    cvs_version *cv;
+    cvs_version	*nv = NULL;
+
+    for (cv = cvs->versions; cv; cv = cv->next) {
+	if (cvs_same_branch (number, cv->number) &&
+	    cvs_number_compare (cv->number, number) > 0 &&
+	    (!nv || cvs_number_compare (nv->number, cv->number) > 0))
+	    nv = cv;
+    }
+    return nv;
 }

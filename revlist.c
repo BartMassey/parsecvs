@@ -43,11 +43,11 @@ rev_tag *
 rev_tag_rev (cvs_file *cvs, cvs_number *branch)
 {
     cvs_symbol	*s;
-    rev_tag_t	*tags = NULL;
+    rev_tag	*tags = NULL;
 
     for (s = cvs->symbols; s; s = s->next) {
 	if (cvs_number_compare (s->number, branch) == 0) {
-	    rev_tag_t	*t = rev_make_tag (s->name);
+	    rev_tag	*t = rev_make_tag (s->name);
 	    t->next = tags;
 	    tags = t;
 	}
@@ -71,6 +71,8 @@ rev_head_cvs (cvs_file *cvs, cvs_number *branch)
 	e = calloc (1, sizeof (rev_ent));
 	e->files = rev_file_rev (cvs, v->number);
 	e->tags = rev_tag_rev (cvs, v->number);
+	e->parent = h->ent;
+	h->ent = e;
 	n = *v->number;
     }
     /*
@@ -99,15 +101,18 @@ rev_head_cvs (cvs_file *cvs, cvs_number *branch)
 }
 
 rev_ent *
-rev_find_ent (rev_list *rl, cvs_number *number)
+rev_find_ent (rev_list *rl, char *name, cvs_number *number)
 {
     rev_head	*h;
     rev_ent	*e;
+    rev_file	*f;
 
     for (h = rl->heads; h; h = h->next)
-	for (e = h->ent; e && e->next; e = e->next)
-	    if (cvs_number_compare (e->number, number) == 0)
-		return e;
+	for (e = h->ent; e; e = e->parent)
+	    for (f = e->files; f; f = f->next)
+		if (!strcmp (f->name, name) &&
+		    cvs_number_compare (f->number, number) == 0)
+		    return e;
     return NULL;
 }
 
@@ -118,11 +123,12 @@ rev_list_cvs (cvs_file *cvs)
     cvs_version	*cv;
     cvs_symbol	*cs;
     cvs_branch	*cb;
-    cvs_number	*branch_head;
     cvs_number	*one_one = lex_number ("1.1");
-    cvs_number	*one_one_one_one = lex_number ("1.1.1.1");
     rev_head	*trunk = rev_head_cvs (cvs, one_one);
+#if 0
+    cvs_number	*one_one_one_one = lex_number ("1.1.1.1");
     rev_head	*vendor = rev_head_cvs (cvs, one_one_one_one);
+#endif
     rev_head	*h;
     rev_ent	*e;
     
@@ -133,32 +139,38 @@ rev_list_cvs (cvs_file *cvs)
 	trunk->next = rl->heads;
 	rl->heads = trunk;
     }
+#if 0
     if (vendor) {
 	vendor->next = rl->heads;
 	rl->heads = vendor;
     }
+#endif
     /*
      * Search for other branches
      */
     for (cv = cvs->versions; cv; cv = cv->next) {
 	for (cb = cv->branches; cb; cb = cb->next) {
-	    branch_head = rev_head_cvs (cvs, cb->number);
-	    head = rev_head_cvs (cvs, branch_head);
-	    head->next = rl->heads;
-	    rl->heads = head;
+	    h = rev_head_cvs (cvs, cb->number);
+	    h->next = rl->heads;
+	    rl->heads = h;
 	}
     }
     /*
      * Glue branches together
      */
     for (h = rl->heads; h; h = h->next) {
-	for (e = h->ent; e && e->next; e = e->next)
+	for (e = h->ent; e && e->parent; e = e->parent)
 	    ;
 	if (e) {
 	    for (cv = cvs->versions; cv; cv = cv->next) {
 		for (cb = cv->branches; cb; cb = cb->next) {
-		    if (cvs_number_compare (cb->number, e->number)) {
-			e->parent = rev_find_ent (rl, cv->number);
+		    if (cvs_number_compare (cb->number, e->files->number) == 0) {
+			e->parent = rev_find_ent (rl, cvs->name, cv->number);
+			e->tail = 1;
+			if (!e->parent) {
+			    dump_number ("can't find parent", cv->number);
+			    printf ("\n");
+			}
 		    }
 		}
 	    }
