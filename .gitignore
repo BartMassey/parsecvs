@@ -1,0 +1,5 @@
+*.o
+gram.c
+y.tab.h
+parsecvs
+test

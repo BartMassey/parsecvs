@@ -73,6 +73,7 @@ typedef struct _rev_file {
     struct _rev_file	*next;
     char		*name;
     cvs_number		*number;
+    time_t		date;
     char		*log;
 } rev_file;
 
@@ -85,6 +86,7 @@ typedef struct _rev_ent {
     rev_file		*files;
     rev_tag		*tags;
     struct _rev_ent	*parent;
+    struct _rev_ent	*vendor;
     int			tail;
 } rev_ent;
 

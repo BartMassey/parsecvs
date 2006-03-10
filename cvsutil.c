@@ -178,3 +178,20 @@ cvs_find_version (cvs_file *cvs, cvs_number *number)
     }
     return nv;
 }
+
+int
+cvs_is_trunk (cvs_number *number)
+{
+    return number->c == 2;
+}
+
+int
+cvs_is_vendor (cvs_number *number)
+{
+    int i;
+    if (number->c != 4) return 0;
+    for (i = 0; i < 3; i++)
+	if (number->n[i] != 1)
+	    return 0;
+    return 1;
+}

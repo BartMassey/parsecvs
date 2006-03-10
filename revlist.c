@@ -19,7 +19,7 @@
 #include "cvs.h"
 
 rev_file *
-rev_file_rev (cvs_file *cvs, cvs_number *n)
+rev_file_rev (cvs_file *cvs, cvs_number *n, time_t date)
 {
     rev_file	*f = calloc (1, sizeof (rev_file));
     cvs_patch	*p = cvs_find_patch (cvs, n);
@@ -27,6 +27,7 @@ rev_file_rev (cvs_file *cvs, cvs_number *n)
     f->next = NULL;
     f->name = cvs->name;
     f->number = n;
+    f->date = date;
     if (p)
 	f->log = p->log;
 }
@@ -69,7 +70,7 @@ rev_head_cvs (cvs_file *cvs, cvs_number *branch)
     n.n[n.c-1] = 0;
     while ((v = cvs_find_version (cvs, &n))) {
 	e = calloc (1, sizeof (rev_ent));
-	e->files = rev_file_rev (cvs, v->number);
+	e->files = rev_file_rev (cvs, v->number, v->date);
 	e->tags = rev_tag_rev (cvs, v->number);
 	e->parent = h->ent;
 	h->ent = e;
@@ -83,7 +84,7 @@ rev_head_cvs (cvs_file *cvs, cvs_number *branch)
 	    for (i = 0; i < n.c - 1; i++) {
 		/* deal with wacky branch tag .0. revision format */
 		if (i == n.c - 2) {
-		    if (s->number->n[n.c - 2] != n.n[n.c - 1])
+		    if (s->number->n[n.c - 1] != n.n[n.c - 2])
 			break;
 		} else {
 		    if (s->number->n[i] != n.n[i])
@@ -114,6 +115,64 @@ rev_find_ent (rev_list *rl, char *name, cvs_number *number)
 		    cvs_number_compare (f->number, number) == 0)
 		    return e;
     return NULL;
+}
+
+long
+time_compare (time_t a, time_t b)
+{
+    return (long) a - (long) b;
+}
+
+/*
+ * The "vendor branch" (1.1.1) is created by importing sources from
+ * an external source. In X.org, this was from XFree86. When this
+ * tree is imported, cvs sets the 'default' branch in each ,v file
+ * to point along this branch. This means that tags made between
+ * the time the vendor branch is imported and when a new revision
+ * is committed to the head branch are placed on the vendor branch
+ * In addition, any files without such a commit appear to adopt
+ * the vendor branch as 'head'. We fix this by marking the vendor branch
+ * as a additional parent, based entirely on time, for suitable
+ * revisions along the main trunk
+ */
+void
+rev_list_patch_vendor_branch (rev_list *rl)
+{
+    rev_head	*trunk;
+    rev_head	*vendor;
+    rev_head	*h;
+    rev_ent	*t, *v;
+    time_t	t_time, v_time, pv_time;
+
+    for (h = rl->heads; h; h = h->next) {
+	if (cvs_is_trunk (h->ent->files->number))
+	    trunk = h;
+	if (cvs_is_vendor (h->ent->files->number))
+	    vendor = h;
+    }
+    if (!trunk || !vendor)
+	return;
+    t = trunk->ent;
+    v = vendor->ent;
+    while (t && v) {
+	/*
+	 * search for vendor older than trunk
+	 */
+	while (v && time_compare (v->files->date, t->files->date) > 0)
+	    v = v->parent;
+	if (!v)
+	    break;
+	
+	/*
+	 * search for trunk parent older than vendor
+	 */
+	while (t->parent &&
+	       time_compare (v->files->date, t->parent->files->date) < 0)
+	    t = t->parent;
+	t->vendor = v;
+	t = t->parent;
+	v = v->parent;
+    }
 }
 
 rev_list *
@@ -176,6 +235,7 @@ rev_list_cvs (cvs_file *cvs)
 	    }
 	}
     }
+    rev_list_patch_vendor_branch (rl);
     return rl;
 }
 

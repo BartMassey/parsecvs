@@ -104,7 +104,10 @@ dump_ent (rev_ent *e)
 	printf ("%s\\n", t->name);
     }
     for (f = e->files; f; f = f->next) {
+	char	*date = ctime (&f->date);
+	date[strlen(date)-1] = '\0';
 	dump_number (f->name, f->number);
+	printf ("\\n%s", date);
 	if (f->next) printf ("\\n");
     }
     printf ("\"");
@@ -116,15 +119,40 @@ dump_revlist (rev_list *rl)
     rev_head	*h;
     rev_ent	*e;
     rev_file	*f;
+    rev_tag	*t;
+    int		u = 1;
 
     printf ("graph G {\n");
     for (h = rl->heads; h; h = h->next) {
+	if (h->ent) {
+	    printf ("\t");
+	    printf ("\"");
+	    if (h->tags) {
+		for (t = h->tags; t; t = t->next) {
+		    printf ("%s", t->name);
+		    if (t->next) printf ("\\n");
+		}
+	    } else {
+		printf ("unnamed branch %d", u++);
+	    }
+	    printf ("\"");
+	    printf (" -- ");
+	    dump_ent (h->ent);
+	    printf ("\n");
+	}
 	for (e = h->ent; e && e->parent; e = e->parent) {
 	    printf ("\t");
 	    dump_ent (e);
 	    printf (" -- ");
 	    dump_ent (e->parent);
 	    printf ("\n");
+	    if (e->vendor) {
+		printf ("\t");
+		dump_ent (e);
+		printf (" -- ");
+		dump_ent (e->vendor);
+		printf ("\n");
+	    }
 	    if (e->tail)
 		break;
 	}
