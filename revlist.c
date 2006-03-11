@@ -441,6 +441,17 @@ rev_branch_mark_merged (rev_ent *a, rev_ent *b, rev_ent *e)
     merged = m;
 }
 
+static void
+rev_branch_discard_merged (void)
+{
+    rev_merged	*m;
+
+    while ((m = merged)) {
+	merged = m->next;
+	free (m);
+    }
+}
+
 static rev_merged *
 rev_branch_get_merge (rev_ent *e)
 {
@@ -597,6 +608,6 @@ rev_list_merge (rev_list *a, rev_list *b)
 		break;
 	    }
     }
-    
+    rev_branch_discard_merged ();
     return rl;
 }

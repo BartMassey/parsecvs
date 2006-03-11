@@ -173,29 +173,44 @@ dump_revlist (rev_list *rl)
 }
 
 extern FILE *yyin;
+static int err = 0;
+
+static rev_list *
+add_file (rev_list *all, char *name)
+{
+    rev_list	*rl;
+
+    yyin = fopen (name, "r");
+    if (!yyin) {
+	perror (name);
+	++err;
+    }
+    fprintf (stderr, "%s\n", name);
+    this_file = calloc (1, sizeof (cvs_file));
+    this_file->name = name;
+    yyparse ();
+    fclose (yyin);
+    rl = rev_list_cvs (this_file);
+    if (all)
+	all = rev_list_merge (all, rl);
+    else
+	all = rl;
+    return all;
+}
 
 int
 main (int argc, char **argv)
 {
-    int i;
-    int err = 0;
-    rev_list	*rl, *all = NULL;
-    for (i = 1; i < argc; i++) {
-	yyin = fopen (argv[i], "r");
-	if (!yyin) {
-	    perror (argv[i]);
-	    ++err;
-	}
-	this_file = calloc (1, sizeof (cvs_file));
-	this_file->name = argv[i];
-	yyparse ();
-	fclose (yyin);
-	rl = rev_list_cvs (this_file);
-	if (all)
-	    all = rev_list_merge (all, rl);
-	else
-	    all = rl;
-    }
+    rev_list	*all = NULL;
+    char	name[10240];
+    int		i;
+
+    if (argc == 1)
+	while (gets (name))
+	    all = add_file (all, strdup (name));
+    else
+	for (i = 1; i < argc; i++)
+	    all = add_file (all, argv[i]);
     if (all)
 	dump_revlist (all);
     return err;

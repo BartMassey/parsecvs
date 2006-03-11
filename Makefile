@@ -2,7 +2,7 @@ GCC_WARNINGS1=-Wall -Wpointer-arith -Wstrict-prototypes
 GCC_WARNINGS2=-Wmissing-prototypes -Wmissing-declarations
 GCC_WARNINGS3=-Wnested-externs -fno-strict-aliasing
 GCC_WARNINGS=$(GCC_WARNINGS1) $(GCC_WARNINGS2) $(GCC_WARNINGS3)
-CFLAGS=-g $(GCC_WARNINGS)
+CFLAGS=-g -Os $(GCC_WARNINGS)
 YFLAGS=-d
 
 SRCS=gram.y lex.l cvs.h parsecvs.c cvsutil.c revlist.c
@@ -10,7 +10,7 @@ SRCS=gram.y lex.l cvs.h parsecvs.c cvsutil.c revlist.c
 OBJS=gram.o lex.o parsecvs.o cvsutil.o revlist.o
 
 parsecvs: $(OBJS)
-	cc -o $@ $(OBJS) $(LIBS)
+	cc $(CFLAGS) -o $@ $(OBJS) $(LIBS)
 
 $(OBJS): cvs.h
 lex.o: y.tab.h
