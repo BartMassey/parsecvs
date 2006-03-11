@@ -33,6 +33,7 @@ cvs_same_branch (cvs_number *a, cvs_number *b)
     cvs_number	t;
     int		i;
     int		n;
+    int		an, bn;
 
     if (a->c & 1) {
 	t = *a;
@@ -42,9 +43,19 @@ cvs_same_branch (cvs_number *a, cvs_number *b)
     if (a->c != b->c)
 	return 0;
     n = a->c;
-    for (i = 0; i < a->c - 1; i++)
-	if (a->n[i] != b->n[i])
+    for (i = 0; i < n - 1; i++) {
+	an = a->n[i];
+	bn = b->n[i];
+	/*
+	 * deal with n.m.0.p branch numbering
+	 */
+	if (i == n - 2) {
+	    if (an == 0) an = a->n[i+1];
+	    if (bn == 0) bn = b->n[i+1];
+	}
+	if (an != bn)
 	    return 0;
+    }
     return 1;
 }
 
@@ -194,4 +205,10 @@ cvs_is_vendor (cvs_number *number)
 	if (number->n[i] != 1)
 	    return 0;
     return 1;
+}
+
+long
+time_compare (time_t a, time_t b)
+{
+    return (long) a - (long) b;
 }

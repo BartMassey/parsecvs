@@ -75,30 +75,34 @@ typedef struct _rev_file {
     cvs_number		*number;
     time_t		date;
     char		*log;
+    char		*commitid;
 } rev_file;
-
-typedef struct _rev_tag {
-    struct _rev_tag	*next;
-    char		*name;
-} rev_tag;
 
 typedef struct _rev_ent {
     rev_file		*files;
-    rev_tag		*tags;
     struct _rev_ent	*parent;
     struct _rev_ent	*vendor;
     int			tail;
+    int			seen;
 } rev_ent;
 
-typedef struct _rev_head {
-    struct _rev_head	*next;
-    rev_tag		*tags;
-    char		*name;
+typedef struct _rev_branch {
+    struct _rev_branch	*next;
     rev_ent		*ent;
-} rev_head;
+} rev_branch;
+
+typedef struct _rev_ref {
+    struct _rev_ref	*next;
+    rev_ent		*ent;
+    int			head;
+    char		*name;
+    int			shown;
+} rev_ref;
 
 typedef struct {
-    rev_head	*heads;
+    rev_branch	*branches;
+    rev_ref	*heads;
+    rev_ref	*tags;
 } rev_list;
 
 extern cvs_file     *this_file;
@@ -121,12 +125,72 @@ int
 cvs_is_head (cvs_number *n);
 
 int
+cvs_same_branch (cvs_number *a, cvs_number *b);
+
+int
 cvs_number_compare (cvs_number *a, cvs_number *b);
+
+int
+cvs_number_compare_n (cvs_number *a, cvs_number *b, int l);
+
+cvs_number *
+cvs_previous_rev (cvs_number *n);
+
+cvs_number *
+cvs_master_rev (cvs_number *n);
+
+cvs_number *
+cvs_branch_head (cvs_file *f, cvs_number *branch);
+
+cvs_number *
+cvs_branch_parent (cvs_file *f, cvs_number *branch);
 
 cvs_patch *
 cvs_find_patch (cvs_file *f, cvs_number *n);
 
 cvs_version *
 cvs_find_version (cvs_file *cvs, cvs_number *number);
+
+int
+cvs_is_trunk (cvs_number *number);
+
+int
+cvs_is_vendor (cvs_number *number);
+
+long
+time_compare (time_t a, time_t b);
+
+void
+dump_number (char *name, cvs_number *number);
+
+void
+dump_symbols (char *name, cvs_symbol *symbols);
+
+void
+dump_branches (char *name, cvs_branch *branches);
+
+void
+dump_versions (char *name, cvs_version *versions);
+
+void
+dump_patches (char *name, cvs_patch *patches);
+
+void
+dump_file (cvs_file *file);
+
+void
+dump_ent (rev_ent *e);
+
+void
+dump_refs (rev_ref *refs);
+
+void
+dump_revlist (rev_list *rl);
+
+extern int yylex (void);
+
+
+
+
 
 #endif /* _CVS_H_ */

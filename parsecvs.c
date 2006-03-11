@@ -98,11 +98,8 @@ void
 dump_ent (rev_ent *e)
 {
     rev_file	*f;
-    rev_tag	*t;
+
     printf ("\"");
-    for (t = e->tags; t; t = t->next) {
-	printf ("%s\\n", t->name);
-    }
     for (f = e->files; f; f = f->next) {
 	char	*date = ctime (&f->date);
 	date[strlen(date)-1] = '\0';
@@ -114,33 +111,48 @@ dump_ent (rev_ent *e)
 }
 
 void
-dump_revlist (rev_list *rl)
+dump_refs (rev_ref *refs)
 {
-    rev_head	*h;
-    rev_ent	*e;
-    rev_file	*f;
-    rev_tag	*t;
-    int		u = 1;
+    rev_ref	*r, *o;
+    int		n;
 
-    printf ("graph G {\n");
-    for (h = rl->heads; h; h = h->next) {
-	if (h->ent) {
+    for (r = refs; r; r = r->next) {
+	if (!r->shown) {
 	    printf ("\t");
 	    printf ("\"");
-	    if (h->tags) {
-		for (t = h->tags; t; t = t->next) {
-		    printf ("%s", t->name);
-		    if (t->next) printf ("\\n");
+	    n = 0;
+	    for (o = r; o; o = o->next)
+		if (!o->shown && o->ent == r->ent)
+		{
+		    o->shown = 1;
+		    if (n)
+			printf ("\\n");
+		    if (o->head)
+			printf ("*");
+		    printf ("%s", o->name);
+		    n++;
 		}
-	    } else {
-		printf ("unnamed branch %d", u++);
-	    }
 	    printf ("\"");
 	    printf (" -- ");
-	    dump_ent (h->ent);
+	    dump_ent (r->ent);
 	    printf ("\n");
 	}
-	for (e = h->ent; e && e->parent; e = e->parent) {
+    }
+    for (r = refs; r; r = r->next)
+	r->shown = 0;
+}
+
+void
+dump_revlist (rev_list *rl)
+{
+    rev_branch	*b;
+    rev_ent	*e;
+
+    printf ("graph G {\n");
+    dump_refs (rl->heads);
+    dump_refs (rl->tags);
+    for (b = rl->branches; b; b = b->next) {
+	for (e = b->ent; e && e->parent; e = e->parent) {
 	    printf ("\t");
 	    dump_ent (e);
 	    printf (" -- ");
@@ -184,6 +196,7 @@ main (int argc, char **argv)
 	else
 	    all = rl;
     }
-    dump_revlist (rl);
+    if (all)
+	dump_revlist (all);
     return err;
 }
