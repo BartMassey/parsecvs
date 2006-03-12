@@ -26,7 +26,7 @@ rev_file_rev (cvs_file *cvs, cvs_number *n, time_t date, char *commitid)
 
     f->next = NULL;
     f->name = cvs->name;
-    f->number = n;
+    f->number = *n;
     f->date = date;
     if (p)
 	f->log = p->log;
@@ -49,7 +49,7 @@ rev_find_ent (rev_list *rl, char *name, cvs_number *number)
 	for (e = b->ent; e; e = e->parent)
 	    for (f = e->files; f; f = f->next)
 		if (!strcmp (f->name, name) &&
-		    cvs_number_compare (f->number, number) == 0)
+		    cvs_number_compare (&f->number, number) == 0)
 		    return e;
     return NULL;
 }
@@ -107,10 +107,10 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
     n.n[n.c-1] = 0;
     while ((v = cvs_find_version (cvs, &n))) {
 	e = calloc (1, sizeof (rev_ent));
-	e->files = rev_file_rev (cvs, v->number, v->date, v->commitid);
+	e->files = rev_file_rev (cvs, &v->number, v->date, v->commitid);
 	e->parent = head;
 	head = e;
-	n = *v->number;
+	n = v->number;
     }
     return head;
 }
@@ -136,9 +136,9 @@ rev_list_patch_vendor_branch (rev_list *rl)
     rev_ent	*t, *v;
 
     for (b = rl->branches; b; b = b->next) {
-	if (cvs_is_trunk (b->ent->files->number))
+	if (cvs_is_trunk (&b->ent->files->number))
 	    trunk = b;
-	if (cvs_is_vendor (b->ent->files->number))
+	if (cvs_is_vendor (&b->ent->files->number))
 	    vendor = b;
     }
     if (!trunk || !vendor)
@@ -201,13 +201,13 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
 	if (e) {
 	    for (cv = cvs->versions; cv; cv = cv->next) {
 		for (cb = cv->branches; cb; cb = cb->next) {
-		    if (cvs_number_compare (cb->number,
-					    e->files->number) == 0)
+		    if (cvs_number_compare (&cb->number,
+					    &e->files->number) == 0)
 		    {
-			e->parent = rev_find_ent (rl, cvs->name, cv->number);
+			e->parent = rev_find_ent (rl, cvs->name, &cv->number);
 			e->tail = 1;
 			if (!e->parent) {
-			    dump_number ("can't find parent", cv->number);
+			    dump_number ("can't find parent", &cv->number);
 			    printf ("\n");
 			}
 		    }
@@ -235,11 +235,11 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
      */
     for (s = cvs->symbols; s; s = s->next) {
 	e = NULL;
-	if (cvs_is_head (s->number)) {
+	if (cvs_is_head (&s->number)) {
 	    store = &rl->heads;
 	    head = 1;
 	    for (b = rl->branches; b; b = b->next)
-		if (cvs_same_branch (b->ent->files->number, s->number))
+		if (cvs_same_branch (&b->ent->files->number, &s->number))
 		{
 		    e = b->ent;
 		    break;
@@ -249,7 +249,7 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 		char		*name;
 
 		name = rl->branches->ent->files->name;
-		n = *s->number;
+		n = s->number;
 		while (n.c >= 4) {
 		    n.c -= 2;
 		    e = rev_find_ent (rl, name, &n);
@@ -260,7 +260,7 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 	} else {
 	    head = 0;
 	    store = &rl->tags;
-	    e = rev_find_ent (rl, rl->branches->ent->files->name, s->number);
+	    e = rev_find_ent (rl, rl->branches->ent->files->name, &s->number);
 	}
 	if (e)
 	    rev_ref_add (store, e, s->name, head);
@@ -273,8 +273,8 @@ rev_list_cvs (cvs_file *cvs)
     rev_list	*rl = calloc (1, sizeof (rev_list));
     cvs_version	*cv;
     cvs_branch	*cb;
-    cvs_number	*one_one = lex_number ("1.1");
-    rev_ent	*trunk = rev_branch_cvs (cvs, one_one);
+    cvs_number	one_one = lex_number ("1.1");
+    rev_ent	*trunk = rev_branch_cvs (cvs, &one_one);
     rev_ent	*branch;
     
     /*
@@ -287,7 +287,7 @@ rev_list_cvs (cvs_file *cvs)
      */
     for (cv = cvs->versions; cv; cv = cv->next) {
 	for (cb = cv->branches; cb; cb = cb->next) {
-	    branch = rev_branch_cvs (cvs, cb->number);
+	    branch = rev_branch_cvs (cvs, &cb->number);
 	    rev_list_add_branch (rl, branch);
 	}
     }
@@ -602,12 +602,70 @@ rev_list_merge (rev_list *a, rev_list *b)
     for (branch = rl->branches; branch; branch = branch->next)
 	branch->ent->seen = 1;
     for (branch = rl->branches; branch; branch = branch->next) {
-	for (e = branch->ent; e && e->parent; e = e->parent)
-	    if (e->parent->seen) {
+	for (e = branch->ent; e; e = e->parent) {
+	    e->seen = 1;
+	    if (e->parent && e->parent->seen) {
 		e->tail = 1;
 		break;
 	    }
+	}
     }
     rev_branch_discard_merged ();
     return rl;
+}
+
+static void
+rev_file_free (rev_file *file)
+{
+    rev_file	*f;
+
+    while ((f = file)) {
+	file = f->next;
+	free (f);
+    }
+}
+
+static void
+rev_ent_free (rev_ent *ent)
+{
+    rev_ent	*e;
+
+    while ((e = ent)) {
+	if (e->tail)
+	    ent = NULL;
+	else
+	    ent = e->parent;
+	rev_file_free (e->files);
+    }
+}
+
+static void
+rev_branch_free (rev_branch *branches)
+{
+    rev_branch	*b;
+
+    while ((b = branches)) {
+	branches = b->next;
+	rev_ent_free (b->ent);
+	free (b);
+    }
+}
+
+static void
+rev_ref_free (rev_ref *ref)
+{
+    rev_ref	*r;
+
+    while ((r = ref)) {
+	ref = r->next;
+	free (r);
+    }
+}
+
+void
+rev_list_free (rev_list *rl)
+{
+    rev_branch_free (rl->branches);
+    rev_ref_free (rl->heads);
+    rev_ref_free (rl->tags);
 }

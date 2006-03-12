@@ -25,45 +25,45 @@
 #include <string.h>
 #include <stdio.h>
 
-#define CVS_MAX_DEPTH	16
+#define CVS_MAX_DEPTH	12
 
 typedef struct _cvs_number {
     int			c;
-    int 		n[CVS_MAX_DEPTH];
+    short		n[CVS_MAX_DEPTH];
 } cvs_number;
 
 typedef struct _cvs_symbol {
     struct _cvs_symbol	*next;
     char		*name;
-    cvs_number		*number;
+    cvs_number		number;
 } cvs_symbol;
 
 typedef struct _cvs_branch {
     struct _cvs_branch	*next;
-    cvs_number		*number;
+    cvs_number		number;
 } cvs_branch;
 
 typedef struct _cvs_version {
     struct _cvs_version	*next;
-    cvs_number		*number;
+    cvs_number		number;
     time_t		date;
     char		*author;
     cvs_branch		*branches;
-    cvs_number		*parent;	/* next in ,v file */
+    cvs_number		parent;	/* next in ,v file */
     char		*commitid;
 } cvs_version;
 
 typedef struct _cvs_patch {
     struct _cvs_patch	*next;
-    cvs_number		*number;
+    cvs_number		number;
     char		*log;
     char		*text;
 } cvs_patch;
 
 typedef struct {
     char		*name;
-    cvs_number		*head;
-    cvs_number		*branch;
+    cvs_number		head;
+    cvs_number		branch;
     cvs_symbol		*symbols;
     cvs_version		*versions;
     cvs_patch		*patches;
@@ -72,15 +72,15 @@ typedef struct {
 typedef struct _rev_file {
     struct _rev_file	*next;
     char		*name;
-    cvs_number		*number;
+    cvs_number		number;
     time_t		date;
     char		*log;
     char		*commitid;
 } rev_file;
 
 typedef struct _rev_ent {
-    rev_file		*files;
     struct _rev_ent	*parent;
+    rev_file		*files;
     struct _rev_ent	*vendor;
     int			tail;
     int			seen;
@@ -109,7 +109,7 @@ extern cvs_file     *this_file;
 
 int yyparse (void);
 
-cvs_number *
+cvs_number
 lex_number (char *);
 
 time_t
@@ -120,6 +120,9 @@ rev_list_cvs (cvs_file *cvs);
 
 rev_list *
 rev_list_merge (rev_list *a, rev_list *b);
+
+void
+rev_list_free (rev_list *rl);
 
 int
 cvs_is_head (cvs_number *n);
@@ -133,16 +136,16 @@ cvs_number_compare (cvs_number *a, cvs_number *b);
 int
 cvs_number_compare_n (cvs_number *a, cvs_number *b, int l);
 
-cvs_number *
+cvs_number
 cvs_previous_rev (cvs_number *n);
 
-cvs_number *
+cvs_number
 cvs_master_rev (cvs_number *n);
 
-cvs_number *
+cvs_number
 cvs_branch_head (cvs_file *f, cvs_number *branch);
 
-cvs_number *
+cvs_number
 cvs_branch_parent (cvs_file *f, cvs_number *branch);
 
 cvs_patch *
@@ -185,12 +188,11 @@ void
 dump_refs (rev_ref *refs);
 
 void
-dump_revlist (rev_list *rl);
+dump_rev_list (rev_list *rl);
 
 extern int yylex (void);
 
-
-
-
+char *
+atom (char *string);
 
 #endif /* _CVS_H_ */

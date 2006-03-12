@@ -27,7 +27,7 @@ void yyerror (char *msg);
     int		i;
     time_t	date;
     char	*s;
-    cvs_number	*number;
+    cvs_number	number;
     cvs_symbol	*symbol;
     cvs_version	*version;
     cvs_patch	*patch;
@@ -36,7 +36,7 @@ void yyerror (char *msg);
 }
 
 %token		HEAD BRANCH ACCESS SYMBOLS LOCKS COMMENT DATE
-%token		BRANCHES NEXT COMMITID
+%token		BRANCHES NEXT COMMITID EXPAND
 %token		DESC LOG TEXT STRICT AUTHOR STATE
 %token		SEMI COLON
 %token <s>	HEX NAME DATA
@@ -73,7 +73,7 @@ header		: HEAD NUMBER SEMI
 		  { this_file->symbols = $1; }
 		| LOCKS SEMI lock_type SEMI
 		| COMMENT DATA SEMI
-		  { free ($2); }
+		| EXPAND DATA SEMI
 		;
 lock_type	: STRICT
 		;
@@ -110,8 +110,7 @@ revision	: NUMBER date author state branches next opt_commitid
 		;
 date		: DATE NUMBER SEMI
 		  {
-			$$ = lex_date ($2);
-			free ($2);
+			$$ = lex_date (&$2);
 		  }
 		;
 author		: AUTHOR NAME SEMI
@@ -138,7 +137,7 @@ next		: NEXT opt_number SEMI
 opt_number	: NUMBER
 		  { $$ = $1; }
 		|
-		  { $$ = NULL; }
+		  { $$.c = 0; }
 		;
 opt_commitid	: commitid
 		  { $$ = $1; }

@@ -38,7 +38,7 @@ dump_symbols (char *name, cvs_symbol *symbols)
     printf ("%s\n", name);
     while (symbols) {
 	printf ("\t");
-	dump_number (symbols->name, symbols->number);
+	dump_number (symbols->name, &symbols->number);
 	printf ("\n");
 	symbols = symbols->next;
     }
@@ -49,7 +49,7 @@ dump_branches (char *name, cvs_branch *branches)
 {
     printf ("%s", name);
     while (branches) {
-	dump_number (" ", branches->number);
+	dump_number (" ", &branches->number);
 	branches = branches->next;
     }
     printf ("\n");
@@ -60,11 +60,11 @@ dump_versions (char *name, cvs_version *versions)
 {
     printf ("%s\n", name);
     while (versions) {
-	dump_number  ("\tnumber:", versions->number); printf ("\n");
+	dump_number  ("\tnumber:", &versions->number); printf ("\n");
 	printf       ("\t\tdate:     %s", ctime (&versions->date));
 	printf       ("\t\tauthor:   %s\n", versions->author);
 	dump_branches("\t\tbranches:", versions->branches);
-	dump_number  ("\t\tparent:  ", versions->parent); printf ("\n");
+	dump_number  ("\t\tparent:  ", &versions->parent); printf ("\n");
 	if (versions->commitid)
 	    printf   ("\t\tcommitid: %s\n", versions->commitid);
 	printf ("\n");
@@ -77,7 +77,7 @@ dump_patches (char *name, cvs_patch *patches)
 {
     printf ("%s\n", name);
     while (patches) {
-	dump_number ("\tnumber: ", patches->number); printf ("\n");
+	dump_number ("\tnumber: ", &patches->number); printf ("\n");
 	printf ("\t\tlog: %d bytes\n", strlen (patches->log));
 	printf ("\t\ttext: %d bytes\n", strlen (patches->text));
 	patches = patches->next;
@@ -87,8 +87,8 @@ dump_patches (char *name, cvs_patch *patches)
 void
 dump_file (cvs_file *file)
 {
-    dump_number ("head", file->head);  printf ("\n");
-    dump_number ("branch", file->branch); printf ("\n");
+    dump_number ("head", &file->head);  printf ("\n");
+    dump_number ("branch", &file->branch); printf ("\n");
     dump_symbols ("symbols", file->symbols);
     dump_versions ("versions", file->versions);
     dump_patches ("patches", file->patches);
@@ -103,7 +103,7 @@ dump_ent (rev_ent *e)
     for (f = e->files; f; f = f->next) {
 	char	*date = ctime (&f->date);
 	date[strlen(date)-1] = '\0';
-	dump_number (f->name, f->number);
+	dump_number (f->name, &f->number);
 	printf ("\\n%s", date);
 	if (f->next) printf ("\\n");
     }
@@ -142,8 +142,8 @@ dump_refs (rev_ref *refs)
 	r->shown = 0;
 }
 
-void
-dump_revlist (rev_list *rl)
+static void
+dump_rev_graph (rev_list *rl)
 {
     rev_branch	*b;
     rev_ent	*e;
@@ -172,11 +172,31 @@ dump_revlist (rev_list *rl)
     printf ("}\n");
 }
 
+static void
+dump_rev_info (rev_list *rl)
+{
+    rev_branch	*b;
+    rev_ent	*e;
+    rev_file	*f;
+
+    for (b = rl->branches; b; b = b->next) {
+	for (e = b->ent; e; e = e->parent) {
+	    for (f = e->files; f; f = f->next) {
+		dump_number (f->name, &f->number);
+		printf (" ");
+	    }
+	    printf ("\n");
+	    if (e->tail)
+		break;
+	}
+    }
+}
+
 extern FILE *yyin;
 static int err = 0;
 
 static rev_list *
-add_file (rev_list *all, char *name)
+rev_list_file (char *name)
 {
     rev_list	*rl;
 
@@ -191,27 +211,67 @@ add_file (rev_list *all, char *name)
     yyparse ();
     fclose (yyin);
     rl = rev_list_cvs (this_file);
-    if (all)
-	all = rev_list_merge (all, rl);
-    else
-	all = rl;
-    return all;
+    return rl;
 }
 
 int
 main (int argc, char **argv)
 {
-    rev_list	*all = NULL;
-    char	name[10240];
+    rev_list	*stack[32], *rl, *old;
     int		i;
+    int		j = 1;
+    char	name[10240];
+    char	*file;
 
-    if (argc == 1)
-	while (gets (name))
-	    all = add_file (all, strdup (name));
-    else
-	for (i = 1; i < argc; i++)
-	    all = add_file (all, argv[i]);
-    if (all)
-	dump_revlist (all);
+    memset (stack, '\0', sizeof (stack));
+    for (;;)
+    {
+	if (argc < 2) {
+	    int l;
+	    if (fgets (name, sizeof (name) - 1, stdin) == NULL)
+		break;
+	    l = strlen (name);
+	    if (name[l-1] == '\n')
+		name[l-1] = '\0';
+	    file = name;
+	} else {
+	    file = argv[j++];
+	    if (!file)
+		break;
+	}
+	rl = rev_list_file (atom (file));
+	for (i = 0; i < 32; i++) {
+	    if (stack[i]) {
+		fprintf (stderr, "merge %d\n", i);
+		old = rl;
+		rl = rev_list_merge (old, stack[i]);
+		rev_list_free (old);
+		rev_list_free (stack[i]);
+		stack[i] = 0;
+	    } else {
+		fprintf (stderr, "set   %d\n", i);
+		stack[i] = rl;
+		break;
+	    }
+	}
+    }
+    rl = NULL;
+    for (i = 0; i < 32; i++) {
+	if (stack[i]) {
+	    if (rl) {
+		old = rl;
+		rl = rev_list_merge (rl, stack[i]);
+		rev_list_free (old);
+		rev_list_free (stack[i]);
+	    }
+	    else
+		rl = stack[i];
+	    stack[i] = 0;
+	}
+    }
+    if (rl) {
+	dump_rev_graph (rl);
+/*	dump_rev_info (rl);*/
+    }
     return err;
 }

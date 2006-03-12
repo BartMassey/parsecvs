@@ -17,6 +17,7 @@
  */
 
 #include "cvs.h"
+#include <assert.h>
 
 #define min(a,b) ((a) < (b) ? (a) : (b))
 #define max(a,b) ((a) > (b) ? (a) : (b))
@@ -24,6 +25,7 @@
 int
 cvs_is_head (cvs_number *n)
 {
+    assert (n->c <= CVS_MAX_DEPTH); 
     return (n->c > 2 && (n->c & 1) == 0 && n->n[n->c-2] == 0);
 }
 
@@ -97,29 +99,30 @@ cvs_number_compare_n (cvs_number *a, cvs_number *b, int l)
     return 0;
 }
 
-cvs_number *
+cvs_number
 cvs_previous_rev (cvs_number *n)
 {
-    cvs_number	*p = calloc (1, sizeof (cvs_number));
+    cvs_number	p;
     int		i;
     
-    for (i = 0; i < p->c - 1; i++)
-	p->n[i] = n->n[i];
+    p.c = n->c;
+    for (i = 0; i < n->c - 1; i++)
+	p.n[i] = n->n[i];
     if (n->n[i] == 1) {
-	free (p);
-	return NULL;
+	p.c = 0;
+	return p;
     }
-    p->n[i] = n->n[i] - 1;
+    p.n[i] = n->n[i] - 1;
     return p;
 }
 
-cvs_number *
+cvs_number
 cvs_master_rev (cvs_number *n)
 {
-    cvs_number *p = calloc (1, sizeof (cvs_number));
+    cvs_number p;
 
-    *p = *n;
-    p->c -= 2;
+    p = *n;
+    p.c -= 2;
     return p;
 }
 
@@ -127,39 +130,39 @@ cvs_master_rev (cvs_number *n)
  * Find the newest revision along a specific branch
  */
 
-cvs_number *
+cvs_number
 cvs_branch_head (cvs_file *f, cvs_number *branch)
 {
-    cvs_number	*n = calloc (1, sizeof (cvs_number));
+    cvs_number	n;
     cvs_version	*v;
 
-    *n = *branch;
+    n = *branch;
     /* Check for magic branch format */
-    if ((n->c & 1) == 0 && n->n[n->c-2] == 0) {
-	n->n[n->c-2] = n->n[n->c-1];
-	n->c--;
+    if ((n.c & 1) == 0 && n.n[n.c-2] == 0) {
+	n.n[n.c-2] = n.n[n.c-1];
+	n.c--;
     }
     for (v = f->versions; v; v = v->next) {
-	if (cvs_same_branch (n, v->number) &&
-	    cvs_number_compare (n, v->number) > 0)
-	    *n = *v->number;
+	if (cvs_same_branch (&n, &v->number) &&
+	    cvs_number_compare (&n, &v->number) > 0)
+	    n = v->number;
     }
     return n;
 }
 
-cvs_number *
+cvs_number
 cvs_branch_parent (cvs_file *f, cvs_number *branch)
 {
-    cvs_number	*n = calloc (1, sizeof (cvs_number));
+    cvs_number	n;
     cvs_version	*v;
 
-    *n = *branch;
-    n->n[n->c-1] = 0;
+    n = *branch;
+    n.n[n.c-1] = 0;
     for (v = f->versions; v; v = v->next) {
-	if (cvs_same_branch (n, v->number) &&
-	    cvs_number_compare (branch, v->number) < 0 &&
-	    cvs_number_compare (n, v->number) >= 0)
-	    *n = *v->number;
+	if (cvs_same_branch (&n, &v->number) &&
+	    cvs_number_compare (branch, &v->number) < 0 &&
+	    cvs_number_compare (&n, &v->number) >= 0)
+	    n = v->number;
     }
     return n;
 }
@@ -170,7 +173,7 @@ cvs_find_patch (cvs_file *f, cvs_number *n)
     cvs_patch	*p;
 
     for (p = f->patches; p; p = p->next)
-	if (cvs_number_compare (p->number, n) == 0)
+	if (cvs_number_compare (&p->number, n) == 0)
 	    return p;
     return NULL;
 }
@@ -182,9 +185,9 @@ cvs_find_version (cvs_file *cvs, cvs_number *number)
     cvs_version	*nv = NULL;
 
     for (cv = cvs->versions; cv; cv = cv->next) {
-	if (cvs_same_branch (number, cv->number) &&
-	    cvs_number_compare (cv->number, number) > 0 &&
-	    (!nv || cvs_number_compare (nv->number, cv->number) > 0))
+	if (cvs_same_branch (number, &cv->number) &&
+	    cvs_number_compare (&cv->number, number) > 0 &&
+	    (!nv || cvs_number_compare (&nv->number, &cv->number) > 0))
 	    nv = cv;
     }
     return nv;

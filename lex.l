@@ -27,6 +27,7 @@
 <INITIAL>symbols		BEGIN(CONTENT); return SYMBOLS;
 <INITIAL>locks			BEGIN(CONTENT); return LOCKS;
 <INITIAL>comment		BEGIN(CONTENT); return COMMENT;
+<INITIAL>expand			BEGIN(CONTENT); return EXPAND;
 <INITIAL>date			BEGIN(CONTENT); return DATE;
 <INITIAL>branches		BEGIN(CONTENT); return BRANCHES;
 <INITIAL>next			BEGIN(CONTENT); return NEXT;
@@ -42,14 +43,14 @@
 					return NUMBER;
 				}
 <CONTENT>[-a-zA-Z_0-9][-a-zA-Z_0-9]* {
-					yylval.s = strdup (yytext);
+					yylval.s = atom (yytext);
 					return NAME;
 				}
 ;				BEGIN(INITIAL); return SEMI;
 :				return COLON;
 @(@@|[^@]|\n)*@			{
 					yytext[yyleng-1] = '\0';
-					yylval.s = strdup (yytext+1);
+					yylval.s = atom (yytext+1);
 					return DATA;
 				}
 " " 				;
@@ -59,20 +60,21 @@
 %%
 int yywrap (void) { return 1; }
 
-cvs_number *
+cvs_number
 lex_number (char *s)
 {
-    cvs_number	*n = calloc (1, sizeof (cvs_number));
-    char		*next;
+    cvs_number	n;
+    char	*next;
 
+    n.c = 0;
     while (*s) {
-	n->n[n->c] = (int) strtol(s, &next, 10);
+	n.n[n.c] = (int) strtol(s, &next, 10);
 	if (next == s)
 	    break;
 	if (*next == '.')
 	    next++;
 	s = next;
-	n->c++;
+	n.c++;
     }
     return n;
 }
