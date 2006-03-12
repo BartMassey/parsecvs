@@ -123,60 +123,55 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
  * the time the vendor branch is imported and when a new revision
  * is committed to the head branch are placed on the vendor branch
  * In addition, any files without such a commit appear to adopt
- * the vendor branch as 'head'. We fix this by marking the vendor branch
- * as a additional parent, based entirely on time, for suitable
- * revisions along the main trunk
+ * the vendor branch as 'head'. We fix this by merging these two
+ * branches together as if they were the same
  */
 static void
 rev_list_patch_vendor_branch (rev_list *rl)
 {
     rev_branch	*trunk = NULL;
-    rev_branch	*vendor = NULL;
+    rev_branch	*vendor = NULL, **vendor_p = NULL;
     rev_branch	*b;
-    rev_ent	*t, *v;
+    rev_ent	*t, *v, *n;
+    rev_ent	**tail;
+    rev_branch	**b_p;
 
-    for (b = rl->branches; b; b = b->next) {
+    for (b_p = &rl->branches; (b = *b_p); b_p = &(b->next)) {
 	if (cvs_is_trunk (&b->ent->files->number))
 	    trunk = b;
-	if (cvs_is_vendor (&b->ent->files->number))
+	if (cvs_is_vendor (&b->ent->files->number)) {
 	    vendor = b;
+	    vendor_p = b_p;
+	}
     }
-    if (!trunk || !vendor)
-	return;
-    t = trunk->ent;
-    v = vendor->ent;
-    while (t && v) {
-	/*
-	 * search for vendor older than trunk
-	 */
-	while (v && time_compare (v->files->date, t->files->date) > 0)
-	    v = v->parent;
-	if (!v)
-	    break;
-	
-	/*
-	 * search for trunk parent older than vendor
-	 */
-	while (t->parent &&
-	       time_compare (v->files->date, t->parent->files->date) < 0)
-	    t = t->parent;
-	t->vendor = v;
-	t = t->parent;
-	v = v->parent;
+    assert (trunk);
+    assert (trunk != vendor);
+    if (vendor) {
+	t = trunk->ent;
+	v = vendor->ent;
+	/* patch out vendor branch */
+	*vendor_p = vendor->next;
+	tail = &trunk->ent;
+	while (v) {
+	    if (time_compare (t->files->date, v->files->date) > 0) {
+		n = t;
+		t = t->parent;
+	    } else {
+		n = v;
+		if (v->tail)
+		    v = NULL;
+		else
+		    v = v->parent;
+	    }
+	    *tail = n;
+	    tail = &n->parent;
+	}
+	*tail = t;
     }
     /*
-     * Set HEAD and VENDOR-BRANCH tags.
+     * Set HEAD tag
      */
-    t = trunk->ent;
-    v = vendor->ent;
-    if (v)
-    {
-	rev_list_add_head (rl, v, "VENDOR-BRANCH");
-	if (!t || time_compare (v->files->date, t->files->date) > 0)
-	    t = v;
-    }
-    if (t)
-	rev_list_add_head (rl, t, "HEAD");
+    rev_list_add_head (rl, trunk->ent, "HEAD");
 }
 
 /*
@@ -592,9 +587,12 @@ rev_list_merge (rev_list *a, rev_list *b)
 	    rev_list_add_tag (rl, e, at->name);
     }
     for (bt = b->tags; bt; bt = bt->next) {
-	e = rev_branch_find_merged (bt->ent, NULL);
-	if (e)
-	    rev_list_add_tag (rl, e, bt->name);
+	at = rev_find_tag (a, bt->name);
+	if (!at) {
+	    e = rev_branch_find_merged (bt->ent, NULL);
+	    if (e)
+		rev_list_add_tag (rl, e, bt->name);
+	}
     }
     /*
      * Compute 'tail' values

@@ -158,13 +158,6 @@ dump_rev_graph (rev_list *rl)
 	    printf (" -- ");
 	    dump_ent (e->parent);
 	    printf ("\n");
-	    if (e->vendor) {
-		printf ("\t");
-		dump_ent (e);
-		printf (" -- ");
-		dump_ent (e->vendor);
-		printf ("\n");
-	    }
 	    if (e->tail)
 		break;
 	}
@@ -183,6 +176,7 @@ dump_rev_info (rev_list *rl)
 	for (e = b->ent; e; e = e->parent) {
 	    for (f = e->files; f; f = f->next) {
 		dump_number (f->name, &f->number);
+		break;
 		printf (" ");
 	    }
 	    printf ("\n");
@@ -242,14 +236,12 @@ main (int argc, char **argv)
 	rl = rev_list_file (atom (file));
 	for (i = 0; i < 32; i++) {
 	    if (stack[i]) {
-		fprintf (stderr, "merge %d\n", i);
 		old = rl;
 		rl = rev_list_merge (old, stack[i]);
 		rev_list_free (old);
 		rev_list_free (stack[i]);
 		stack[i] = 0;
 	    } else {
-		fprintf (stderr, "set   %d\n", i);
 		stack[i] = rl;
 		break;
 	    }

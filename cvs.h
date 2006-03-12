@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <assert.h>
 
 #define CVS_MAX_DEPTH	12
 
@@ -81,7 +82,6 @@ typedef struct _rev_file {
 typedef struct _rev_ent {
     struct _rev_ent	*parent;
     rev_file		*files;
-    struct _rev_ent	*vendor;
     int			tail;
     int			seen;
 } rev_ent;

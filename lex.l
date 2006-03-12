@@ -19,7 +19,7 @@
 #include "cvs.h"
 #include "y.tab.h"
 %}
-%s CONTENT
+%s CONTENT SKIP
 %%
 <INITIAL>head			BEGIN(CONTENT); return HEAD;
 <INITIAL>branch			BEGIN(CONTENT); return BRANCH;
@@ -37,7 +37,7 @@
 <INITIAL>state			BEGIN(CONTENT); return STATE;
 <INITIAL>desc			return DESC;
 <INITIAL>log			return LOG;
-<INITIAL>text			return TEXT;
+<INITIAL>text			BEGIN(SKIP); return TEXT;
 [0-9]+\.[0-9.]*			{
 					yylval.number = lex_number (yytext);
 					return NUMBER;
@@ -48,6 +48,11 @@
 				}
 ;				BEGIN(INITIAL); return SEMI;
 :				return COLON;
+<SKIP>@(@@|[^@]|\n)*@		{
+					yylval.s = atom ("skip");
+					BEGIN(INITIAL);
+					return DATA;
+				}
 @(@@|[^@]|\n)*@			{
 					yytext[yyleng-1] = '\0';
 					yylval.s = atom (yytext+1);
