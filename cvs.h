@@ -195,4 +195,16 @@ extern int yylex (void);
 char *
 atom (char *string);
 
+void
+rev_ref_add (rev_ref **list, rev_ent *ent, char *name, int head);
+
+void
+rev_list_add_head (rev_list *rl, rev_ent *ent, char *name);
+
+void
+rev_list_add_tag (rev_list *rl, rev_ent *ent, char *name);
+
+void
+rev_list_add_branch (rev_list *rl, rev_ent *ent);
+
 #endif /* _CVS_H_ */
