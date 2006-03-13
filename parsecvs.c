@@ -199,12 +199,12 @@ rev_list_file (char *name)
 	perror (name);
 	++err;
     }
-    fprintf (stderr, "%s\n", name);
     this_file = calloc (1, sizeof (cvs_file));
     this_file->name = name;
     yyparse ();
     fclose (yyin);
     rl = rev_list_cvs (this_file);
+    cvs_file_free (this_file);
     return rl;
 }
 
@@ -233,8 +233,10 @@ main (int argc, char **argv)
 	    if (!file)
 		break;
 	}
-	rl = rev_list_file (atom (file));
+	file = atom (file);
+	rl = rev_list_file (file);
 	for (i = 0; i < 32; i++) {
+	    fprintf (stderr, "*");
 	    if (stack[i]) {
 		old = rl;
 		rl = rev_list_merge (old, stack[i]);
@@ -246,6 +248,7 @@ main (int argc, char **argv)
 		break;
 	    }
 	}
+	fprintf (stderr, "%s\n", file);
     }
     rl = NULL;
     for (i = 0; i < 32; i++) {
@@ -262,8 +265,10 @@ main (int argc, char **argv)
 	}
     }
     if (rl) {
-	dump_rev_graph (rl);
+/*	dump_rev_graph (rl); */
 /*	dump_rev_info (rl);*/
     }
+    rev_list_free (rl);
+    discard_atoms ();
     return err;
 }

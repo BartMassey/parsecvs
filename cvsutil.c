@@ -210,8 +210,63 @@ cvs_is_vendor (cvs_number *number)
     return 1;
 }
 
+static void
+cvs_symbol_free (cvs_symbol *symbol)
+{
+    cvs_symbol	*s;
+
+    while ((s = symbol)) {
+	symbol = s->next;
+	free (s);
+    }
+}
+
+static void
+cvs_branch_free (cvs_branch *branch)
+{
+    cvs_branch	*b;
+
+    while ((b = branch)) {
+	branch = b->next;
+	free (b);
+    }
+}
+
+static void
+cvs_version_free (cvs_version *version)
+{
+    cvs_version	*v;
+
+    while ((v = version)) {
+	version = v->next;
+	cvs_branch_free (v->branches);
+	free (v);
+    }
+}
+
+static void
+cvs_patch_free (cvs_patch *patch)
+{
+    cvs_patch	*v;
+
+    while ((v = patch)) {
+	patch = v->next;
+	free (v);
+    }
+}
+
+void
+cvs_file_free (cvs_file *cvs)
+{
+    cvs_symbol_free (cvs->symbols);
+    cvs_version_free (cvs->versions);
+    cvs_patch_free (cvs->patches);
+    free (cvs);
+}
+
 long
 time_compare (time_t a, time_t b)
 {
     return (long) a - (long) b;
 }
+

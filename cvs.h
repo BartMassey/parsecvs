@@ -160,6 +160,9 @@ cvs_is_trunk (cvs_number *number);
 int
 cvs_is_vendor (cvs_number *number);
 
+void
+cvs_file_free (cvs_file *cvs);
+
 long
 time_compare (time_t a, time_t b);
 
@@ -196,6 +199,9 @@ char *
 atom (char *string);
 
 void
+discard_atoms (void);
+
+void
 rev_ref_add (rev_ref **list, rev_ent *ent, char *name, int head);
 
 void
@@ -206,5 +212,8 @@ rev_list_add_tag (rev_list *rl, rev_ent *ent, char *name);
 
 void
 rev_list_add_branch (rev_list *rl, rev_ent *ent);
+
+void
+rev_branch_free (rev_branch *branches);
 
 #endif /* _CVS_H_ */

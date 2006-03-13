@@ -67,16 +67,32 @@ atom (char *string)
     crc32_t		crc = crc32 (string);
     hash_bucket_t	**head = &buckets[crc % HASH_SIZE];
     hash_bucket_t	*b;
+    int			len = strlen (string);
 
+    if (len > 10000)
+	printf ("long string\n");
     while ((b = *head)) {
-	if (b->crc == crc && !strcmp (string, b->string))
+	if (b->crc == crc && !memcmp (string, b->string, len + 1))
 	    return b->string;
 	head = &(b->next);
     }
-    b = malloc (sizeof (hash_bucket_t) + strlen (string) + 1);
+    b = malloc (sizeof (hash_bucket_t) + len + 1);
     b->next = 0;
     b->crc = crc;
-    strcpy (b->string, string);
+    memcpy (b->string, string, len + 1);
     *head = b;
     return b->string;
+}
+
+void
+discard_atoms (void)
+{
+    hash_bucket_t	**head, *b;
+    int			i;
+
+    for (i = 0; i < HASH_SIZE; i++)
+	for (head = &buckets[i]; b = *head;) {
+	    *head = b->next;
+	    free (b);
+	}
 }

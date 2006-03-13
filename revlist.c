@@ -62,7 +62,7 @@ rev_find_head (rev_list *rl, char *name)
     rev_ref	*h;
 
     for (h = rl->heads; h; h = h->next)
-	if (!strcmp (h->name, name))
+	if (h->name == name)
 	    return h;
     return NULL;
 }
@@ -73,7 +73,7 @@ rev_find_tag (rev_list *rl, char *name)
     rev_ref	*t;
 
     for (t = rl->tags; t; t = t->next)
-	if (!strcmp (t->name, name))
+	if (t->name == name)
 	    return t;
     return NULL;
 }
@@ -157,12 +157,12 @@ rev_ent_match (rev_ent *a, rev_ent *b)
      * each commit to track patch sets. Use it if present
      */
     if (a->files->commitid && b->files->commitid)
-	return !strcmp (a->files->commitid, b->files->commitid);
+	return a->files->commitid == b->files->commitid;
     if (a->files->commitid || b->files->commitid)
 	return 0;
     if (!commit_time_close (a->files->date, b->files->date))
 	return 0;
-    if (strcmp (a->files->log, b->files->log) != 0)
+    if (a->files->log == b->files->log)
 	return 0;
     return 1;
 }
@@ -170,19 +170,30 @@ rev_ent_match (rev_ent *a, rev_ent *b)
 /*
  * Find an existing rev_ent which has both a and b in common
  */
+
+#define HASH_SIZE	9013
+
 typedef struct _rev_merged {
     struct _rev_merged	*next;
     rev_ent		*a, *b, *e;
 } rev_merged;
 
-static rev_merged	*merged;
+static rev_merged	*merged_buckets[HASH_SIZE];
+
+static unsigned long
+rev_merged_hash (rev_ent *a, rev_ent *b)
+{
+    unsigned long	h = (unsigned long) a ^ (unsigned long) b;
+
+    return h % HASH_SIZE;
+}
 
 static rev_ent *
 rev_branch_find_merged (rev_ent *a, rev_ent *b)
 {
     rev_merged	*m;
 
-    for (m = merged; m; m = m->next)
+    for (m = merged_buckets[rev_merged_hash(a,b)]; m; m = m->next)
 	if (m->a == a && m->b == b)
 	    return m->e;
     return NULL;
@@ -191,33 +202,46 @@ rev_branch_find_merged (rev_ent *a, rev_ent *b)
 static void
 rev_branch_mark_merged (rev_ent *a, rev_ent *b, rev_ent *e)
 {
+    rev_merged	**bucket = &merged_buckets[rev_merged_hash(a,b)];
     rev_merged	*m = calloc (1, sizeof (rev_merged));
 
     m->a = a;
     m->b = b;
     m->e = e;
-    m->next = merged;
-    merged = m;
+    m->next = *bucket;
+    *bucket = m;
 }
 
 static void
 rev_branch_discard_merged (void)
 {
+    int		i;
     rev_merged	*m;
+    rev_merged	*merged;
 
-    while ((m = merged)) {
-	merged = m->next;
-	free (m);
+    for (i = 0; i < HASH_SIZE; i++) {
+	merged = merged_buckets[i];
+	merged_buckets[i] = NULL;
+	while ((m = merged)) {
+	    merged = m->next;
+	    free (m);
+	}
     }
 }
 
 static rev_merged *
 rev_branch_get_merge (rev_ent *e)
 {
+    int		i;
     rev_merged	*m;
-    for (m = merged; m; m = m->next)
-	if (m->e == e)
-	    return m;
+    rev_merged	*merged;
+    
+    for (i = 0; i < HASH_SIZE; i++) {
+	merged = merged_buckets[i];
+	for (m = merged; m; m = m->next)
+	    if (m->e == e)
+		return m;
+    }
     return NULL;
 }
 
@@ -398,10 +422,11 @@ rev_ent_free (rev_ent *ent)
 	else
 	    ent = e->parent;
 	rev_file_free (e->files);
+	free (e);
     }
 }
 
-static void
+void
 rev_branch_free (rev_branch *branches)
 {
     rev_branch	*b;
@@ -430,4 +455,5 @@ rev_list_free (rev_list *rl)
     rev_branch_free (rl->branches);
     rev_ref_free (rl->heads);
     rev_ref_free (rl->tags);
+    free (rl);
 }

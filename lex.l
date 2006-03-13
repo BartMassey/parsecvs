@@ -18,6 +18,8 @@
  */
 #include "cvs.h"
 #include "y.tab.h"
+static void skip_data (void);
+    
 %}
 %s CONTENT SKIP
 %%
@@ -38,22 +40,23 @@
 <INITIAL>desc			return DESC;
 <INITIAL>log			return LOG;
 <INITIAL>text			BEGIN(SKIP); return TEXT;
-[0-9]+\.[0-9.]*			{
-					yylval.number = lex_number (yytext);
-					return NUMBER;
+<SKIP>@				{
+					skip_data ();
+					yylval.s = atom ("skip");
+					BEGIN(INITIAL);
+					return DATA;
 				}
 <CONTENT>[-a-zA-Z_0-9][-a-zA-Z_0-9]* {
 					yylval.s = atom (yytext);
 					return NAME;
 				}
+[0-9]+\.[0-9.]*			{
+					yylval.number = lex_number (yytext);
+					return NUMBER;
+				}
 ;				BEGIN(INITIAL); return SEMI;
 :				return COLON;
-<SKIP>@(@@|[^@]|\n)*@		{
-					yylval.s = atom ("skip");
-					BEGIN(INITIAL);
-					return DATA;
-				}
-@(@@|[^@]|\n)*@			{
+<INITIAL,CONTENT>@(@@|[^@]|\n)*@			{
 					yytext[yyleng-1] = '\0';
 					yylval.s = atom (yytext+1);
 					return DATA;
@@ -64,6 +67,22 @@
 .				fprintf (stderr, "ignoring %c\n", yytext[0]);
 %%
 int yywrap (void) { return 1; }
+
+static void
+skip_data (void)
+{
+    int	c;
+
+    while ((c = input ()) != EOF) {
+	if (c == '@') {
+	    c = input ();
+	    if (c != '@') {
+		unput (c);
+		break;
+	    }
+	}
+    }
+}
 
 cvs_number
 lex_number (char *s)

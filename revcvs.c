@@ -48,7 +48,7 @@ rev_find_ent (rev_list *rl, char *name, cvs_number *number)
     for (b = rl->branches; b; b = b->next)
 	for (e = b->ent; e; e = e->parent)
 	    for (f = e->files; f; f = f->next)
-		if (!strcmp (f->name, name) &&
+		if (f->name == name &&
 		    cvs_number_compare (&f->number, number) == 0)
 		    return e;
     return NULL;
@@ -111,8 +111,6 @@ rev_list_patch_vendor_branch (rev_list *rl)
     if (vendor) {
 	t = trunk->ent;
 	v = vendor->ent;
-	/* patch out vendor branch */
-	*vendor_p = vendor->next;
 	tail = &trunk->ent;
 	while (v) {
 	    if (time_compare (t->files->date, v->files->date) > 0) {
@@ -120,15 +118,18 @@ rev_list_patch_vendor_branch (rev_list *rl)
 		t = t->parent;
 	    } else {
 		n = v;
-		if (v->tail)
-		    v = NULL;
-		else
-		    v = v->parent;
+		v = v->parent;
 	    }
 	    *tail = n;
 	    tail = &n->parent;
 	}
 	*tail = t;
+
+	/* free vendor branch */
+	*vendor_p = vendor->next;
+	vendor->ent = 0;
+	vendor->next = 0;
+	rev_branch_free (vendor);
     }
     /*
      * Set HEAD tag
@@ -230,13 +231,15 @@ rev_list_cvs (cvs_file *cvs)
     rev_list	*rl = calloc (1, sizeof (rev_list));
     cvs_version	*cv;
     cvs_branch	*cb;
-    cvs_number	one_one = lex_number ("1.1");
-    rev_ent	*trunk = rev_branch_cvs (cvs, &one_one);
+    cvs_number	one_one;
+    rev_ent	*trunk; 
     rev_ent	*branch;
-    
+
     /*
      * Generate trunk branch
      */
+    one_one = lex_number ("1.1");
+    trunk = rev_branch_cvs (cvs, &one_one);
     if (trunk)
 	rev_list_add_branch (rl, trunk);
     /*
@@ -248,8 +251,8 @@ rev_list_cvs (cvs_file *cvs)
 	    rev_list_add_branch (rl, branch);
 	}
     }
+    rev_list_patch_vendor_branch (rl);
     rev_list_graft_branches (rl, cvs);
     rev_list_set_refs (rl, cvs);
-    rev_list_patch_vendor_branch (rl);
     return rl;
 }
