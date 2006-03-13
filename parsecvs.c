@@ -120,6 +120,10 @@ dump_ent (rev_ent *e)
 		    break;
 		if (f->log[j] == '.')
 		    break;
+		if (f->log[j] & 0x80)
+		    continue;
+		if (f->log[j] < ' ')
+		    continue;
 		if (f->log[j] == '"')
 		    putchar ('\\');
 		putchar (f->log[j]);

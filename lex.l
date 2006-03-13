@@ -107,8 +107,11 @@ time_t
 lex_date (cvs_number *n)
 {
 	struct tm	tm;
+	time_t		d;
 	
-	tm.tm_year = n->n[0] - 1900;
+	tm.tm_year = n->n[0];
+	if (tm.tm_year > 1900)
+	   tm.tm_year -= 1900;
 	tm.tm_mon = n->n[1] - 1;
 	tm.tm_mday = n->n[2];
 	tm.tm_hour = n->n[3];
@@ -116,5 +119,15 @@ lex_date (cvs_number *n)
 	tm.tm_sec = n->n[5];
 	tm.tm_isdst = 0;
 	tm.tm_zone = 0;
-	return mktime (&tm);
+	d = mktime (&tm);
+	if (d == 0) {
+	    int i;
+	    fprintf (stderr, "unparsable date: ");
+	    for (i = 0; i < n->c; i++) {
+		if (i) fprintf (stderr, ".");
+		fprintf (stderr, "%d", n->n[i]);
+	    }
+	    fprintf (stderr, "\n");
+	}
+	return d;
 }
