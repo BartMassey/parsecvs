@@ -91,45 +91,40 @@ rev_find_ref (rev_list *rl, char *name)
 }
 #endif
 
-static rev_file *
-rev_file_merge (rev_file *a, rev_file *b)
+static void
+rev_file_merge (rev_ent *a, rev_ent *b, rev_ent *e)
 {
-    rev_file	*head = NULL;
-    rev_file	**tail = &head;
-    rev_file	*f, *i;
+    int		ai = 0, bi = 0, ei = 0;
+    rev_file	*af, *bf, *ef;
 
-    while (a || b) {
-	f = calloc (1, sizeof (rev_file));
-	if (a && b) {
-	    if (time_compare (a->date, b->date) > 0) {
-		i = a;
-		a = a->next;
+    while (ai < a->nfiles || bi < b->nfiles) {
+	if (ai < a->nfiles && bi < b->nfiles) {
+	    af = a->files[ai];
+	    bf = b->files[bi];
+	    if (time_compare (af->date, bf->date) > 0) {
+		ef = af;
+		ai++;
 	    } else {
-		i = b;
-		b = b->next;
+		ef = bf;
+		bi++;
 	    }
-	} else if (a) {
-	    i = a;
-	    a = a->next;
+	} else if (ai < a->nfiles) {
+	    ef = a->files[ai];
+	    ai++;
 	} else {
-	    i = b;
-	    b = b->next;
+	    ef = b->files[bi];
+	    bi++;
 	}
-	f->name = i->name;
-	f->number = i->number;
-	f->date = i->date;
-	f->log = i->log;
-	f->commitid = i->commitid;
-	*tail = f;
-	tail = &f->next;
+	e->files[ei++] = ef;
     }
-    return head;
+    e->nfiles = ei;
 }
 
-static rev_file *
-rev_file_copy (rev_file *f)
+static void
+rev_file_copy (rev_ent *src, rev_ent *dst)
 {
-    return rev_file_merge (f, NULL);
+    memcpy (dst->files, src->files,
+	    (dst->nfiles = src->nfiles) * sizeof (rev_file *));
 }
 
 /*
@@ -156,13 +151,13 @@ rev_ent_match (rev_ent *a, rev_ent *b)
      * Very recent versions of CVS place a commitid in
      * each commit to track patch sets. Use it if present
      */
-    if (a->files->commitid && b->files->commitid)
-	return a->files->commitid == b->files->commitid;
-    if (a->files->commitid || b->files->commitid)
+    if (a->files[0]->commitid && b->files[0]->commitid)
+	return a->files[0]->commitid == b->files[0]->commitid;
+    if (a->files[0]->commitid || b->files[0]->commitid)
 	return 0;
-    if (!commit_time_close (a->files->date, b->files->date))
+    if (!commit_time_close (a->files[0]->date, b->files[0]->date))
 	return 0;
-    if (a->files->log == b->files->log)
+    if (a->files[0]->log != b->files[0]->log)
 	return 0;
     return 1;
 }
@@ -261,14 +256,15 @@ rev_branch_merge (rev_ent *a, rev_ent *b)
 	}
 	else
 	{
-	    e = calloc (1, sizeof (rev_ent));
-	    e->files = rev_file_merge (a->files, b->files);
+	    e = calloc (1, sizeof (rev_ent) +
+			(a->nfiles + b->nfiles) * sizeof (rev_file *));
+	    rev_file_merge (a, b, e);
 	    rev_branch_mark_merged (a, b, e);
 	    if (rev_ent_match (a, b)) {
 		a = a->parent;
 		b = b->parent;
 	    } else {
-		if (time_compare (a->files->date, b->files->date) > 0)
+		if (time_compare (a->files[0]->date, b->files[0]->date) > 0)
 		    a = a->parent;
 		else
 		    b = b->parent;
@@ -288,8 +284,8 @@ rev_branch_merge (rev_ent *a, rev_ent *b)
 	}
 	else
 	{
-	    e = calloc (1, sizeof (rev_ent));
-	    e->files = rev_file_copy (a->files);
+	    e = calloc (1, sizeof (rev_ent) + a->nfiles * sizeof (rev_file *));
+	    rev_file_copy (a, e);
 	    rev_branch_mark_merged (a, NULL, e);
 	    a = a->parent;
 	}
@@ -401,17 +397,6 @@ rev_list_merge (rev_list *a, rev_list *b)
 }
 
 static void
-rev_file_free (rev_file *file)
-{
-    rev_file	*f;
-
-    while ((f = file)) {
-	file = f->next;
-	free (f);
-    }
-}
-
-static void
 rev_ent_free (rev_ent *ent)
 {
     rev_ent	*e;
@@ -421,7 +406,6 @@ rev_ent_free (rev_ent *ent)
 	    ent = NULL;
 	else
 	    ent = e->parent;
-	rev_file_free (e->files);
 	free (e);
     }
 }

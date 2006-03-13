@@ -264,9 +264,3 @@ cvs_file_free (cvs_file *cvs)
     free (cvs);
 }
 
-long
-time_compare (time_t a, time_t b)
-{
-    return (long) a - (long) b;
-}
-

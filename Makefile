@@ -15,6 +15,8 @@ parsecvs: $(OBJS)
 $(OBJS): cvs.h
 lex.o: y.tab.h
 
+lex.o: lex.c
+
 y.tab.h: gram.c
 
 clean:

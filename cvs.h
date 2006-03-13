@@ -71,7 +71,6 @@ typedef struct {
 } cvs_file;
 
 typedef struct _rev_file {
-    struct _rev_file	*next;
     char		*name;
     cvs_number		number;
     time_t		date;
@@ -81,9 +80,10 @@ typedef struct _rev_file {
 
 typedef struct _rev_ent {
     struct _rev_ent	*parent;
-    rev_file		*files;
-    int			tail;
-    int			seen;
+    char		tail;
+    char		seen;
+    int			nfiles;
+    rev_file		*files[0];
 } rev_ent;
 
 typedef struct _rev_branch {
@@ -215,5 +215,7 @@ rev_list_add_branch (rev_list *rl, rev_ent *ent);
 
 void
 rev_branch_free (rev_branch *branches);
+
+#define time_compare(a,b) ((long) (a) - (long) (b))
 
 #endif /* _CVS_H_ */

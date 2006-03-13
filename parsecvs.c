@@ -98,15 +98,38 @@ void
 dump_ent (rev_ent *e)
 {
     rev_file	*f;
+    int		i;
 
     printf ("\"");
-    for (f = e->files; f; f = f->next) {
-	char	*date = ctime (&f->date);
+    for (i = 0; i < e->nfiles; i++) {
+	char	*date;
+	int	j;
+
+	f = e->files[i];
+	date = ctime (&f->date);
 	date[strlen(date)-1] = '\0';
 	dump_number (f->name, &f->number);
 	printf ("\\n%s", date);
-	if (f->next) printf ("\\n");
+	if (i == 0)
+	{
+	    printf ("\\n");
+	    for (j = 0; j < 48; j++) {
+		if (f->log[j] == '\0')
+		    break;
+		if (f->log[j] == '\n')
+		    break;
+		if (f->log[j] == '.')
+		    break;
+		if (f->log[j] == '"')
+		    putchar ('\\');
+		putchar (f->log[j]);
+	    }
+	}
+	break;
+	if (i < e->nfiles - 1)
+	    printf ("\\n");
     }
+    printf ("\\n%08x", (int) e);
     printf ("\"");
 }
 
@@ -171,12 +194,13 @@ dump_rev_info (rev_list *rl)
     rev_branch	*b;
     rev_ent	*e;
     rev_file	*f;
+    int		i;
 
     for (b = rl->branches; b; b = b->next) {
 	for (e = b->ent; e; e = e->parent) {
-	    for (f = e->files; f; f = f->next) {
+	    for (i = 0; i < e->nfiles; i++) {
+		f = e->files[i];
 		dump_number (f->name, &f->number);
-		break;
 		printf (" ");
 	    }
 	    printf ("\n");
@@ -252,6 +276,7 @@ main (int argc, char **argv)
     }
     rl = NULL;
     for (i = 0; i < 32; i++) {
+	fprintf (stderr, "+");
 	if (stack[i]) {
 	    if (rl) {
 		old = rl;
@@ -264,8 +289,9 @@ main (int argc, char **argv)
 	    stack[i] = 0;
 	}
     }
+    fprintf (stderr, "\n");
     if (rl) {
-/*	dump_rev_graph (rl); */
+	dump_rev_graph (rl);
 /*	dump_rev_info (rl);*/
     }
     rev_list_free (rl);
