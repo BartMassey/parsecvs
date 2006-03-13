@@ -224,22 +224,6 @@ rev_branch_discard_merged (void)
     }
 }
 
-static rev_merged *
-rev_branch_get_merge (rev_ent *e)
-{
-    int		i;
-    rev_merged	*m;
-    rev_merged	*merged;
-    
-    for (i = 0; i < HASH_SIZE; i++) {
-	merged = merged_buckets[i];
-	for (m = merged; m; m = m->next)
-	    if (m->e == e)
-		return m;
-    }
-    return NULL;
-}
-
 static rev_ent *
 rev_branch_merge (rev_ent *a, rev_ent *b)
 {
@@ -308,8 +292,6 @@ rev_list_merge (rev_list *a, rev_list *b)
     rev_ref	*h, *ah, *bh;
     rev_branch	*branch;
     rev_ent	*e;
-    rev_merged	*merged;
-    rev_ent	*parent;
     rev_ref	*at, *bt;
 
     /* add all of the head refs */
@@ -375,8 +357,39 @@ rev_list_merge (rev_list *a, rev_list *b)
     return rl;
 }
 
+/*
+ * Icky. each file revision may be referenced many times in a single
+ * tree. When freeing the tree, queue the file objects to be deleted
+ * and clean them up afterwards
+ */
+
+static rev_file	*free_rev_files;
+
 static void
-rev_ent_free (rev_ent *ent)
+rev_file_mark_for_free (rev_file *f)
+{
+    if (f->name) {
+	f->name = NULL;
+	f->log = (char *) free_rev_files;
+	free_rev_files = f;
+    }
+}
+
+static void
+rev_file_free_marked (void)
+{
+    rev_file	*f, *n;
+
+    for (f = free_rev_files; f; f = n)
+    {
+	n = (rev_file *) f->log;
+	free (f);
+    }
+    free_rev_files = NULL;
+}
+
+static void
+rev_ent_free (rev_ent *ent, int free_files)
 {
     rev_ent	*e;
 
@@ -385,18 +398,23 @@ rev_ent_free (rev_ent *ent)
 	    ent = NULL;
 	else
 	    ent = e->parent;
+	if (free_files) {
+	    int i;
+	    for (i = 0; i < e->nfiles; i++)
+		rev_file_mark_for_free (e->files[i]);
+	}
 	free (e);
     }
 }
 
 void
-rev_branch_free (rev_branch *branches)
+rev_branch_free (rev_branch *branches, int free_files)
 {
     rev_branch	*b;
 
     while ((b = branches)) {
 	branches = b->next;
-	rev_ent_free (b->ent);
+	rev_ent_free (b->ent, free_files);
 	free (b);
     }
 }
@@ -413,10 +431,12 @@ rev_ref_free (rev_ref *ref)
 }
 
 void
-rev_list_free (rev_list *rl)
+rev_list_free (rev_list *rl, int free_files)
 {
-    rev_branch_free (rl->branches);
+    rev_branch_free (rl->branches, free_files);
     rev_ref_free (rl->heads);
     rev_ref_free (rl->tags);
+    if (free_files)
+	rev_file_free_marked ();
     free (rl);
 }

@@ -268,8 +268,8 @@ main (int argc, char **argv)
 	    if (stack[i]) {
 		old = rl;
 		rl = rev_list_merge (old, stack[i]);
-		rev_list_free (old);
-		rev_list_free (stack[i]);
+		rev_list_free (old, 0);
+		rev_list_free (stack[i], 0);
 		stack[i] = 0;
 	    } else {
 		stack[i] = rl;
@@ -285,8 +285,8 @@ main (int argc, char **argv)
 	    if (rl) {
 		old = rl;
 		rl = rev_list_merge (rl, stack[i]);
-		rev_list_free (old);
-		rev_list_free (stack[i]);
+		rev_list_free (old, 0);
+		rev_list_free (stack[i], 0);
 	    }
 	    else
 		rl = stack[i];
@@ -298,7 +298,7 @@ main (int argc, char **argv)
 	dump_rev_graph (rl);
 //	dump_rev_info (rl);
     }
-    rev_list_free (rl);
+    rev_list_free (rl, 1);
     discard_atoms ();
     return err;
 }

@@ -132,7 +132,7 @@ rev_list_patch_vendor_branch (rev_list *rl)
 	*vendor_p = vendor->next;
 	vendor->ent = 0;
 	vendor->next = 0;
-	rev_branch_free (vendor);
+	rev_branch_free (vendor, 0);
     }
     /*
      * Set HEAD tag

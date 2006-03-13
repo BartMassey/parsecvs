@@ -91,7 +91,7 @@ discard_atoms (void)
     int			i;
 
     for (i = 0; i < HASH_SIZE; i++)
-	for (head = &buckets[i]; b = *head;) {
+	for (head = &buckets[i]; (b = *head);) {
 	    *head = b->next;
 	    free (b);
 	}

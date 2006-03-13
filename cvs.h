@@ -122,7 +122,7 @@ rev_list *
 rev_list_merge (rev_list *a, rev_list *b);
 
 void
-rev_list_free (rev_list *rl);
+rev_list_free (rev_list *rl, int free_files);
 
 int
 cvs_is_head (cvs_number *n);
@@ -214,7 +214,7 @@ void
 rev_list_add_branch (rev_list *rl, rev_ent *ent);
 
 void
-rev_branch_free (rev_branch *branches);
+rev_branch_free (rev_branch *branches, int free_files);
 
 #define time_compare(a,b) ((long) (a) - (long) (b))
 
