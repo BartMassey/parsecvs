@@ -1,0 +1,50 @@
+	    			Parsecvs
+			   keithp@keithp.com
+	  		      March, 2006
+
+This directory contains code which can directly read RCS ,v files and
+generate a git-style rev-list structure from them. Revision lists can be
+merged together to produce a composite revision history for an arbitrary
+collection of files.
+
+The code is not ready for any serious use yet, it only produces a graphviz
+file of the resulting tree structure. Optional behaviors are controlled by
+editing the source and recompiling.
+
+If arguments are supplied, parsecvs assumes they're all ,v files and reads
+them in. If no arguments are supplied, parsecvs reads filenames from stdin,
+one per line.
+
+Missing features:
+
+	Attic support. Files found in the Attic are not dealt with specially
+	at all; they should be renamed in the output, and the terminal
+	revision noted so that they don't appear in later revision. I think
+	fixing this will be reasonably straightforward.
+
+	Disjoint branch resolution. Branches occurring in a subset of the
+	files are not correctly resolved; instead, an entirely disjoint
+	history will be created containing the branch revisions and all
+	parents back to the root. I'm not sure how to fix this; it seems
+	to implicitly assume there will be only a single place to attach as
+	branch parent, which may not be the case. In any case, the right
+	revision will have a superset of the revisions present in the
+	original branch parent; perhaps that will suffice.
+
+	Connection to git. As mentioned above, the code doesn't actually
+	connect to git yet, so while it can generate lovely graphs, it won't
+	do anything useful. I think this is reasonably straight forward as
+	well; we've got a revision history containing the necessary version
+	of every file at each point in time. This could either be done by
+	emitting git commands and sending them to a shell, or by linking
+	against a git library and doing everything internally.
+
+	Reasonable command line syntax. The current lack of command line
+	parsing should be fixed to align with the usual git tools.
+
+	Author translation. Just as git-cvsimport does.
+	
+	Testing. I'm sure there are plenty of additional bugs to be found;
+	I've tested with valgrind and eliminated memory leaks and other
+	errors.
+
