@@ -341,27 +341,6 @@ rev_list_merge (rev_list *a, rev_list *b)
 	}
     }
     /*
-     * Glue branches back together
-     */
-    for (branch = rl->branches; branch; branch = branch->next) {
-	/*
-	 * find the tail of the branch
-	 */
-	for (e = branch->ent; e; e = e->parent)
-	    if (!e->parent) {
-		break;
-	    }
-	if (!e)
-	    continue;
-	merged = rev_branch_get_merge (e);
-	if (!merged)
-	    continue;
-	parent = rev_branch_find_merged (merged->a ? merged->a->parent : NULL,
-					 merged->b ? merged->b->parent : NULL);
-	if (parent)
-	    e->parent = parent;
-    }
-    /*
      * Find tag locations
      */
     for (at = a->tags; at; at = at->next) {

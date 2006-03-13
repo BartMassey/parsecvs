@@ -264,7 +264,7 @@ main (int argc, char **argv)
 	file = atom (file);
 	rl = rev_list_file (file);
 	for (i = 0; i < 32; i++) {
-	    fprintf (stderr, "*");
+//	    fprintf (stderr, "*");
 	    if (stack[i]) {
 		old = rl;
 		rl = rev_list_merge (old, stack[i]);
@@ -276,11 +276,11 @@ main (int argc, char **argv)
 		break;
 	    }
 	}
-	fprintf (stderr, "%s\n", file);
+//	fprintf (stderr, "%s\n", file);
     }
     rl = NULL;
     for (i = 0; i < 32; i++) {
-	fprintf (stderr, "+");
+//	fprintf (stderr, "+");
 	if (stack[i]) {
 	    if (rl) {
 		old = rl;
@@ -293,10 +293,10 @@ main (int argc, char **argv)
 	    stack[i] = 0;
 	}
     }
-    fprintf (stderr, "\n");
+//    fprintf (stderr, "\n");
     if (rl) {
 	dump_rev_graph (rl);
-/*	dump_rev_info (rl);*/
+//	dump_rev_info (rl);
     }
     rev_list_free (rl);
     discard_atoms ();
