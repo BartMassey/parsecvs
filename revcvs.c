@@ -18,19 +18,6 @@
 
 #include "cvs.h"
 
-static rev_file *
-rev_file_rev (cvs_file *cvs, cvs_number *n, time_t date, char *commitid, char *log)
-{
-    rev_file	*f = calloc (1, sizeof (rev_file));
-
-    f->name = cvs->name;
-    f->number = *n;
-    f->date = date;
-    f->log = log;
-    f->commitid = commitid;
-    return f;
-}
-
 /*
  * Given a single-file tree, locate the specific version number
  */
@@ -78,7 +65,7 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 	else
 	    e->nfiles = 1;
 	/* leave this around so the branch merging stuff can find numbers */
-	e->files[0] = rev_file_rev (cvs, &v->number, v->date, v->commitid, e->log);
+	e->files[0] = rev_file_rev (cvs->name, &v->number, v->date);
 	e->parent = head;
 	head = e;
 	n = v->number;
@@ -282,6 +269,28 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
     }
 }
 
+/*
+ * Dead file revisions get an extra rev_file object which may be
+ * needed during branch merging. Clean those up before returning
+ * the resulting rev_list
+ */
+
+static void
+rev_list_free_dead_files (rev_list *rl)
+{
+    rev_branch	*b;
+    rev_ent	*e;
+
+    for (b = rl->branches; b; b = b->next) {
+	for (e = b->ent; e; e = e->parent) {
+	    if (e->nfiles == 0)
+		rev_file_free (e->files[0]);
+	    if (e->tail)
+		break;
+	}
+    }
+}
+
 rev_list *
 rev_list_cvs (cvs_file *cvs)
 {
@@ -293,7 +302,8 @@ rev_list_cvs (cvs_file *cvs)
     rev_ent	*branch;
 
 //    if (!strcmp (cvs->name, "/cvs/xorg/xserver/xorg/ChangeLog,v"))
-//	rl->watch = 1;
+//    if (!strcmp (cvs->name, "/cvs/xorg/xserver/xorg/ChangeLog,v"))
+	rl->watch = 1;
     /*
      * Generate trunk branch
      */
@@ -313,5 +323,6 @@ rev_list_cvs (cvs_file *cvs)
     rev_list_patch_vendor_branch (rl);
     rev_list_graft_branches (rl, cvs);
     rev_list_set_refs (rl, cvs);
+    rev_list_free_dead_files (rl);
     return rl;
 }

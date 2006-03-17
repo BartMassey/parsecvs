@@ -76,8 +76,7 @@ typedef struct _rev_file {
     char		*name;
     cvs_number		number;
     time_t		date;
-    char		*log;
-    char		*commitid;
+    struct _rev_file	*link;
 } rev_file;
 
 typedef struct _rev_ent {
@@ -233,6 +232,12 @@ rev_list_add_tag (rev_list *rl, rev_ent *ent, char *name);
 
 void
 rev_list_add_branch (rev_list *rl, rev_ent *ent);
+
+rev_file *
+rev_file_rev (char *name, cvs_number *n, time_t date);
+
+void
+rev_file_free (rev_file *f);
 
 void
 rev_branch_free (rev_branch *branches, int free_files);

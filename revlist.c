@@ -501,15 +501,15 @@ rev_list_merge (rev_list *a, rev_list *b)
  * and clean them up afterwards
  */
 
-static rev_file	*free_rev_files;
+static rev_file *rev_files;
 
 static void
 rev_file_mark_for_free (rev_file *f)
 {
     if (f->name) {
 	f->name = NULL;
-	f->log = (char *) free_rev_files;
-	free_rev_files = f;
+	f->link = rev_files;
+	rev_files = f;
     }
 }
 
@@ -518,12 +518,29 @@ rev_file_free_marked (void)
 {
     rev_file	*f, *n;
 
-    for (f = free_rev_files; f; f = n)
+    for (f = rev_files; f; f = n)
     {
-	n = (rev_file *) f->log;
+	n = f->link;
 	free (f);
     }
-    free_rev_files = NULL;
+    rev_files = NULL;
+}
+
+rev_file *
+rev_file_rev (char *name, cvs_number *n, time_t date)
+{
+    rev_file	*f = calloc (1, sizeof (rev_file));
+
+    f->name = name;
+    f->number = *n;
+    f->date = date;
+    return f;
+}
+
+void
+rev_file_free (rev_file *f)
+{
+    free (f);
 }
 
 static void

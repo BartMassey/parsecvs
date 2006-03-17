@@ -434,10 +434,12 @@ dump_rev_tree (rev_list *rl)
 		printf ("\t\t...\n");
 		break;
 	    }
+#if 0	 
 	    if (time_compare (e->date, 1079499163) <= 0) {
 		printf ("\t\t...\n");
 		break;
 	    }
+#endif     
 	}
 	printf ("\t}\n");
     }
@@ -473,6 +475,8 @@ main (int argc, char **argv)
 	}
 	file = atom (file);
 	rl = rev_list_file (file);
+	if (rl->watch)
+	    dump_rev_tree (rl);
 	for (i = 0; i < 32; i++) {
 //	    fprintf (stderr, "*");
 	    if (stack[i]) {
@@ -511,8 +515,9 @@ main (int argc, char **argv)
     if (rl) {
 	dump_rev_graph (rl);
 //	dump_rev_info (rl);
-//	dump_rev_tree (rl);
-	dump_splits (rl);
+	if (rl->watch)
+	    dump_rev_tree (rl);
+//	dump_splits (rl);
     }
     rev_list_free (rl, 1);
     discard_atoms ();
