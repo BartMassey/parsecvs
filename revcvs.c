@@ -103,8 +103,8 @@ rev_list_patch_vendor_branch (rev_list *rl)
     rev_branch	*trunk = NULL;
     rev_branch	*vendor = NULL, **vendor_p = NULL;
     rev_branch	*b;
-    rev_ent	*t, *v, *n;
-    rev_ent	**tail;
+    rev_ent	*t, *v;
+    rev_ent	*tp, *tc, *vc;
     rev_branch	**b_p;
 
     for (b_p = &rl->branches; (b = *b_p); b_p = &(b->next)) {
@@ -118,32 +118,78 @@ rev_list_patch_vendor_branch (rev_list *rl)
     assert (trunk);
     assert (trunk != vendor);
     if (vendor) {
+	tc = NULL;
 	t = trunk->ent;
+	/*
+	 * Find the first commit to the trunk
+	 * This will reset the default branch set
+	 * when the initial import was done.
+	 * Subsequent imports will *not* set the default
+	 * branch, and should be on their own branch
+	 */
+	tc = NULL;
+	t = trunk->ent;
+	while (t && t->parent && t->parent->parent) {
+	    tc = t;
+	    t = t->parent;
+	}
+	tp = t->parent;
+	/*
+	 * Bracket the first trunk commit
+	 */
+	vc = NULL;
 	v = vendor->ent;
-	tail = &trunk->ent;
-	while (v) {
-	    if (time_compare (t->date, v->date) > 0) {
-		n = t;
-		t = t->parent;
-	    } else {
-		n = v;
+	if (t && tp && v)
+	{
+	    while (v && time_compare (t->date, v->date) < 0) {
+		vc = v;
 		v = v->parent;
 	    }
-	    *tail = n;
-	    tail = &n->parent;
+	    /*
+	     * The picture now looks like this:
+	     *
+	     *	      tc
+	     *	      |          vc
+	     *        t          |
+	     *        |          v
+	     *        tp
+	     *
+	     * Hook it up so that it looks like:
+	     *
+	     *	     tc
+	     *       |     /--- vc
+	     *       t----/
+	     *       |
+	     *       v
+	     *       |
+	     *       tp
+	     */
+	
+	    if (vc) {
+		vc->tail = 1;
+		vc->parent = t;
+	    } else {
+		*vendor_p = vendor->next;
+		free (vendor);
+		vendor = NULL;
+	    }
+	    t->parent = v;
+	    while (v->parent)
+		v = v->parent;
+	    v->parent = tp;
+	} else if (t && v) {
+	    while (v->parent)
+		v = v->parent;
+	    v->tail = 1;
+	    v->parent = t;
 	}
-	*tail = t;
-
-	/* free vendor branch */
-	*vendor_p = vendor->next;
-	vendor->ent = 0;
-	vendor->next = 0;
-	rev_branch_free (vendor, 0);
     }
     /*
      * Set HEAD tag
      */
     rev_list_add_head (rl, trunk->ent, "HEAD");
+    if (vendor)
+	rev_list_add_head (rl, vendor->ent, "VENDOR-BRANCH");
 }
 
 /*
@@ -163,8 +209,12 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
      * Glue branches together
      */
     for (b = rl->branches; b; b = b->next) {
-	for (e = b->ent; e && e->parent; e = e->parent)
-	    ;
+	for (e = b->ent; e && e->parent; e = e->parent) {
+	    if (e->tail) {
+		e = NULL;
+		break;
+	    }
+	}
 	if (e) {
 	    for (cv = cvs->versions; cv; cv = cv->next) {
 		for (cb = cv->branches; cb; cb = cb->next) {
@@ -242,13 +292,13 @@ rev_list_cvs (cvs_file *cvs)
     rev_ent	*trunk; 
     rev_ent	*branch;
 
+//    if (!strcmp (cvs->name, "/cvs/xorg/xserver/xorg/ChangeLog,v"))
+//	rl->watch = 1;
     /*
      * Generate trunk branch
      */
     one_one = lex_number ("1.1");
     trunk = rev_branch_cvs (cvs, &one_one);
-    if (trunk)
-	rev_list_add_branch (rl, trunk);
     /*
      * Search for other branches
      */
@@ -258,6 +308,8 @@ rev_list_cvs (cvs_file *cvs)
 	    rev_list_add_branch (rl, branch);
 	}
     }
+    if (trunk)
+	rev_list_add_branch (rl, trunk);
     rev_list_patch_vendor_branch (rl);
     rev_list_graft_branches (rl, cvs);
     rev_list_set_refs (rl, cvs);

@@ -100,12 +100,34 @@ dump_file (cvs_file *file)
     dump_patches ("patches", file->patches);
 }
 
+static void
+dump_log (char *log)
+{
+    int		j;
+    for (j = 0; j < 48; j++) {
+	if (log[j] == '\0')
+	    break;
+	if (log[j] == '\n') {
+	    if (j > 5) break;
+	    continue;
+	}
+	if (log[j] == '.')
+	    break;
+	if (log[j] & 0x80)
+	    continue;
+	if (log[j] < ' ')
+	    continue;
+	if (log[j] == '"')
+	    putchar ('\\');
+	putchar (log[j]);
+    }
+}
+
 void
 dump_ent (rev_ent *e)
 {
     rev_file	*f;
     int		i;
-    int		j;
     char	*date;
 
     printf ("\"");
@@ -113,23 +135,7 @@ dump_ent (rev_ent *e)
     date = ctime (&e->date);
     date[strlen(date)-1] = '\0';
     printf ("%s\\n", date);
-    for (j = 0; j < 48; j++) {
-	if (e->log[j] == '\0')
-	    break;
-	if (e->log[j] == '\n') {
-	    if (j > 5) break;
-	    continue;
-	}
-	if (e->log[j] == '.')
-	    break;
-	if (e->log[j] & 0x80)
-	    continue;
-	if (e->log[j] < ' ')
-	    continue;
-	if (e->log[j] == '"')
-	    putchar ('\\');
-	putchar (e->log[j]);
-    }
+    dump_log (e->log);
     printf ("\\n");
     for (i = 0; i < e->nfiles; i++) {
 	f = e->files[i];
@@ -281,7 +287,7 @@ ctime_nonl (time_t *date)
     return d;
 }
 
-static void
+void
 dump_splits (rev_list *rl)
 {
     rev_split	*splits = NULL, *s;
@@ -359,6 +365,85 @@ dump_splits (rev_list *rl)
     }
 }
 
+void
+dump_rev_tree (rev_list *rl)
+{
+    rev_branch	*b;
+    rev_ref	*h;
+    rev_ent	*e, *p;
+    int		i;
+
+    printf ("rev_list {\n");
+    for (b = rl->branches; b; b = b->next) {
+	for (h = rl->heads; h; h = h->next) {
+	    if (h->ent == b->ent)
+		printf ("%s:\n", h->name);
+	}
+	printf ("\t{\n");
+	for (e = b->ent; e; e = e->parent) {
+	    printf ("\t\t0x%x ", (int) e);
+	    dump_log (e->log);
+	    printf (" {\n");
+	    if (e->parent && e->nfiles > 16) {
+		rev_file	*ef, *pf;
+		int		ei, pi;
+		p = e->parent;
+		ei = pi = 0;
+		while (ei < e->nfiles && pi < p->nfiles) {
+		    ef = e->files[ei];
+		    pf = p->files[pi];
+		    if (ef != pf) {
+			if (rev_file_later (ef, pf)) {
+			    fprintf (stdout, "+ ");
+			    dump_number_file (stdout, ef->name, &ef->number);
+			    ei++;
+			} else {
+			    fprintf (stdout, "- ");
+			    dump_number_file (stdout, pf->name, &pf->number);
+			    pi++;
+			}
+			fprintf (stdout, "\n");
+		    } else {
+			ei++;
+			pi++;
+		    }
+		}
+		while (ei < e->nfiles) {
+		    ef = e->files[ei];
+		    fprintf (stdout, "+ ");
+		    dump_number_file (stdout, ef->name, &ef->number);
+		    ei++;
+		    fprintf (stdout, "\n");
+		}
+		while (pi < p->nfiles) {
+		    pf = p->files[pi];
+		    fprintf (stdout, "- ");
+		    dump_number_file (stdout, pf->name, &pf->number);
+		    pi++;
+		    fprintf (stdout, "\n");
+		}
+	    } else {
+		for (i = 0; i < e->nfiles; i++) {
+		    printf ("\t\t\t");
+		    dump_number (e->files[i]->name, &e->files[i]->number);
+		    printf ("\n");
+		}
+	    }
+	    printf ("\t\t}\n");
+	    if (e->tail) {
+		printf ("\t\t...\n");
+		break;
+	    }
+	    if (time_compare (e->date, 1079499163) <= 0) {
+		printf ("\t\t...\n");
+		break;
+	    }
+	}
+	printf ("\t}\n");
+    }
+    printf ("}\n");
+}
+
 int
 main (int argc, char **argv)
 {
@@ -393,6 +478,8 @@ main (int argc, char **argv)
 	    if (stack[i]) {
 		old = rl;
 		rl = rev_list_merge (old, stack[i]);
+		if (rl->watch)
+		    dump_rev_tree (rl);
 		rev_list_free (old, 0);
 		rev_list_free (stack[i], 0);
 		stack[i] = 0;
@@ -410,6 +497,8 @@ main (int argc, char **argv)
 	    if (rl) {
 		old = rl;
 		rl = rev_list_merge (rl, stack[i]);
+		if (rl->watch)
+		    dump_rev_tree (rl);
 		rev_list_free (old, 0);
 		rev_list_free (stack[i], 0);
 	    }
@@ -422,6 +511,7 @@ main (int argc, char **argv)
     if (rl) {
 	dump_rev_graph (rl);
 //	dump_rev_info (rl);
+//	dump_rev_tree (rl);
 	dump_splits (rl);
     }
     rev_list_free (rl, 1);

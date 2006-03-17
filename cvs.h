@@ -108,6 +108,7 @@ typedef struct {
     rev_branch	*branches;
     rev_ref	*heads;
     rev_ref	*tags;
+    int		watch;
 } rev_list;
 
 extern cvs_file     *this_file;
@@ -205,8 +206,13 @@ void
 dump_rev_info (rev_list *rl);
 
 void
+dump_splits (rev_list *rl);
+
+void
 dump_rev_graph (rev_list *rl);
 
+void
+dump_rev_tree (rev_list *rl);
 
 extern int yylex (void);
 

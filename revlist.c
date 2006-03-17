@@ -427,6 +427,7 @@ rev_list_merge (rev_list *a, rev_list *b)
     rev_ent	*e;
     rev_ref	*at, *bt;
 
+    rl->watch = a->watch || b->watch;
     /* add all of the head refs */
     for (ah = a->heads; ah; ah = ah->next)
 	rev_list_add_head (rl, NULL, ah->name);
