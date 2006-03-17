@@ -20,16 +20,22 @@
 cvs_file	*this_file;
 
 void
-dump_number (char *name, cvs_number *number)
+dump_number_file (FILE *f, char *name, cvs_number *number)
 {
     int i;
-    printf ("%s ", name);
+    fprintf (f, "%s ", name);
     if (number) {
 	for (i = 0; i < number->c; i++) {
-	    printf ("%d", number->n[i]);
-	    if (i < number->c - 1) printf (".");
+	    fprintf (f, "%d", number->n[i]);
+	    if (i < number->c - 1) fprintf (f, ".");
 	}
     }
+}
+
+void
+dump_number (char *name, cvs_number *number)
+{
+    dump_number_file (stdout, name, number);
 }
 
 void
@@ -99,41 +105,40 @@ dump_ent (rev_ent *e)
 {
     rev_file	*f;
     int		i;
+    int		j;
+    char	*date;
 
     printf ("\"");
-    for (i = 0; i < e->nfiles; i++) {
-	char	*date;
-	int	j;
-
-	f = e->files[i];
-	date = ctime (&f->date);
-	date[strlen(date)-1] = '\0';
-	dump_number (f->name, &f->number);
-	printf ("\\n%s", date);
-	if (i == 0)
-	{
-	    printf ("\\n");
-	    for (j = 0; j < 48; j++) {
-		if (f->log[j] == '\0')
-		    break;
-		if (f->log[j] == '\n')
-		    break;
-		if (f->log[j] == '.')
-		    break;
-		if (f->log[j] & 0x80)
-		    continue;
-		if (f->log[j] < ' ')
-		    continue;
-		if (f->log[j] == '"')
-		    putchar ('\\');
-		putchar (f->log[j]);
-	    }
+#if 1
+    date = ctime (&e->date);
+    date[strlen(date)-1] = '\0';
+    printf ("%s\\n", date);
+    for (j = 0; j < 48; j++) {
+	if (e->log[j] == '\0')
+	    break;
+	if (e->log[j] == '\n') {
+	    if (j > 5) break;
+	    continue;
 	}
-	break;
-	if (i < e->nfiles - 1)
-	    printf ("\\n");
+	if (e->log[j] == '.')
+	    break;
+	if (e->log[j] & 0x80)
+	    continue;
+	if (e->log[j] < ' ')
+	    continue;
+	if (e->log[j] == '"')
+	    putchar ('\\');
+	putchar (e->log[j]);
     }
-    printf ("\\n%08x", (int) e);
+    printf ("\\n");
+    for (i = 0; i < e->nfiles; i++) {
+	f = e->files[i];
+	dump_number (f->name, &f->number);
+	printf ("\\n");
+	break;
+    }
+#endif
+    printf ("%08x", (int) e);
     printf ("\"");
 }
 
@@ -159,8 +164,29 @@ dump_refs (rev_ref *refs)
 		    printf ("%s", o->name);
 		    n++;
 		}
+	    printf ("\" [fontsize=6,fixedsize=false,shape=ellipse];\n");
+	}
+    }
+    for (r = refs; r; r = r->next)
+	r->shown = 0;
+    for (r = refs; r; r = r->next) {
+	if (!r->shown) {
+	    printf ("\t");
 	    printf ("\"");
-	    printf (" -- ");
+	    n = 0;
+	    for (o = r; o; o = o->next)
+		if (!o->shown && o->ent == r->ent)
+		{
+		    o->shown = 1;
+		    if (n)
+			printf ("\\n");
+		    if (o->head)
+			printf ("*");
+		    printf ("%s", o->name);
+		    n++;
+		}
+	    printf ("\"");
+	    printf (" -> ");
 	    dump_ent (r->ent);
 	    printf ("\n");
 	}
@@ -169,20 +195,24 @@ dump_refs (rev_ref *refs)
 	r->shown = 0;
 }
 
-static void
+void
 dump_rev_graph (rev_list *rl)
 {
     rev_branch	*b;
     rev_ent	*e;
 
-    printf ("graph G {\n");
+    printf ("digraph G {\n");
+    printf ("nodesep=0.1;\n");
+    printf ("ranksep=0.1;\n");
+    printf ("edge [dir=none];\n");
+    printf ("node [shape=box,fontsize=6];\n");
     dump_refs (rl->heads);
     dump_refs (rl->tags);
     for (b = rl->branches; b; b = b->next) {
 	for (e = b->ent; e && e->parent; e = e->parent) {
 	    printf ("\t");
 	    dump_ent (e);
-	    printf (" -- ");
+	    printf (" -> ");
 	    dump_ent (e->parent);
 	    printf ("\n");
 	    if (e->tail)
@@ -192,7 +222,7 @@ dump_rev_graph (rev_list *rl)
     printf ("}\n");
 }
 
-static void
+void
 dump_rev_info (rev_list *rl)
 {
     rev_branch	*b;
@@ -236,6 +266,99 @@ rev_list_file (char *name)
     return rl;
 }
 
+typedef struct _rev_split {
+    struct _rev_split	*next;
+    rev_ent		*childa, *childb;
+    rev_ent		*parent;
+} rev_split;
+
+static char *
+ctime_nonl (time_t *date)
+{
+    char	*d = ctime (date);
+    
+    d[strlen(d)-1] = '\0';
+    return d;
+}
+
+static void
+dump_splits (rev_list *rl)
+{
+    rev_split	*splits = NULL, *s;
+    rev_branch	*branch;
+    rev_ent	*e, *a, *b;
+    int		ai, bi;
+    rev_file	*af, *bf;
+    char	*which;
+
+    /* Find tails and mark splits */
+    for (branch = rl->branches; branch; branch = branch->next) {
+	for (e = branch->ent; e; e = e->parent)
+	    if (e->tail) {
+		for (s = splits; s; s = s->next)
+		    if (s->parent == e->parent)
+			break;
+		if (!s) {
+		    s = calloc (1, sizeof (rev_split));
+		    s->parent = e->parent;
+		    s->childa = e;
+		    s->next = splits;
+		    splits = s;
+		}
+	    }
+    }
+    /* Find join points */
+    for (s = splits; s; s = s->next) {
+	for (branch = rl->branches; branch; branch = branch->next) {
+	    for (e = branch->ent; e; e = e->parent) {
+		if (e->parent == s->parent && e != s->childa)
+		    s->childb = e;
+	    }
+	}
+    }
+    for (s = splits; s; s = s->next) {
+	if (s->parent && s->childa && s->childb) {
+	    a = s->childa;
+	    b = s->childb;
+	    ai = bi = 0;
+	    while (ai < a->nfiles && bi < b->nfiles) {
+		af = a->files[ai];
+		bf = b->files[bi];
+		if (af != bf) {
+		    if (rev_file_later (af, bf)) {
+			fprintf (stderr, "a : %s ", ctime_nonl (&af->date));
+			dump_number_file (stderr, af->name, &af->number);
+			ai++;
+		    } else {
+			fprintf (stderr, " b: %s ", ctime_nonl (&bf->date));
+			dump_number_file (stderr, bf->name, &bf->number);
+			bi++;
+		    }
+		} else {
+		    fprintf (stderr, "ab: %s ", ctime_nonl (&af->date));
+		    dump_number_file (stderr, af->name, &af->number);
+		    ai++;
+		    bi++;
+		}
+		fprintf (stderr, "\n");
+	    }
+	    which = "a ";
+	    if (ai >= a->nfiles) {
+		a = b;
+		ai = bi;
+		which = " b";
+	    }
+	    while (ai < a->nfiles) {
+		af = a->files[ai];
+		fprintf (stderr, "%s: ", which);
+		dump_number_file (stderr, af->name, &af->number);
+		fprintf (stderr, "\n");
+		ai++;
+	    }
+	}
+    }
+}
+
 int
 main (int argc, char **argv)
 {
@@ -245,6 +368,8 @@ main (int argc, char **argv)
     char	name[10240];
     char	*file;
 
+    /* force times using mktime to be interpreted in UTC */
+    setenv ("TZ", "UTC", 1);
     memset (stack, '\0', sizeof (stack));
     for (;;)
     {
@@ -297,6 +422,7 @@ main (int argc, char **argv)
     if (rl) {
 	dump_rev_graph (rl);
 //	dump_rev_info (rl);
+	dump_splits (rl);
     }
     rev_list_free (rl, 1);
     discard_atoms ();

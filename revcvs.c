@@ -19,40 +19,36 @@
 #include "cvs.h"
 
 static rev_file *
-rev_file_rev (cvs_file *cvs, cvs_number *n, time_t date, char *commitid)
+rev_file_rev (cvs_file *cvs, cvs_number *n, time_t date, char *commitid, char *log)
 {
     rev_file	*f = calloc (1, sizeof (rev_file));
-    cvs_patch	*p = cvs_find_patch (cvs, n);
 
     f->name = cvs->name;
     f->number = *n;
     f->date = date;
-    if (p)
-	f->log = p->log;
+    f->log = log;
     f->commitid = commitid;
     return f;
 }
 
 /*
- * Locate an entry for the specific file at the specific version
+ * Given a single-file tree, locate the specific version number
  */
 
 static rev_ent *
-rev_find_ent (rev_list *rl, char *name, cvs_number *number)
+rev_find_cvs_ent (rev_list *rl, cvs_number *number)
 {
     rev_branch	*b;
     rev_ent	*e;
     rev_file	*f;
-    int		i;
 
     for (b = rl->branches; b; b = b->next)
 	for (e = b->ent; e; e = e->parent)
-	    for (i = 0; i < e->nfiles; i++) {
-		f = e->files[i];
-		if (f->name == name &&
-		    cvs_number_compare (&f->number, number) == 0)
+	{
+	     f = e->files[0];
+	     if (cvs_number_compare (&f->number, number) == 0)
 		    return e;
-	    }
+	}
     return NULL;
 }
 
@@ -66,13 +62,23 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
     rev_ent	*head = NULL;
     cvs_version	*v;
     rev_ent	*e;
+    cvs_patch	*p;
 
     n = *branch;
     n.n[n.c-1] = 0;
     while ((v = cvs_find_version (cvs, &n))) {
 	e = calloc (1, sizeof (rev_ent) + sizeof (rev_file *));
-	e->nfiles = 1;
-	e->files[0] = rev_file_rev (cvs, &v->number, v->date, v->commitid);
+	p = cvs_find_patch (cvs, &v->number);
+	e->date = v->date;
+	e->commitid = v->commitid;
+	if (p)
+	    e->log = p->log;
+	if (v->dead)
+	    e->nfiles = 0;
+	else
+	    e->nfiles = 1;
+	/* leave this around so the branch merging stuff can find numbers */
+	e->files[0] = rev_file_rev (cvs, &v->number, v->date, v->commitid, e->log);
 	e->parent = head;
 	head = e;
 	n = v->number;
@@ -116,7 +122,7 @@ rev_list_patch_vendor_branch (rev_list *rl)
 	v = vendor->ent;
 	tail = &trunk->ent;
 	while (v) {
-	    if (time_compare (t->files[0]->date, v->files[0]->date) > 0) {
+	    if (time_compare (t->date, v->date) > 0) {
 		n = t;
 		t = t->parent;
 	    } else {
@@ -165,7 +171,7 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
 		    if (cvs_number_compare (&cb->number,
 					    &e->files[0]->number) == 0)
 		    {
-			e->parent = rev_find_ent (rl, cvs->name, &cv->number);
+			e->parent = rev_find_cvs_ent (rl, &cv->number);
 			e->tail = 1;
 			if (!e->parent) {
 			    dump_number ("can't find parent", &cv->number);
@@ -207,13 +213,11 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 		}
 	    if (!e) {
 		cvs_number	n;
-		char		*name;
 
-		name = rl->branches->ent->files[0]->name;
 		n = s->number;
 		while (n.c >= 4) {
 		    n.c -= 2;
-		    e = rev_find_ent (rl, name, &n);
+		    e = rev_find_cvs_ent (rl, &n);
 		    if (e)
 			break;
 		}
@@ -221,7 +225,7 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 	} else {
 	    head = 0;
 	    store = &rl->tags;
-	    e = rev_find_ent (rl, rl->branches->ent->files[0]->name, &s->number);
+	    e = rev_find_cvs_ent (rl, &s->number);
 	}
 	if (e)
 	    rev_ref_add (store, e, s->name, head);

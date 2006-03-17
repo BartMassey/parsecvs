@@ -103,6 +103,7 @@ revision	: NUMBER date author state branches next opt_commitid
 			$$->number = $1;
 			$$->date = $2;
 			$$->author = $3;
+			$$->dead = !strcmp ($4, "dead");
 			$$->branches = $5;
 			$$->parent = $6;
 			$$->commitid = $7;

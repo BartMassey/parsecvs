@@ -25,6 +25,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include <stdint.h>
 
 #define CVS_MAX_DEPTH	12
 
@@ -49,6 +50,7 @@ typedef struct _cvs_version {
     cvs_number		number;
     time_t		date;
     char		*author;
+    int			dead;
     cvs_branch		*branches;
     cvs_number		parent;	/* next in ,v file */
     char		*commitid;
@@ -82,6 +84,9 @@ typedef struct _rev_ent {
     struct _rev_ent	*parent;
     char		tail;
     char		seen;
+    time_t		date;
+    char		*log;
+    char		*commitid;
     int			nfiles;
     rev_file		*files[0];
 } rev_ent;
@@ -167,6 +172,9 @@ long
 time_compare (time_t a, time_t b);
 
 void
+dump_number_file (FILE *f, char *name, cvs_number *number);
+
+void
 dump_number (char *name, cvs_number *number);
 
 void
@@ -193,6 +201,13 @@ dump_refs (rev_ref *refs);
 void
 dump_rev_list (rev_list *rl);
 
+void
+dump_rev_info (rev_list *rl);
+
+void
+dump_rev_graph (rev_list *rl);
+
+
 extern int yylex (void);
 
 char *
@@ -215,6 +230,12 @@ rev_list_add_branch (rev_list *rl, rev_ent *ent);
 
 void
 rev_branch_free (rev_branch *branches, int free_files);
+
+int
+rev_file_later (rev_file *a, rev_file *b);
+
+int
+rev_ent_later (rev_ent *a, rev_ent *b);
 
 #define time_compare(a,b) ((long) (a) - (long) (b))
 
