@@ -26,6 +26,9 @@ void
 rev_ref_add (rev_ref **list, rev_ent *ent, char *name, int head)
 {
     rev_ref	*r;
+
+    while (*list)
+	list = &(*list)->next;
     r = calloc (1, sizeof (rev_ref));
     r->ent = ent;
     r->name = name;
@@ -50,10 +53,12 @@ void
 rev_list_add_branch (rev_list *rl, rev_ent *ent)
 {
     rev_branch	*b = calloc (1, sizeof (rev_branch));
+    rev_branch	**p;
 
-    b->next = rl->branches;
+    for (p = &rl->branches; *p; p = &(*p)->next);
+    b->next = *p;
     b->ent = ent;
-    rl->branches = b;
+    *p = b;
 }
 
 static rev_ref *
@@ -480,9 +485,11 @@ rev_list_merge (rev_list *a, rev_list *b)
     /*
      * Compute 'tail' values
      */
-    for (branch = rl->branches; branch; branch = branch->next)
-	branch->ent->seen = 1;
     for (branch = rl->branches; branch; branch = branch->next) {
+	if (branch->ent && branch->ent->seen) {
+	    branch->tail = 1;
+	    continue;
+	}
 	for (e = branch->ent; e; e = e->parent) {
 	    e->seen = 1;
 	    if (e->parent && e->parent->seen) {
@@ -569,7 +576,8 @@ rev_branch_free (rev_branch *branches, int free_files)
 
     while ((b = branches)) {
 	branches = b->next;
-	rev_ent_free (b->ent, free_files);
+	if (!b->tail)
+	    rev_ent_free (b->ent, free_files);
 	free (b);
     }
 }

@@ -93,6 +93,7 @@ typedef struct _rev_ent {
 typedef struct _rev_branch {
     struct _rev_branch	*next;
     rev_ent		*ent;
+    int			tail;
 } rev_branch;
 
 typedef struct _rev_ref {

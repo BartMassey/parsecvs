@@ -165,10 +165,17 @@ rev_list_patch_vendor_branch (rev_list *rl)
 		v = v->parent;
 	    v->parent = tp;
 	} else if (t && v) {
+	    /*
+	     * No commits to trunk, merge entire vendor branch
+	     * to trunk
+	     */
+	    trunk->ent = v;
 	    while (v->parent)
 		v = v->parent;
-	    v->tail = 1;
 	    v->parent = t;
+	    *vendor_p = vendor->next;
+	    free (vendor);
+	    vendor = NULL;
 	}
     }
     /*
@@ -303,12 +310,14 @@ rev_list_cvs (cvs_file *cvs)
 
 //    if (!strcmp (cvs->name, "/cvs/xorg/xserver/xorg/ChangeLog,v"))
 //    if (!strcmp (cvs->name, "/cvs/xorg/xserver/xorg/ChangeLog,v"))
-	rl->watch = 1;
+//	rl->watch = 1;
     /*
      * Generate trunk branch
      */
     one_one = lex_number ("1.1");
     trunk = rev_branch_cvs (cvs, &one_one);
+    if (trunk)
+	rev_list_add_branch (rl, trunk);
     /*
      * Search for other branches
      */
@@ -318,8 +327,6 @@ rev_list_cvs (cvs_file *cvs)
 	    rev_list_add_branch (rl, branch);
 	}
     }
-    if (trunk)
-	rev_list_add_branch (rl, trunk);
     rev_list_patch_vendor_branch (rl);
     rev_list_graft_branches (rl, cvs);
     rev_list_set_refs (rl, cvs);

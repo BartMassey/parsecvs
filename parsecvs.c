@@ -117,6 +117,10 @@ dump_log (char *log)
 	    continue;
 	if (log[j] < ' ')
 	    continue;
+	if (log[j] == '(' || log[j] == ')' ||
+	    log[j] == '[' || log[j] == ']' ||
+	    log[j] == '{' || log[j] == '}')
+	    continue;
 	if (log[j] == '"')
 	    putchar ('\\');
 	putchar (log[j]);
@@ -215,6 +219,8 @@ dump_rev_graph (rev_list *rl)
     dump_refs (rl->heads);
     dump_refs (rl->tags);
     for (b = rl->branches; b; b = b->next) {
+	if (b->tail)
+	    continue;
 	for (e = b->ent; e && e->parent; e = e->parent) {
 	    printf ("\t");
 	    dump_ent (e);
@@ -372,6 +378,7 @@ dump_rev_tree (rev_list *rl)
     rev_ref	*h;
     rev_ent	*e, *p;
     int		i;
+    int		tail;
 
     printf ("rev_list {\n");
     for (b = rl->branches; b; b = b->next) {
@@ -380,9 +387,14 @@ dump_rev_tree (rev_list *rl)
 		printf ("%s:\n", h->name);
 	}
 	printf ("\t{\n");
+	tail = b->tail;
 	for (e = b->ent; e; e = e->parent) {
 	    printf ("\t\t0x%x ", (int) e);
 	    dump_log (e->log);
+	    if (tail) {
+		printf ("\n\t\t...\n");
+		break;
+	    }
 	    printf (" {\n");
 	    if (e->parent && e->nfiles > 16) {
 		rev_file	*ef, *pf;
@@ -430,10 +442,7 @@ dump_rev_tree (rev_list *rl)
 		}
 	    }
 	    printf ("\t\t}\n");
-	    if (e->tail) {
-		printf ("\t\t...\n");
-		break;
-	    }
+	    tail = e->tail;
 #if 0	 
 	    if (time_compare (e->date, 1079499163) <= 0) {
 		printf ("\t\t...\n");
