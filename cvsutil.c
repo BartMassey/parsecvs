@@ -40,7 +40,12 @@ cvs_same_branch (cvs_number *a, cvs_number *b)
     if (a->c & 1) {
 	t = *a;
 	t.n[t.c++] = 0;
-	return cvs_same_branch (b, &t);
+	return cvs_same_branch (&t, b);
+    }
+    if (b->c & 1) {
+	t = *b;
+	t.n[t.c++] = 0;
+	return cvs_same_branch (a, &t);
     }
     if (a->c != b->c)
 	return 0;

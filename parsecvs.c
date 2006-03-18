@@ -153,7 +153,7 @@ dump_ent (rev_ent *e)
 }
 
 void
-dump_refs (rev_ref *refs)
+dump_refs (rev_ref *refs, char *title)
 {
     rev_ref	*r, *o;
     int		n;
@@ -162,6 +162,8 @@ dump_refs (rev_ref *refs)
 	if (!r->shown) {
 	    printf ("\t");
 	    printf ("\"");
+	    if (title)
+		printf ("%s\\n", title);
 	    n = 0;
 	    for (o = r; o; o = o->next)
 		if (!o->shown && o->ent == r->ent)
@@ -183,6 +185,8 @@ dump_refs (rev_ref *refs)
 	if (!r->shown) {
 	    printf ("\t");
 	    printf ("\"");
+	    if (title)
+		printf ("%s\\n", title);
 	    n = 0;
 	    for (o = r; o; o = o->next)
 		if (!o->shown && o->ent == r->ent)
@@ -205,33 +209,57 @@ dump_refs (rev_ref *refs)
 	r->shown = 0;
 }
 
+
 void
-dump_rev_graph (rev_list *rl)
+dump_rev_graph_nodes (rev_list *rl, char *title)
 {
     rev_branch	*b;
-    rev_ent	*e;
+    rev_ent	*e, *p;
+    int		tail;
 
-    printf ("digraph G {\n");
     printf ("nodesep=0.1;\n");
     printf ("ranksep=0.1;\n");
     printf ("edge [dir=none];\n");
     printf ("node [shape=box,fontsize=6];\n");
-    dump_refs (rl->heads);
-    dump_refs (rl->tags);
+    dump_refs (rl->heads, title);
+    dump_refs (rl->tags, title);
     for (b = rl->branches; b; b = b->next) {
 	if (b->tail)
 	    continue;
-	for (e = b->ent; e && e->parent; e = e->parent) {
+	for (e = b->ent; e; e = p) {
+	    p = e->parent;
+	    tail = e->tail;
+	    if (!p)
+		break;
 	    printf ("\t");
 	    dump_ent (e);
 	    printf (" -> ");
-	    dump_ent (e->parent);
+	    dump_ent (p);
 	    printf ("\n");
-	    if (e->tail)
+	    if (tail)
 		break;
 	}
     }
+}
+
+void
+dump_rev_graph_begin ()
+{
+    printf ("digraph G {\n");
+}
+
+void
+dump_rev_graph_end ()
+{
     printf ("}\n");
+}
+
+void
+dump_rev_graph (rev_list *rl, char *title)
+{
+    dump_rev_graph_begin ();
+    dump_rev_graph_nodes (rl, title);
+    dump_rev_graph_end ();
 }
 
 void
@@ -282,9 +310,10 @@ typedef struct _rev_split {
     struct _rev_split	*next;
     rev_ent		*childa, *childb;
     rev_ent		*parent;
+    rev_ent		*topa, *topb;
 } rev_split;
 
-static char *
+char *
 ctime_nonl (time_t *date)
 {
     char	*d = ctime (date);
@@ -302,6 +331,7 @@ dump_splits (rev_list *rl)
     int		ai, bi;
     rev_file	*af, *bf;
     char	*which;
+    rev_ref	*head;
 
     /* Find tails and mark splits */
     for (branch = rl->branches; branch; branch = branch->next) {
@@ -314,6 +344,7 @@ dump_splits (rev_list *rl)
 		    s = calloc (1, sizeof (rev_split));
 		    s->parent = e->parent;
 		    s->childa = e;
+		    s->topa = branch->ent;
 		    s->next = splits;
 		    splits = s;
 		}
@@ -323,13 +354,25 @@ dump_splits (rev_list *rl)
     for (s = splits; s; s = s->next) {
 	for (branch = rl->branches; branch; branch = branch->next) {
 	    for (e = branch->ent; e; e = e->parent) {
-		if (e->parent == s->parent && e != s->childa)
+		if (e->parent == s->parent && e != s->childa) {
 		    s->childb = e;
+		    s->topb = branch->ent;
+		}
 	    }
 	}
     }
     for (s = splits; s; s = s->next) {
 	if (s->parent && s->childa && s->childb) {
+	    for (head = rl->heads; head; head = head->next) {
+		if (head->ent == s->topa)
+		    fprintf (stderr, "%s ", head->name);
+	    }
+	    fprintf (stderr, "->");
+	    for (head = rl->heads; head; head = head->next) {
+		if (head->ent == s->topb)
+		    fprintf (stderr, "%s ", head->name);
+	    }
+	    fprintf (stderr, "\n");
 	    a = s->childa;
 	    b = s->childb;
 	    ai = bi = 0;
@@ -346,13 +389,14 @@ dump_splits (rev_list *rl)
 			dump_number_file (stderr, bf->name, &bf->number);
 			bi++;
 		    }
+		    fprintf (stderr, "\n");
 		} else {
-		    fprintf (stderr, "ab: %s ", ctime_nonl (&af->date));
-		    dump_number_file (stderr, af->name, &af->number);
+//		    fprintf (stderr, "ab: %s ", ctime_nonl (&af->date));
+//		    dump_number_file (stderr, af->name, &af->number);
+//		    fprintf (stderr, "\n");
 		    ai++;
 		    bi++;
 		}
-		fprintf (stderr, "\n");
 	    }
 	    which = "a ";
 	    if (ai >= a->nfiles) {
@@ -381,6 +425,7 @@ dump_rev_tree (rev_list *rl)
     int		tail;
 
     printf ("rev_list {\n");
+
     for (b = rl->branches; b; b = b->next) {
 	for (h = rl->heads; h; h = h->next) {
 	    if (h->ent == b->ent)
@@ -388,7 +433,7 @@ dump_rev_tree (rev_list *rl)
 	}
 	printf ("\t{\n");
 	tail = b->tail;
-	for (e = b->ent; e; e = e->parent) {
+	for (e = b->ent; e; e = p) {
 	    printf ("\t\t0x%x ", (int) e);
 	    dump_log (e->log);
 	    if (tail) {
@@ -396,10 +441,11 @@ dump_rev_tree (rev_list *rl)
 		break;
 	    }
 	    printf (" {\n");
-	    if (e->parent && e->nfiles > 16) {
+	    
+	    p = e->parent;
+	    if (p && e->nfiles > 16) {
 		rev_file	*ef, *pf;
 		int		ei, pi;
-		p = e->parent;
 		ei = pi = 0;
 		while (ei < e->nfiles && pi < p->nfiles) {
 		    ef = e->files[ei];
@@ -522,7 +568,7 @@ main (int argc, char **argv)
     }
 //    fprintf (stderr, "\n");
     if (rl) {
-	dump_rev_graph (rl);
+//	dump_rev_graph (rl, NULL);
 //	dump_rev_info (rl);
 	if (rl->watch)
 	    dump_rev_tree (rl);

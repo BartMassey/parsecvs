@@ -72,7 +72,7 @@ atom (char *string)
     if (len > 10000)
 	printf ("long string\n");
     while ((b = *head)) {
-	if (b->crc == crc && !memcmp (string, b->string, len + 1))
+	if (b->crc == crc && !strcmp (string, b->string))
 	    return b->string;
 	head = &(b->next);
     }

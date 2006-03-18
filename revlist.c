@@ -191,14 +191,14 @@ rev_file_copy (rev_ent *src, rev_ent *dst)
 }
 
 /*
- * Commits further than 5 minutes apart are assume to be different
+ * Commits further than 60 minutes apart are assume to be different
  */
 static int
 commit_time_close (time_t a, time_t b)
 {
     long	diff = a - b;
     if (diff < 0) diff = -diff;
-    if (diff < 5 * 60)
+    if (diff < 60 * 60)
 	return 1;
     return 0;
 }
@@ -297,16 +297,54 @@ rev_ent_dump (char *title, rev_ent *e, rev_ent *m)
 
 	d = ctime(&e->date);
 	d[strlen(d)-1] = '\0';
-	printf ("%c0x%x %s", e == m ? '>' : ' ',
+	printf ("%c0x%x %s\n", e == m ? '>' : ' ',
 		(int) e, d);
 	for (i = 0; i < e->nfiles; i++) {
 	    d = ctime(&e->files[i]->date);
 	    d[strlen(d)-1] = '\0';
-	    printf (" (%d) %s", i, d);
+	    printf ("\t%s", d);
+	    dump_number (e->files[i]->name, &e->files[i]->number);
+	    printf ("\n");
 	}
 	printf ("\n");
 	e = e->parent;
     }
+}
+
+static char *happy (rev_ent *prev, rev_ent *e)
+{
+    rev_file	*ef, *pf;
+    int		pi;
+
+    /*
+     * Check for in-order dates
+     */
+    if (time_compare (prev->date, e->date) < 0)
+	return "time out of order";
+    
+    if (e->nfiles) {
+	ef = e->files[0];
+	/* Make sure at least the leading file stays on the same cvs branch */
+	for (pi = 0; pi < prev->nfiles; pi++) {
+	    pf = prev->files[pi];
+	    if (pf->name == ef->name) {
+		cvs_number	pn;
+		pn = pf->number;
+		while (pn.c >= 2) {
+		    if (cvs_same_branch (&pn, &ef->number))
+			break;
+		    pn.c -= 2;
+		}
+		if (!pn.c) {
+		    if (!cvs_is_vendor (&ef->number) && !cvs_is_vendor (&pf->number))
+			return "leading file leaves branch";
+		}
+		break;
+
+	    }
+	}
+    }
+    return 0;
 }
 
 static rev_ent *
@@ -318,6 +356,7 @@ rev_branch_merge (rev_ent *a, rev_ent *b)
     rev_ent	**patch = NULL;
     rev_ent	*e, *prev = NULL;
     rev_ent	*skip = NULL;
+    char	*h;
 
     while (a && b)
     {
@@ -334,27 +373,31 @@ rev_branch_merge (rev_ent *a, rev_ent *b)
 //	    printf ("0x%x + 0x%x -> 0x%x\n", a, b, e);
 	    rev_file_merge (a, b, e);
 	    rev_branch_mark_merged (a, b, e);
-	    if (!rev_branch_find_merged (a, NULL))
-		rev_branch_mark_merged (a, NULL, e);
-	    if (!rev_branch_find_merged (b, NULL))
-		rev_branch_mark_merged (b, NULL, e);
-	    if (prev &&
-		time_compare (prev->date, e->date) < 0)
+	    if (prev && (h = happy (prev, e)))
 	    {
 		*tail = e;
+		printf ("not happy %s\n", h);
 		rev_ent_dump ("a", ao, a);
 		rev_ent_dump ("b", bo, b);
 		rev_ent_dump ("e", head, e);
 		abort ();
 	    }
 	    if (rev_ent_match (a, b)) {
+		if (!rev_branch_find_merged (a, NULL))
+		    rev_branch_mark_merged (a, NULL, e);
+		if (!rev_branch_find_merged (b, NULL))
+		    rev_branch_mark_merged (b, NULL, e);
 		a = a->parent;
 		b = b->parent;
 	    } else {
 		if (rev_ent_later (a, b)) {
+		    if (!rev_branch_find_merged (a, NULL))
+			rev_branch_mark_merged (a, NULL, e);
 		    skip = b;
 		    a = a->parent;
 		} else {
+		    if (!rev_branch_find_merged (b, NULL))
+			rev_branch_mark_merged (b, NULL, e);
 		    skip = a;
 		    b = b->parent;
 		}
@@ -397,8 +440,9 @@ rev_branch_merge (rev_ent *a, rev_ent *b)
 	    if (prev)
 		assert (time_compare (prev->date, e->date) >= 0);
 	    a = a->parent;
-	    if (patch)
+	    if (patch) {
 		*patch = e;
+	    }
 	}
 	*tail = e;
 	tail = &e->parent;
@@ -423,12 +467,94 @@ rev_list_unique_add_branch (rev_list *rl, rev_ent *ent)
     rev_list_add_branch (rl, ent);
 }
 
+static int
+rev_ent_validate (rev_ent *e)
+{
+    rev_ent	*p = e->parent;
+    int		ei, pi;
+    rev_file	*ef, *pf;
+
+    if (!p)
+	return 1;
+    for (ei = 0; ei < e->nfiles; ei++) {
+	ef = e->files[ei];
+	for (pi = 0; pi < p->nfiles; pi++) {
+	    pf = p->files[pi];
+	    if (ef->name == pf->name) {
+		if (!cvs_same_branch (&ef->number, &pf->number)) {
+		    if ((cvs_is_vendor (&ef->number) && cvs_is_trunk (&pf->number)) ||
+			(cvs_is_vendor (&pf->number) && cvs_is_trunk (&ef->number)))
+			break;
+		    return 0;
+		}
+	    }
+	}
+    }
+    return 1;
+}
+
+static int
+head_loc (rev_ref *a, rev_list *rl)
+{
+    int	i = 0;
+    rev_ref	*h;
+
+    for (h = rl->heads; h; h = h->next) {
+	if (h->name == a->name)
+	    return i;
+	i++;
+    }
+    return -1;
+}
+
+static int
+head_order (rev_ref *a, rev_ref *b, rev_list *rl)
+{
+    int	al = head_loc (a, rl);
+    int bl = head_loc (b, rl);
+
+    if (al == -1 || bl == -1)
+	return 0;
+    return al - bl;
+}
+
+static rev_ent *
+rev_branchpoint (rev_ref *r)
+{
+    rev_ent	*e;
+    for (e = r->ent; e; e = e->parent)
+	if (e->seen > 1)
+	    break;
+    return e;
+}
+
+void
+rev_list_set_tail (rev_list *rl)
+{
+    rev_branch	*branch;
+    rev_ent	*e;
+    int		tail = 1;
+
+    for (branch = rl->branches; branch; branch = branch->next) {
+	if (branch->ent && branch->ent->seen) {
+	    branch->tail = tail;
+	    tail = 0;
+	}
+	for (e = branch->ent; e; e = e->parent) {
+	    if (tail && e->parent && e->seen < e->parent->seen) {
+		e->tail = 1;
+		tail = 0;
+	    }
+	    e->seen++;
+	}
+    }
+}
+
 rev_list *
 rev_list_merge (rev_list *a, rev_list *b)
 {
     rev_list	*rl = calloc (1, sizeof (rev_list));
-    rev_ref	*h, *ah, *bh;
-    rev_branch	*branch;
+    rev_ref	*h, *ah, *bh, **hp;
     rev_ent	*e;
     rev_ref	*at, *bt;
 
@@ -439,31 +565,72 @@ rev_list_merge (rev_list *a, rev_list *b)
     for (bh = b->heads; bh; bh = bh->next)
 	if (!rev_find_head (rl, bh->name))
 	    rev_list_add_head (rl, NULL, bh->name);
-    
+#if 0
     /*
-     * Merge common branches
+     * Topologically sort heads
      */
-    for (h = rl->heads; h; h = h->next) {
-	ah = rev_find_head (a, h->name);
-	bh = rev_find_head (b, h->name);
-	if (ah && bh) {
-	    h->ent = rev_branch_merge (ah->ent, bh->ent);
-	    rev_list_unique_add_branch (rl, h->ent);
+    for (hp = &rl->heads; (h = *hp);)
+    {
+	int	ao, bo;
+	if (!h->next)
+	    break;
+	ao = head_order (h, h->next, a);
+	bo = head_order (h, h->next, b);
+	if (ao > 0 || bo > 0) {
+	    if (ao < 0 || bo < 0) {
+		fprintf (stderr, "can't sort heads\n");
+		break;
+	    }
+	    *hp = h->next;
+	    h->next = h->next->next;
+	    (*hp)->next = h;
+	    hp = &rl->heads;
+	} else {
+	    hp = &h->next;
 	}
     }
     /*
-     * Add the solitary branches
+     * validate topo sort
      */
+    for (ah = a->heads, h = rl->heads; ah && h;)
+    {
+	if (ah->name == h->name)
+	    ah = ah->next;
+	h = h->next;
+    }
+    assert (!ah);
+    for (bh = b->heads, h = rl->heads; bh && h;)
+    {
+	if (bh->name == h->name)
+	    bh = bh->next;
+	h = h->next;
+    }
+    assert (!bh);
+#endif    
+    /*
+     * Merge common branches
+     */
+//    fprintf (stderr, "merge branches...\n");
     for (h = rl->heads; h; h = h->next) {
 	if (h->ent)
 	    continue;
 	ah = rev_find_head (a, h->name);
-	if (!ah)
-	    ah = rev_find_head (b, h->name);
-	if (ah) {
-	    h->ent = rev_branch_copy (ah->ent);
+	bh = rev_find_head (b, h->name);
+//	fprintf (stderr, "\tmerge branch %s\n", h->name);
+	if (ah && bh)
+	    h->ent = rev_branch_merge (ah->ent, bh->ent);
+	if (h->ent)
 	    rev_list_unique_add_branch (rl, h->ent);
-	}
+    }
+    for (h = rl->heads; h; h = h->next) {
+	if (h->ent)
+	    continue;
+	if ((ah = rev_find_head (a, h->name)))
+	    h->ent = rev_branch_copy (ah->ent);
+	else if ((bh = rev_find_head (b, h->name)))
+	    h->ent = rev_branch_copy (bh->ent);
+	if (h->ent)
+	    rev_list_unique_add_branch (rl, h->ent);
     }
     /*
      * Find tag locations
@@ -485,18 +652,43 @@ rev_list_merge (rev_list *a, rev_list *b)
     /*
      * Compute 'tail' values
      */
-    for (branch = rl->branches; branch; branch = branch->next) {
-	if (branch->ent && branch->ent->seen) {
-	    branch->tail = 1;
+    rev_list_set_tail (rl);
+    for (h = rl->heads; h; h = h->next) {
+	rev_ent	*ht, *at = NULL, *bt = NULL;
+
+/*	if (h->ent->used)
+	continue; */
+	h->ent->used = 1;
+	ht = rev_branchpoint (h);
+	if (!ht)
 	    continue;
+	ah = rev_find_head (a, h->name);
+	bh = rev_find_head (b, h->name);
+	if (ah)
+	    at = rev_branchpoint (ah);
+	if (bh)
+	    bt = rev_branchpoint (bh);
+
+	if (!at && !bt)
+	    continue;
+	
+	if ((at && ht->date == at->date) ||
+	    (bt && ht->date == bt->date))
+	    continue;
+
+	if (0) {
+	    dump_rev_graph_begin ();
+	    dump_rev_graph_nodes (rl, "new");
+	    dump_rev_graph_nodes (a, "a");
+	    dump_rev_graph_nodes (b, "b");
+	    dump_rev_graph_end ();
+	} else {
+	    printf ("%s\n", h->name);
+	    rev_ent_dump ("h", h->ent, ht);
+	    rev_ent_dump ("a", ah->ent, at);
+	    rev_ent_dump ("b", bh->ent, bt);
 	}
-	for (e = branch->ent; e; e = e->parent) {
-	    e->seen = 1;
-	    if (e->parent && e->parent->seen) {
-		e->tail = 1;
-		break;
-	    }
-	}
+	exit (0);
     }
     rev_branch_discard_merged ();
     return rl;
@@ -556,16 +748,16 @@ rev_ent_free (rev_ent *ent, int free_files)
     rev_ent	*e;
 
     while ((e = ent)) {
-	if (e->tail)
-	    ent = NULL;
-	else
-	    ent = e->parent;
-	if (free_files) {
-	    int i;
-	    for (i = 0; i < e->nfiles; i++)
-		rev_file_mark_for_free (e->files[i]);
+	ent = e->parent;
+	if (--e->seen == 0)
+	{
+	    if (free_files) {
+		int i;
+		for (i = 0; i < e->nfiles; i++)
+		    rev_file_mark_for_free (e->files[i]);
+	    }
+	    free (e);
 	}
-	free (e);
     }
 }
 
@@ -576,8 +768,7 @@ rev_branch_free (rev_branch *branches, int free_files)
 
     while ((b = branches)) {
 	branches = b->next;
-	if (!b->tail)
-	    rev_ent_free (b->ent, free_files);
+	rev_ent_free (b->ent, free_files);
 	free (b);
     }
 }

@@ -83,6 +83,7 @@ typedef struct _rev_ent {
     struct _rev_ent	*parent;
     char		tail;
     char		seen;
+    char		used;
     time_t		date;
     char		*log;
     char		*commitid;
@@ -102,6 +103,7 @@ typedef struct _rev_ref {
     int			head;
     char		*name;
     int			shown;
+    time_t		date;
 } rev_ref;
 
 typedef struct {
@@ -114,6 +116,9 @@ typedef struct {
 extern cvs_file     *this_file;
 
 int yyparse (void);
+
+char *
+ctime_nonl (time_t *date);
 
 cvs_number
 lex_number (char *);
@@ -197,7 +202,7 @@ void
 dump_ent (rev_ent *e);
 
 void
-dump_refs (rev_ref *refs);
+dump_refs (rev_ref *refs, char *title);
 
 void
 dump_rev_list (rev_list *rl);
@@ -209,7 +214,16 @@ void
 dump_splits (rev_list *rl);
 
 void
-dump_rev_graph (rev_list *rl);
+dump_rev_graph_begin (void);
+
+void
+dump_rev_graph_nodes (rev_list *rl, char *title);
+
+void
+dump_rev_graph_end (void);
+
+void
+dump_rev_graph (rev_list *rl, char *title);
 
 void
 dump_rev_tree (rev_list *rl);
@@ -242,6 +256,9 @@ rev_file_free (rev_file *f);
 
 void
 rev_branch_free (rev_branch *branches, int free_files);
+
+void
+rev_list_set_tail (rev_list *rl);
 
 int
 rev_file_later (rev_file *a, rev_file *b);

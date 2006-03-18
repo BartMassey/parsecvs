@@ -80,8 +80,8 @@ lock_type	: STRICT
 symbollist	: SYMBOLS symbols SEMI
 		  { $$ = $2; }
 		;
-symbols		: symbol symbols
-		  { $1->next = $2; $$ = $1; }
+symbols		: symbols symbol
+		  { $2->next = $1; $$ = $2; }
 		|
 		  { $$ = NULL; }
 		;

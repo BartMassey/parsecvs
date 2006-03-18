@@ -85,7 +85,7 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
  * branches together as if they were the same
  */
 static void
-rev_list_patch_vendor_branch (rev_list *rl)
+rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 {
     rev_branch	*trunk = NULL;
     rev_branch	*vendor = NULL, **vendor_p = NULL;
@@ -93,11 +93,17 @@ rev_list_patch_vendor_branch (rev_list *rl)
     rev_ent	*t, *v;
     rev_ent	*tp, *tc, *vc;
     rev_branch	**b_p;
+    cvs_number	default_branch;
+
+    if (cvs->branch.c == 3)
+	default_branch = cvs->branch;
+    else
+	default_branch = lex_number ("1.1.1");
 
     for (b_p = &rl->branches; (b = *b_p); b_p = &(b->next)) {
 	if (cvs_is_trunk (&b->ent->files[0]->number))
 	    trunk = b;
-	if (cvs_is_vendor (&b->ent->files[0]->number)) {
+	if (cvs_same_branch (&b->ent->files[0]->number, &default_branch)) {
 	    vendor = b;
 	    vendor_p = b_p;
 	}
@@ -153,7 +159,6 @@ rev_list_patch_vendor_branch (rev_list *rl)
 	     */
 	
 	    if (vc) {
-		vc->tail = 1;
 		vc->parent = t;
 	    } else {
 		*vendor_p = vendor->next;
@@ -203,12 +208,8 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
      * Glue branches together
      */
     for (b = rl->branches; b; b = b->next) {
-	for (e = b->ent; e && e->parent; e = e->parent) {
-	    if (e->tail) {
-		e = NULL;
-		break;
-	    }
-	}
+	for (e = b->ent; e && e->parent; e = e->parent)
+	    ;
 	if (e) {
 	    for (cv = cvs->versions; cv; cv = cv->next) {
 		for (cb = cv->branches; cb; cb = cb->next) {
@@ -216,11 +217,6 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
 					    &e->files[0]->number) == 0)
 		    {
 			e->parent = rev_find_cvs_ent (rl, &cv->number);
-			e->tail = 1;
-			if (!e->parent) {
-			    dump_number ("can't find parent", &cv->number);
-			    printf ("\n");
-			}
 		    }
 		}
 	    }
@@ -302,11 +298,11 @@ rev_list *
 rev_list_cvs (cvs_file *cvs)
 {
     rev_list	*rl = calloc (1, sizeof (rev_list));
-    cvs_version	*cv;
-    cvs_branch	*cb;
     cvs_number	one_one;
     rev_ent	*trunk; 
     rev_ent	*branch;
+    cvs_symbol	*s;
+    cvs_number	n;
 
 //    if (!strcmp (cvs->name, "/cvs/xorg/xserver/xorg/ChangeLog,v"))
 //    if (!strcmp (cvs->name, "/cvs/xorg/xserver/xorg/ChangeLog,v"))
@@ -321,15 +317,22 @@ rev_list_cvs (cvs_file *cvs)
     /*
      * Search for other branches
      */
-    for (cv = cvs->versions; cv; cv = cv->next) {
-	for (cb = cv->branches; cb; cb = cb->next) {
-	    branch = rev_branch_cvs (cvs, &cb->number);
-	    rev_list_add_branch (rl, branch);
+//    printf ("building branches for %s\n", cvs->name);
+    for (s = cvs->symbols; s; s = s->next) {
+	if (cvs_is_head (&s->number)) {
+//	    printf ("\tbuild branch %s\n", s->name);
+	    n = s->number;
+	    n.n[n.c-2] = n.n[n.c-1];
+	    n.n[n.c-1] = 0;
+	    branch = rev_branch_cvs (cvs, &n);
+	    if (branch)
+		rev_list_add_branch (rl, branch);
 	}
     }
-    rev_list_patch_vendor_branch (rl);
+    rev_list_patch_vendor_branch (rl, cvs);
     rev_list_graft_branches (rl, cvs);
     rev_list_set_refs (rl, cvs);
+    rev_list_set_tail (rl);
     rev_list_free_dead_files (rl);
     return rl;
 }
