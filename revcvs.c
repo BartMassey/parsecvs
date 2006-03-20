@@ -25,17 +25,22 @@
 static rev_ent *
 rev_find_cvs_ent (rev_list *rl, cvs_number *number)
 {
-    rev_branch	*b;
+    rev_ref	*h;
     rev_ent	*e;
     rev_file	*f;
 
-    for (b = rl->branches; b; b = b->next)
-	for (e = b->ent; e; e = e->parent)
+    for (h = rl->heads; h; h = h->next) {
+	if (h->tail)
+	    continue;
+	for (e = h->ent; e; e = e->parent)
 	{
 	     f = e->files[0];
 	     if (cvs_number_compare (&f->number, number) == 0)
 		    return e;
+	     if (e->tail)
+		 break;
 	}
+    }
     return NULL;
 }
 
@@ -87,12 +92,12 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 static void
 rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 {
-    rev_branch	*trunk = NULL;
-    rev_branch	*vendor = NULL, **vendor_p = NULL;
-    rev_branch	*b;
+    rev_ref	*trunk = NULL;
+    rev_ref	*vendor = NULL, **vendor_p = NULL;
+    rev_ref	*h;
     rev_ent	*t, *v;
     rev_ent	*tp, *tc, *vc;
-    rev_branch	**b_p;
+    rev_ref	**h_p;
     cvs_number	default_branch;
 
     if (cvs->branch.c == 3)
@@ -100,13 +105,15 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
     else
 	default_branch = lex_number ("1.1.1");
 
-    for (b_p = &rl->branches; (b = *b_p); b_p = &(b->next)) {
-	if (cvs_is_trunk (&b->ent->files[0]->number))
-	    trunk = b;
-	if (cvs_same_branch (&b->ent->files[0]->number, &default_branch)) {
-	    vendor = b;
-	    vendor_p = b_p;
-	}
+    for (h_p = &rl->heads; (h = *h_p); h_p = &(h->next)) {
+	if (!trunk)
+	    if (cvs_is_trunk (&h->ent->files[0]->number))
+		trunk = h;
+	if (!vendor)
+	    if (cvs_same_branch (&h->ent->files[0]->number, &default_branch)) {
+		vendor = h;
+		vendor_p = h_p;
+	    }
     }
     assert (trunk);
     assert (trunk != vendor);
@@ -183,12 +190,8 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 	    vendor = NULL;
 	}
     }
-    /*
-     * Set HEAD tag
-     */
-    rev_list_add_head (rl, trunk->ent, "HEAD");
     if (vendor)
-	rev_list_add_head (rl, vendor->ent, "VENDOR-BRANCH");
+	vendor->name = atom ("VENDOR-BRANCH");
 }
 
 /*
@@ -199,7 +202,7 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 static void
 rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
 {
-    rev_branch	*b;
+    rev_ref	*h;
     rev_ent	*e;
     cvs_version	*cv;
     cvs_branch	*cb;
@@ -207,9 +210,14 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
     /*
      * Glue branches together
      */
-    for (b = rl->branches; b; b = b->next) {
-	for (e = b->ent; e && e->parent; e = e->parent)
-	    ;
+    for (h = rl->heads; h; h = h->next) {
+	if (h->tail)
+	    continue;
+	for (e = h->ent; e && e->parent; e = e->parent)
+	    if (e->tail) {
+		e = NULL;
+		break;
+	    }
 	if (e) {
 	    for (cv = cvs->versions; cv; cv = cv->next) {
 		for (cb = cv->branches; cb; cb = cb->next) {
@@ -217,6 +225,7 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
 					    &e->files[0]->number) == 0)
 		    {
 			e->parent = rev_find_cvs_ent (rl, &cv->number);
+			e->tail = 1;
 		    }
 		}
 	    }
@@ -231,11 +240,9 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
 static void
 rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 {
-    rev_branch	*b;
+    rev_ref	*h;
     cvs_symbol	*s;
     rev_ent	*e;
-    rev_ref	**store;
-    int		head;
     
     /*
      * Locate a symbolic name for this head
@@ -243,15 +250,16 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
     for (s = cvs->symbols; s; s = s->next) {
 	e = NULL;
 	if (cvs_is_head (&s->number)) {
-	    store = &rl->heads;
-	    head = 1;
-	    for (b = rl->branches; b; b = b->next)
-		if (cvs_same_branch (&b->ent->files[0]->number, &s->number))
-		{
-		    e = b->ent;
+	    for (h = rl->heads; h; h = h->next) {
+		if (cvs_same_branch (&h->ent->files[0]->number, &s->number))
 		    break;
-		}
-	    if (!e) {
+	    }
+	    if (h) {
+		if (!h->name)
+		    h->name = s->name;
+		else
+		    rev_list_add_head (rl, h->ent, s->name);
+	    } else {
 		cvs_number	n;
 
 		n = s->number;
@@ -261,14 +269,14 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 		    if (e)
 			break;
 		}
+		if (e)
+		    rev_list_add_head (rl, e, s->name);
 	    }
 	} else {
-	    head = 0;
-	    store = &rl->tags;
 	    e = rev_find_cvs_ent (rl, &s->number);
+	    if (e)
+		rev_list_add_tag (rl, e, s->name);
 	}
-	if (e)
-	    rev_ref_add (store, e, s->name, head);
     }
 }
 
@@ -281,16 +289,92 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 static void
 rev_list_free_dead_files (rev_list *rl)
 {
-    rev_branch	*b;
+    rev_ref	*h;
     rev_ent	*e;
 
-    for (b = rl->branches; b; b = b->next) {
-	for (e = b->ent; e; e = e->parent) {
+    for (h = rl->heads; h; h = h->next) {
+	if (h->tail)
+	    continue;
+	for (e = h->ent; e; e = e->parent) {
 	    if (e->nfiles == 0)
 		rev_file_free (e->files[0]);
 	    if (e->tail)
 		break;
 	}
+    }
+}
+
+static int
+rev_order_compare (cvs_number *a, cvs_number *b)
+{
+    if (a->c != b->c)
+	return a->c - b->c;
+    return cvs_number_compare (b, a);
+}
+
+static cvs_symbol *
+cvs_find_symbol (cvs_file *cvs, char *name)
+{
+    cvs_symbol	*s;
+
+    for (s = cvs->symbols; s; s = s->next)
+	if (s->name == name)
+	    return s;
+    return NULL;
+}
+
+static int
+cvs_symbol_compare (cvs_symbol *a, cvs_symbol *b)
+{
+    if (!a) {
+	if (!b) return 0;
+	return -1;
+    }
+    if (!b)
+	return 1;
+    return cvs_number_compare (&a->number, &b->number);
+}
+
+static void
+rev_list_sort_heads (rev_list *rl, cvs_file *cvs)
+{
+    rev_ref	*h, **hp;
+    cvs_symbol	*hs, *hns;
+
+    for (hp = &rl->heads; (h = *hp);) {
+	if (!h->next)
+	    break;
+	hs = cvs_find_symbol (cvs, h->name);
+	hns = cvs_find_symbol (cvs, h->next->name);
+	if (cvs_symbol_compare (hs, hns) > 0) {
+	    *hp = h->next;
+	    h->next = h->next->next;
+	    (*hp)->next = h;
+	    hp = &rl->heads;
+	} else {
+	    hp = &h->next;
+	}
+    }
+    return;
+    fprintf (stderr, "Sorted heads\n");
+    for (h = rl->heads; h;) {
+	fprintf (stderr, "\t");
+	for (;;) {
+	    hs = cvs_find_symbol (cvs, h->name);
+	    if (hs)
+		dump_number_file (stderr, h->name,
+				  &hs->number);
+	    else
+		fprintf (stderr, "%s 1.1", h->name);
+	    if (!h->next)
+		break;
+	    if (h->next->ent != h->ent)
+		break;
+	    fprintf (stderr, " ");
+	    h = h->next;
+	}
+	fprintf (stderr, "\n");
+	h = h->next;
     }
 }
 
@@ -301,8 +385,8 @@ rev_list_cvs (cvs_file *cvs)
     cvs_number	one_one;
     rev_ent	*trunk; 
     rev_ent	*branch;
-    cvs_symbol	*s;
-    cvs_number	n;
+    cvs_version	*cv;
+    cvs_branch	*cb;
 
 //    if (!strcmp (cvs->name, "/cvs/xorg/xserver/xorg/ChangeLog,v"))
 //    if (!strcmp (cvs->name, "/cvs/xorg/xserver/xorg/ChangeLog,v"))
@@ -313,25 +397,23 @@ rev_list_cvs (cvs_file *cvs)
     one_one = lex_number ("1.1");
     trunk = rev_branch_cvs (cvs, &one_one);
     if (trunk)
-	rev_list_add_branch (rl, trunk);
+	rev_list_add_head (rl, trunk, atom ("HEAD"));
     /*
      * Search for other branches
      */
 //    printf ("building branches for %s\n", cvs->name);
-    for (s = cvs->symbols; s; s = s->next) {
-	if (cvs_is_head (&s->number)) {
-//	    printf ("\tbuild branch %s\n", s->name);
-	    n = s->number;
-	    n.n[n.c-2] = n.n[n.c-1];
-	    n.n[n.c-1] = 0;
-	    branch = rev_branch_cvs (cvs, &n);
-	    if (branch)
-		rev_list_add_branch (rl, branch);
+    
+    for (cv = cvs->versions; cv; cv = cv->next) {
+	for (cb = cv->branches; cb; cb = cb->next)
+	{
+	    branch = rev_branch_cvs (cvs, &cb->number);
+	    rev_list_add_head (rl, branch, NULL);
 	}
     }
     rev_list_patch_vendor_branch (rl, cvs);
     rev_list_graft_branches (rl, cvs);
     rev_list_set_refs (rl, cvs);
+    rev_list_sort_heads (rl, cvs);
     rev_list_set_tail (rl);
     rev_list_free_dead_files (rl);
     return rl;

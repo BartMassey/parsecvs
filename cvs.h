@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdint.h>
+#include <ctype.h>
 
 #define CVS_MAX_DEPTH	12
 
@@ -63,6 +64,7 @@ typedef struct _cvs_patch {
     char		*text;
 } cvs_patch;
 
+
 typedef struct {
     char		*name;
     cvs_number		head;
@@ -84,30 +86,26 @@ typedef struct _rev_ent {
     char		tail;
     char		seen;
     char		used;
+    char		removing;
     time_t		date;
     char		*log;
     char		*commitid;
     int			nfiles;
+    struct _rev_ent	*user;
     rev_file		*files[0];
 } rev_ent;
-
-typedef struct _rev_branch {
-    struct _rev_branch	*next;
-    rev_ent		*ent;
-    int			tail;
-} rev_branch;
 
 typedef struct _rev_ref {
     struct _rev_ref	*next;
     rev_ent		*ent;
     int			head;
+    int			tail;
     char		*name;
     int			shown;
     time_t		date;
 } rev_ref;
 
 typedef struct {
-    rev_branch	*branches;
     rev_ref	*heads;
     rev_ref	*tags;
     int		watch;
@@ -205,10 +203,13 @@ void
 dump_refs (rev_ref *refs, char *title);
 
 void
-dump_rev_list (rev_list *rl);
+dump_rev_ent (rev_ent *e);
 
 void
-dump_rev_info (rev_list *rl);
+dump_rev_head (rev_ref *h);
+
+void
+dump_rev_list (rev_list *rl);
 
 void
 dump_splits (rev_list *rl);
@@ -255,7 +256,7 @@ void
 rev_file_free (rev_file *f);
 
 void
-rev_branch_free (rev_branch *branches, int free_files);
+rev_head_free (rev_ref *heads, int free_files);
 
 void
 rev_list_set_tail (rev_list *rl);

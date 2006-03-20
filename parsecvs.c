@@ -111,8 +111,6 @@ dump_log (char *log)
 	    if (j > 5) break;
 	    continue;
 	}
-	if (log[j] == '.')
-	    break;
 	if (log[j] & 0x80)
 	    continue;
 	if (log[j] < ' ')
@@ -124,11 +122,13 @@ dump_log (char *log)
 	if (log[j] == '"')
 	    putchar ('\\');
 	putchar (log[j]);
+	if (log[j] == '.' && isspace (log[j+1]))
+	    break;
     }
 }
 
 void
-dump_ent (rev_ent *e)
+dump_ent_graph (rev_ent *e)
 {
     rev_file	*f;
     int		i;
@@ -136,6 +136,8 @@ dump_ent (rev_ent *e)
 
     printf ("\"");
 #if 1
+    if (e->tail)
+	printf ("TAIL *** ");
     date = ctime (&e->date);
     date[strlen(date)-1] = '\0';
     printf ("%s\\n", date);
@@ -164,6 +166,8 @@ dump_refs (rev_ref *refs, char *title)
 	    printf ("\"");
 	    if (title)
 		printf ("%s\\n", title);
+	    if (r->tail)
+		printf ("TAIL\\n");
 	    n = 0;
 	    for (o = r; o; o = o->next)
 		if (!o->shown && o->ent == r->ent)
@@ -187,6 +191,8 @@ dump_refs (rev_ref *refs, char *title)
 	    printf ("\"");
 	    if (title)
 		printf ("%s\\n", title);
+	    if (r->tail)
+		printf ("TAIL\\n");
 	    n = 0;
 	    for (o = r; o; o = o->next)
 		if (!o->shown && o->ent == r->ent)
@@ -201,7 +207,7 @@ dump_refs (rev_ref *refs, char *title)
 		}
 	    printf ("\"");
 	    printf (" -> ");
-	    dump_ent (r->ent);
+	    dump_ent_graph (r->ent);
 	    printf ("\n");
 	}
     }
@@ -213,7 +219,7 @@ dump_refs (rev_ref *refs, char *title)
 void
 dump_rev_graph_nodes (rev_list *rl, char *title)
 {
-    rev_branch	*b;
+    rev_ref	*h;
     rev_ent	*e, *p;
     int		tail;
 
@@ -223,18 +229,18 @@ dump_rev_graph_nodes (rev_list *rl, char *title)
     printf ("node [shape=box,fontsize=6];\n");
     dump_refs (rl->heads, title);
     dump_refs (rl->tags, title);
-    for (b = rl->branches; b; b = b->next) {
-	if (b->tail)
+    for (h = rl->heads; h; h = h->next) {
+	if (h->tail)
 	    continue;
-	for (e = b->ent; e; e = p) {
+	for (e = h->ent; e; e = p) {
 	    p = e->parent;
 	    tail = e->tail;
 	    if (!p)
 		break;
 	    printf ("\t");
-	    dump_ent (e);
+	    dump_ent_graph (e);
 	    printf (" -> ");
-	    dump_ent (p);
+	    dump_ent_graph (p);
 	    printf ("\n");
 	    if (tail)
 		break;
@@ -263,24 +269,39 @@ dump_rev_graph (rev_list *rl, char *title)
 }
 
 void
-dump_rev_info (rev_list *rl)
+dump_rev_ent (rev_ent *e)
 {
-    rev_branch	*b;
-    rev_ent	*e;
     rev_file	*f;
     int		i;
 
-    for (b = rl->branches; b; b = b->next) {
-	for (e = b->ent; e; e = e->parent) {
-	    for (i = 0; i < e->nfiles; i++) {
-		f = e->files[i];
-		dump_number (f->name, &f->number);
-		printf (" ");
-	    }
-	    printf ("\n");
-	    if (e->tail)
-		break;
-	}
+    for (i = 0; i < e->nfiles; i++) {
+	f = e->files[i];
+	dump_number (f->name, &f->number);
+	printf (" ");
+    }
+    printf ("\n");
+}
+
+void
+dump_rev_head (rev_ref *h)
+{
+    rev_ent	*e;
+    for (e = h->ent; e; e = e->parent) {
+	dump_rev_ent (e);
+	if (e->tail)
+	    break;
+    }
+}
+
+void
+dump_rev_list (rev_list *rl)
+{
+    rev_ref	*h;
+
+    for (h = rl->heads; h; h = h->next) {
+	if (h->tail)
+	    continue;
+	dump_rev_head (h);
     }
 }
 
@@ -326,16 +347,17 @@ void
 dump_splits (rev_list *rl)
 {
     rev_split	*splits = NULL, *s;
-    rev_branch	*branch;
+    rev_ref	*head;
     rev_ent	*e, *a, *b;
     int		ai, bi;
     rev_file	*af, *bf;
     char	*which;
-    rev_ref	*head;
 
     /* Find tails and mark splits */
-    for (branch = rl->branches; branch; branch = branch->next) {
-	for (e = branch->ent; e; e = e->parent)
+    for (head = rl->heads; head; head = head->next) {
+	if (head->tail)
+	    continue;
+	for (e = head->ent; e; e = e->parent)
 	    if (e->tail) {
 		for (s = splits; s; s = s->next)
 		    if (s->parent == e->parent)
@@ -344,7 +366,7 @@ dump_splits (rev_list *rl)
 		    s = calloc (1, sizeof (rev_split));
 		    s->parent = e->parent;
 		    s->childa = e;
-		    s->topa = branch->ent;
+		    s->topa = head->ent;
 		    s->next = splits;
 		    splits = s;
 		}
@@ -352,11 +374,13 @@ dump_splits (rev_list *rl)
     }
     /* Find join points */
     for (s = splits; s; s = s->next) {
-	for (branch = rl->branches; branch; branch = branch->next) {
-	    for (e = branch->ent; e; e = e->parent) {
+	for (head = rl->heads; head; head = head->next) {
+	    if (head->tail)
+		continue;
+	    for (e = head->ent; e; e = e->parent) {
 		if (e->parent == s->parent && e != s->childa) {
 		    s->childb = e;
-		    s->topb = branch->ent;
+		    s->topb = head->ent;
 		}
 	    }
 	}
@@ -418,22 +442,24 @@ dump_splits (rev_list *rl)
 void
 dump_rev_tree (rev_list *rl)
 {
-    rev_branch	*b;
     rev_ref	*h;
+    rev_ref	*oh;
     rev_ent	*e, *p;
     int		i;
     int		tail;
 
     printf ("rev_list {\n");
 
-    for (b = rl->branches; b; b = b->next) {
-	for (h = rl->heads; h; h = h->next) {
-	    if (h->ent == b->ent)
-		printf ("%s:\n", h->name);
+    for (h = rl->heads; h; h = h->next) {
+	if (h->tail)
+	    continue;
+	for (oh = rl->heads; oh; oh = oh->next) {
+	    if (h->ent == oh->ent)
+		printf ("%s:\n", oh->name);
 	}
 	printf ("\t{\n");
-	tail = b->tail;
-	for (e = b->ent; e; e = p) {
+	tail = h->tail;
+	for (e = h->ent; e; e = p) {
 	    printf ("\t\t0x%x ", (int) e);
 	    dump_log (e->log);
 	    if (tail) {
@@ -568,7 +594,7 @@ main (int argc, char **argv)
     }
 //    fprintf (stderr, "\n");
     if (rl) {
-//	dump_rev_graph (rl, NULL);
+	dump_rev_graph (rl, NULL);
 //	dump_rev_info (rl);
 	if (rl->watch)
 	    dump_rev_tree (rl);
