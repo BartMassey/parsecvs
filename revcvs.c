@@ -255,10 +255,11 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 		    break;
 	    }
 	    if (h) {
-		if (!h->name)
+		if (!h->name) {
 		    h->name = s->name;
-		else
-		    rev_list_add_head (rl, h->commit, s->name);
+		    h->degree = s->number.c;
+		} else
+		    rev_list_add_head (rl, h->commit, s->name, s->number.c);
 	    } else {
 		cvs_number	n;
 
@@ -270,12 +271,12 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 			break;
 		}
 		if (c)
-		    rev_list_add_head (rl, c, s->name);
+		    rev_list_add_head (rl, c, s->name, s->number.c);
 	    }
 	} else {
 	    c = rev_find_cvs_commit (rl, &s->number);
 	    if (c)
-		rev_list_add_tag (rl, c, s->name);
+		rev_list_add_tag (rl, c, s->name, s->number.c);
 	}
     }
 }
@@ -388,16 +389,13 @@ rev_list_cvs (cvs_file *cvs)
     cvs_version	*cv;
     cvs_branch	*cb;
 
-//    if (!strcmp (cvs->name, "/cvs/xorg/xserver/xorg/ChangeLog,v"))
-//    if (!strcmp (cvs->name, "/cvs/xorg/xserver/xorg/ChangeLog,v"))
-//	rl->watch = 1;
     /*
      * Generate trunk branch
      */
     one_one = lex_number ("1.1");
     trunk = rev_branch_cvs (cvs, &one_one);
     if (trunk)
-	rev_list_add_head (rl, trunk, atom ("HEAD"));
+	rev_list_add_head (rl, trunk, atom ("HEAD"), 2);
     /*
      * Search for other branches
      */
@@ -407,7 +405,7 @@ rev_list_cvs (cvs_file *cvs)
 	for (cb = cv->branches; cb; cb = cb->next)
 	{
 	    branch = rev_branch_cvs (cvs, &cb->number);
-	    rev_list_add_head (rl, branch, NULL);
+	    rev_list_add_head (rl, branch, NULL, 0);
 	}
     }
     rev_list_patch_vendor_branch (rl, cvs);
@@ -416,5 +414,6 @@ rev_list_cvs (cvs_file *cvs)
     rev_list_sort_heads (rl, cvs);
     rev_list_set_tail (rl);
     rev_list_free_dead_files (rl);
+    rev_list_validate (rl);
     return rl;
 }

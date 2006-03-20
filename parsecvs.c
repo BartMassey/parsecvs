@@ -132,22 +132,19 @@ dump_commit_graph (rev_commit *c)
 {
     rev_file	*f;
     int		i;
-    char	*date;
 
     printf ("\"");
 #if 1
     if (c->tail)
 	printf ("TAIL *** ");
-    date = ctime (&c->date);
-    date[strlen(date)-1] = '\0';
-    printf ("%s\\n", date);
+    printf ("%s\\n", ctime_nonl (&c->date));
     dump_log (c->log);
     printf ("\\n");
     for (i = 0; i < c->nfiles; i++) {
 	f = c->files[i];
 	dump_number (f->name, &f->number);
 	printf ("\\n");
-	break;
+//	break;
     }
 #endif
     printf ("%08x", (int) c);
@@ -177,7 +174,7 @@ dump_refs (rev_ref *refs, char *title)
 			printf ("\\n");
 		    if (o->head)
 			printf ("*");
-		    printf ("%s", o->name);
+		    printf ("%s(%d)", o->name, o->degree);
 		    n++;
 		}
 	    printf ("\" [fontsize=6,fixedsize=false,shape=ellipse];\n");
@@ -202,7 +199,7 @@ dump_refs (rev_ref *refs, char *title)
 			printf ("\\n");
 		    if (o->head)
 			printf ("*");
-		    printf ("%s", o->name);
+		    printf ("%s(%d)", o->name, o->degree);
 		    n++;
 		}
 	    printf ("\"");
@@ -527,6 +524,8 @@ dump_rev_tree (rev_list *rl)
     printf ("}\n");
 }
 
+time_t	time_now;
+
 int
 main (int argc, char **argv)
 {
@@ -538,6 +537,7 @@ main (int argc, char **argv)
 
     /* force times using mktime to be interpreted in UTC */
     setenv ("TZ", "UTC", 1);
+    time_now = time (NULL);
     memset (stack, '\0', sizeof (stack));
     for (;;)
     {

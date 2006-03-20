@@ -81,12 +81,13 @@ typedef struct _rev_file {
     struct _rev_file	*link;
 } rev_file;
 
+extern time_t	time_now;
+
 typedef struct _rev_commit {
     struct _rev_commit	*parent;
     char		tail;
     char		seen;
     char		used;
-    char		removing;
     time_t		date;
     char		*log;
     char		*commitid;
@@ -100,6 +101,7 @@ typedef struct _rev_ref {
     rev_commit		*commit;
     int			head;
     int			tail;
+    int			degree;	/* number of digits in original CVS version */
     char		*name;
     int			shown;
     time_t		date;
@@ -241,13 +243,13 @@ void
 discard_atoms (void);
 
 void
-rev_ref_add (rev_ref **list, rev_commit *commit, char *name, int head);
+rev_ref_add (rev_ref **list, rev_commit *commit, char *name, int degree, int head);
 
 void
-rev_list_add_head (rev_list *rl, rev_commit *commit, char *name);
+rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree);
 
 void
-rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name);
+rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name, int degree);
 
 void
 rev_list_add_branch (rev_list *rl, rev_commit *commit);
@@ -269,6 +271,9 @@ rev_file_later (rev_file *a, rev_file *b);
 
 int
 rev_commit_later (rev_commit *a, rev_commit *b);
+
+void
+rev_list_validate (rev_list *rl);
 
 #define time_compare(a,b) ((long) (a) - (long) (b))
 

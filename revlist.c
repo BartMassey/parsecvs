@@ -23,7 +23,7 @@
  */
 
 void
-rev_ref_add (rev_ref **list, rev_commit *commit, char *name, int head)
+rev_ref_add (rev_ref **list, rev_commit *commit, char *name, int degree, int head)
 {
     rev_ref	*r;
 
@@ -33,20 +33,21 @@ rev_ref_add (rev_ref **list, rev_commit *commit, char *name, int head)
     r->commit = commit;
     r->name = name;
     r->next = *list;
+    r->degree = degree;
     r->head = head;
     *list = r;
 }
 
 void
-rev_list_add_head (rev_list *rl, rev_commit *commit, char *name)
+rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree)
 {
-    rev_ref_add (&rl->heads, commit, name, 1);
+    rev_ref_add (&rl->heads, commit, name, degree, 1);
 }
 
 void
-rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name)
+rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name, int degree)
 {
-    rev_ref_add (&rl->tags, commit, name, 0);
+    rev_ref_add (&rl->tags, commit, name, degree, 0);
 }
 
 static rev_ref *
@@ -166,7 +167,6 @@ rev_file_merge (rev_commit *a, rev_commit *b, rev_commit *c)
 	c->commitid = b->commitid;
 	c->log = b->log;
     }
-//    c->removing = a->removing | b->removing;
 }
 
 static void
@@ -177,7 +177,6 @@ rev_file_copy (rev_commit *src, rev_commit *dst)
     dst->date = src->date;
     dst->commitid = src->commitid;
     dst->log = src->log;
-//    dst->removing = src->removing;
 }
 
 /*
@@ -292,59 +291,18 @@ rev_commit_dump (char *title, rev_commit *c, rev_commit *m)
 {
     printf ("\n%s\n", title);
     while (c) {
-	char	*d;
 	int	i;
 
-	d = ctime(&c->date);
-	d[strlen(d)-1] = '\0';
 	printf ("%c0x%x %s\n", c == m ? '>' : ' ',
-		(int) c, d);
+		(int) c, ctime_nonl (&c->date));
 	for (i = 0; i < c->nfiles; i++) {
-	    d = ctime(&c->files[i]->date);
-	    d[strlen(d)-1] = '\0';
-	    printf ("\t%s", d);
+	    printf ("\t%s", ctime_nonl (&c->files[i]->date));
 	    dump_number (c->files[i]->name, &c->files[i]->number);
 	    printf ("\n");
 	}
 	printf ("\n");
 	c = c->parent;
     }
-}
-
-static char *happy (rev_commit *prev, rev_commit *c)
-{
-    rev_file	*ef, *pf;
-    int		pi;
-
-    /*
-     * Check for in-order dates
-     */
-    if (time_compare (prev->date, c->date) < 0)
-	return "time out of order";
-    
-    if (c->nfiles) {
-	ef = c->files[0];
-	/* Make sure at least the leading file stays on the same cvs branch */
-	for (pi = 0; pi < prev->nfiles; pi++) {
-	    pf = prev->files[pi];
-	    if (pf->name == ef->name) {
-		cvs_number	pn;
-		pn = pf->number;
-		while (pn.c >= 2) {
-		    if (cvs_same_branch (&pn, &ef->number))
-			break;
-		    pn.c -= 2;
-		}
-		if (!pn.c) {
-		    if (!cvs_is_vendor (&ef->number) && !cvs_is_vendor (&pf->number))
-			return "leading file leaves branch";
-		}
-		break;
-
-	    }
-	}
-    }
-    return 0;
 }
 
 static rev_commit *
@@ -356,8 +314,12 @@ rev_branch_merge (rev_commit *a, rev_commit *b)
     rev_commit	**patch = NULL;
     rev_commit	*c, *prev = NULL;
     rev_commit	*skip = NULL;
-    char	*h;
+    rev_commit	*preva = NULL, *prevb = NULL;
+    time_t	alate, blate, late;
 
+    alate = time_now;
+    blate = time_now;
+    late = time_now;
     while (a && b)
     {
 	c = rev_branch_find_merged (a, b);
@@ -372,37 +334,46 @@ rev_branch_merge (rev_commit *a, rev_commit *b)
 			(a->nfiles + b->nfiles) * sizeof (rev_file *));
 //	    printf ("0x%x + 0x%x -> 0x%x\n", a, b, c);
 	    rev_file_merge (a, b, c);
+	    if (time_compare (alate, blate) < 0)
+		late = alate;
+	    else
+		late = blate;
 	    rev_branch_mark_merged (a, b, c);
-	    if (prev && (h = happy (prev, c)))
+	    if (prev)
+		assert (commit_time_close (late, prev->date));
+	    if (time_compare (late, c->date) < 0)
 	    {
-		*tail = c;
-		printf ("not happy %s\n", h);
+		if (!head)
+		    head = c;
+		printf ("not happy\n");
 		rev_commit_dump ("a", ao, a);
 		rev_commit_dump ("b", bo, b);
 		rev_commit_dump ("c", head, c);
 		abort ();
 	    }
+	    preva = a;
+	    prevb = b;
 	    if (rev_commit_match (a, b)) {
 		if (!rev_branch_find_merged (a, NULL))
 		    rev_branch_mark_merged (a, NULL, c);
 		if (!rev_branch_find_merged (b, NULL))
 		    rev_branch_mark_merged (b, NULL, c);
-		if (a->removing) a = a->parent;
+		alate = a->date;
 		a = a->parent;
-		if (b->removing) b = b->parent;
+		blate = b->date;
 		b = b->parent;
 	    } else {
 		if (rev_commit_later (a, b)) {
 		    if (!rev_branch_find_merged (a, NULL))
 			rev_branch_mark_merged (a, NULL, c);
 		    skip = b;
-		    if (a->removing) a = a->parent;
+		    alate = a->date;
 		    a = a->parent;
 		} else {
 		    if (!rev_branch_find_merged (b, NULL))
 			rev_branch_mark_merged (b, NULL, c);
 		    skip = a;
-		    if (b->removing) b = b->parent;
+		    blate = b->date;
 		    b = b->parent;
 		}
 	    }
@@ -418,6 +389,8 @@ rev_branch_merge (rev_commit *a, rev_commit *b)
 	c = NULL;
 	if (a != skip) {
 	    c = rev_branch_find_merged (a, NULL);
+	    while (c && time_compare (c->date, late) > 0)
+		c = c->parent;
 	    /*
 	     * If this is pointing back into a merged entry,
 	     * make sure there is at least one node on this
@@ -431,25 +404,14 @@ rev_branch_merge (rev_commit *a, rev_commit *b)
 			    sizeof (rev_file *));
 //		printf ("0x%x => 0x%x\n", a, c);
 		rev_file_copy (a, c);
-		if (prev)
-		    c->date = prev->date;
-		else
-		    c->date = time (NULL);
 		rev_branch_replace_merged (a, NULL, c);
 		c->parent = parent;
-//		c->removing = 1;
-	    } else {
-#if 1
-		/*
-		 * Make sure we land in-order on the new tree, creating
-		 * a new node if necessary.
-		 */
-		if (prev)
-		    while (c && time_compare (prev->date, c->date) < 0) {
-			patch = &c->parent;
-			c = c->parent;
-		    }
-#endif
+	    }
+	    if (c)
+	    {
+		assert (time_compare (late, c->date) >= 0);
+		if (c->parent)
+		    assert (time_compare (c->date, c->parent->date) >= 0);
 	    }
 	}
 	if (c)
@@ -465,9 +427,10 @@ rev_branch_merge (rev_commit *a, rev_commit *b)
 //	    printf ("0x%x -> 0x%x\n", a, c);
 	    rev_file_copy (a, c);
 	    rev_branch_mark_merged (a, NULL, c);
-	    if (prev)
+	    if (prev) {
 		assert (time_compare (prev->date, c->date) >= 0);
-	    if (a->removing) a = a->parent;
+	    }
+	    late = a->date;
 	    a = a->parent;
 	    if (patch)
 		*patch = c;
@@ -483,68 +446,6 @@ static rev_commit *
 rev_branch_copy (rev_commit *a)
 {
     return rev_branch_merge (a, NULL);
-}
-
-static int
-rev_commit_validate (rev_commit *c)
-{
-    rev_commit	*p = c->parent;
-    int		ei, pi;
-    rev_file	*ef, *pf;
-
-    if (!p)
-	return 1;
-    for (ei = 0; ei < c->nfiles; ei++) {
-	ef = c->files[ei];
-	for (pi = 0; pi < p->nfiles; pi++) {
-	    pf = p->files[pi];
-	    if (ef->name == pf->name) {
-		if (!cvs_same_branch (&ef->number, &pf->number)) {
-		    if ((cvs_is_vendor (&ef->number) && cvs_is_trunk (&pf->number)) ||
-			(cvs_is_vendor (&pf->number) && cvs_is_trunk (&ef->number)))
-			break;
-		    return 0;
-		}
-	    }
-	}
-    }
-    return 1;
-}
-
-static int
-head_loc (rev_ref *a, rev_list *rl)
-{
-    int	i = 0;
-    rev_ref	*h;
-
-    for (h = rl->heads; h; h = h->next) {
-	if (h->name == a->name)
-	    return i;
-	if (h->next && h->next->commit != h->commit)
-	    i++;
-    }
-    return -1;
-}
-
-static int
-head_order (rev_ref *a, rev_ref *b, rev_list *rl)
-{
-    int	al = head_loc (a, rl);
-    int bl = head_loc (b, rl);
-
-    if (al == -1 || bl == -1)
-	return 0;
-    return al - bl;
-}
-
-static rev_commit *
-rev_branchpoint (rev_ref *r)
-{
-    rev_commit	*c;
-    for (c = r->commit; c; c = c->parent)
-	if (c->seen > 1)
-	    break;
-    return c;
 }
 
 void
@@ -571,85 +472,101 @@ rev_list_set_tail (rev_list *rl)
 }
 
 static int
-rev_commit_file_depth (rev_commit *c, char *name)
+rev_ref_len (rev_ref *r)
 {
-    int	i;
+    int	l = 0;
+    while (r) {
+	l++;
+	r = r->next;
+    }
+    return l;
+}
 
-    for (i = 0; i < c->nfiles; i++)
-	if (c->files[i]->name == name)
-	    return c->files[i]->number.c;
-    return 100;
+static rev_ref *
+rev_ref_sel (rev_ref *r, int len)
+{
+    rev_ref	*head, **tail;
+    rev_ref	*a = r;
+    rev_ref	*b;
+    int		alen = len / 2;
+    int		blen = len - alen;
+    int		i;
+
+    if (len <= 1)
+	return r;
+
+    /*
+     * split
+     */
+    for (i = 0; i < alen - 1; i++)
+	r = r->next;
+    b = r->next;
+    r->next = 0;
+    /*
+     * recurse
+     */
+    a = rev_ref_sel (a, alen);
+    b = rev_ref_sel (b, blen);
+    /*
+     * merge
+     */
+    tail = &head;
+    while (a && b) {
+	if (a->degree < b->degree) {
+	    *tail = a;
+	    a = a->next;
+	} else {
+	    *tail = b;
+	    b = b->next;
+	}
+	tail = &(*tail)->next;
+    }
+    /*
+     * paste
+     */
+    if (a)
+	*tail = a;
+    else
+	*tail = b;
+    /*
+     * done
+     */
+    return head;
+}
+
+static rev_ref *
+rev_ref_sel_sort (rev_ref *r)
+{
+    rev_ref	*s;
+
+    r = rev_ref_sel (r, rev_ref_len (r));
+    for (s = r; s && s->next; s = s->next) {
+	assert (s->degree <= s->next->degree);
+    }
+    return r;
 }
 
 rev_list *
 rev_list_merge (rev_list *a, rev_list *b)
 {
     rev_list	*rl = calloc (1, sizeof (rev_list));
-    rev_ref	*h, *ah, *bh, **hp;
+    rev_ref	*h, *ah, *bh;
     rev_commit	*c;
     rev_ref	*at, *bt;
 
     rl->watch = a->watch || b->watch;
     /* add all of the head refs */
-    for (ah = a->heads; ah; ah = ah->next)
-	rev_list_add_head (rl, NULL, ah->name);
+    for (ah = a->heads; ah; ah = ah->next) {
+	int	degree = ah->degree;
+	bh = rev_find_head (b, ah->name);
+	if (bh && bh->degree > degree)
+	    degree = bh->degree;
+	rev_list_add_head (rl, NULL, ah->name, degree);
+    }
     for (bh = b->heads; bh; bh = bh->next)
 	if (!rev_find_head (rl, bh->name))
-	    rev_list_add_head (rl, NULL, bh->name);
-#if 0
-    /*
-     * Topologically sort heads
-     */
-    for (hp = &rl->heads; (h = *hp);)
-    {
-	int	ao, bo;
-	if (!h->next)
-	    break;
-	ao = head_order (h, h->next, a);
-	bo = head_order (h, h->next, b);
-	if (ao > 0 || bo > 0) {
-	    if (ao < 0 || bo < 0) {
-		fprintf (stderr, "can't order head %s %s\n",
-			 h->name, h->next->name);
-		fprintf (stderr, "a file: ");
-		dump_number_file (stderr, a->heads->commit->files[0]->name,
-				  &a->heads->commit->files[0]->number);
-		fprintf (stderr, "\n");
-		fprintf (stderr, "b file: ");
-		dump_number_file (stderr, b->heads->commit->files[0]->name,
-				  &b->heads->commit->files[0]->number);
-		fprintf (stderr, "\n");
-		hp = &h->next;
-	    } else {
-		*hp = h->next;
-		h->next = h->next->next;
-		(*hp)->next = h;
-		hp = &rl->heads;
-	    }
-	} else {
-	    hp = &h->next;
-	}
-    }
-#if 0
-    /*
-     * validate topo sort
-     */
-    for (ah = a->heads, h = rl->heads; ah && h;)
-    {
-	if (ah->name == h->name)
-	    ah = ah->next;
-	h = h->next;
-    }
-    assert (!ah);
-    for (bh = b->heads, h = rl->heads; bh && h;)
-    {
-	if (bh->name == h->name)
-	    bh = bh->next;
-	h = h->next;
-    }
-    assert (!bh);
-#endif
-#endif    
+	    rev_list_add_head (rl, NULL, bh->name, bh->degree);
+    b->heads = rev_ref_sel_sort (b->heads);
     /*
      * Merge common branches
      */
@@ -675,59 +592,29 @@ rev_list_merge (rev_list *a, rev_list *b)
      * Find tag locations
      */
     for (at = a->tags; at; at = at->next) {
+	int	degree;
 	bt = rev_find_tag (b, at->name);
 	c = rev_branch_find_merged (at->commit, bt ? bt->commit : NULL);
+	degree = at->degree;
+	if (bt && bt->degree > degree)
+	    degree = bt->degree;
 	if (c)
-	    rev_list_add_tag (rl, c, at->name);
+	    rev_list_add_tag (rl, c, at->name, degree);
     }
     for (bt = b->tags; bt; bt = bt->next) {
 	at = rev_find_tag (a, bt->name);
 	if (!at) {
 	    c = rev_branch_find_merged (bt->commit, NULL);
 	    if (c)
-		rev_list_add_tag (rl, c, bt->name);
+		rev_list_add_tag (rl, c, bt->name, bt->degree);
 	}
     }
     /*
      * Compute 'tail' values
      */
     rev_list_set_tail (rl);
-#if 0
-    /*
-     * Validate resulting tree by ensuring
-     * that at each branch point, all but one of the
-     * incoming branches has a change in depth in the first
-     * file in the branch
-     */
-    for (h = rl->heads; h; h = h->next) {
-	if (h->tail)
-	    continue;
-	for (c = h->commit; c && c->parent; c = c->parent) {
-	    if (c->seen < c->parent->seen) {
-		int	ed = rev_commit_file_depth (c,
-						 c->files[0]->name);
-		int	epd = rev_commit_file_depth (c->parent,
-						 c->files[0]->name);
-		if (epd >= ed && c->nfiles == c->parent->nfiles) {
-		    if (c->parent->used > 0) {
-			dump_rev_graph_begin ();
-			dump_rev_graph_nodes (rl, "new");
-			dump_rev_graph_nodes (a, "a");
-			dump_rev_graph_nodes (b, "b");
-			dump_rev_graph_end ();
-			fflush (stdout);
-			abort ();
-		    }
-		    c->parent->used = 1;
-		    c->parent->user = c;
-		}
-	    }
-	    if (c->tail)
-		break;
-	}
-    }
-#endif
     rev_branch_discard_merged ();
+    rev_list_validate (rl);
     return rl;
 }
 
@@ -829,4 +716,20 @@ rev_list_free (rev_list *rl, int free_files)
     if (free_files)
 	rev_file_free_marked ();
     free (rl);
+}
+
+void
+rev_list_validate (rev_list *rl)
+{
+    rev_ref	*h;
+    rev_commit	*c;
+    for (h = rl->heads; h; h = h->next) {
+	if (h->tail)
+	    continue;
+	for (c = h->commit; c && c->parent; c = c->parent) {
+	    if (c->tail)
+		break;
+	    assert (time_compare (c->date, c->parent->date) >= 0);
+	}
+    }
 }
