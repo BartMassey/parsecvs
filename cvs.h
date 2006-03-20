@@ -81,8 +81,8 @@ typedef struct _rev_file {
     struct _rev_file	*link;
 } rev_file;
 
-typedef struct _rev_ent {
-    struct _rev_ent	*parent;
+typedef struct _rev_commit {
+    struct _rev_commit	*parent;
     char		tail;
     char		seen;
     char		used;
@@ -91,13 +91,13 @@ typedef struct _rev_ent {
     char		*log;
     char		*commitid;
     int			nfiles;
-    struct _rev_ent	*user;
+    struct _rev_commit	*user;
     rev_file		*files[0];
-} rev_ent;
+} rev_commit;
 
 typedef struct _rev_ref {
     struct _rev_ref	*next;
-    rev_ent		*ent;
+    rev_commit		*commit;
     int			head;
     int			tail;
     char		*name;
@@ -197,13 +197,13 @@ void
 dump_file (cvs_file *file);
 
 void
-dump_ent (rev_ent *e);
+dump_commit (rev_commit *e);
 
 void
 dump_refs (rev_ref *refs, char *title);
 
 void
-dump_rev_ent (rev_ent *e);
+dump_rev_commit (rev_commit *e);
 
 void
 dump_rev_head (rev_ref *h);
@@ -224,6 +224,9 @@ void
 dump_rev_graph_end (void);
 
 void
+dump_commit_graph (rev_commit *c);
+
+void
 dump_rev_graph (rev_list *rl, char *title);
 
 void
@@ -238,16 +241,16 @@ void
 discard_atoms (void);
 
 void
-rev_ref_add (rev_ref **list, rev_ent *ent, char *name, int head);
+rev_ref_add (rev_ref **list, rev_commit *commit, char *name, int head);
 
 void
-rev_list_add_head (rev_list *rl, rev_ent *ent, char *name);
+rev_list_add_head (rev_list *rl, rev_commit *commit, char *name);
 
 void
-rev_list_add_tag (rev_list *rl, rev_ent *ent, char *name);
+rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name);
 
 void
-rev_list_add_branch (rev_list *rl, rev_ent *ent);
+rev_list_add_branch (rev_list *rl, rev_commit *commit);
 
 rev_file *
 rev_file_rev (char *name, cvs_number *n, time_t date);
@@ -265,7 +268,7 @@ int
 rev_file_later (rev_file *a, rev_file *b);
 
 int
-rev_ent_later (rev_ent *a, rev_ent *b);
+rev_commit_later (rev_commit *a, rev_commit *b);
 
 #define time_compare(a,b) ((long) (a) - (long) (b))
 

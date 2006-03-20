@@ -128,7 +128,7 @@ dump_log (char *log)
 }
 
 void
-dump_ent_graph (rev_ent *e)
+dump_commit_graph (rev_commit *c)
 {
     rev_file	*f;
     int		i;
@@ -136,21 +136,21 @@ dump_ent_graph (rev_ent *e)
 
     printf ("\"");
 #if 1
-    if (e->tail)
+    if (c->tail)
 	printf ("TAIL *** ");
-    date = ctime (&e->date);
+    date = ctime (&c->date);
     date[strlen(date)-1] = '\0';
     printf ("%s\\n", date);
-    dump_log (e->log);
+    dump_log (c->log);
     printf ("\\n");
-    for (i = 0; i < e->nfiles; i++) {
-	f = e->files[i];
+    for (i = 0; i < c->nfiles; i++) {
+	f = c->files[i];
 	dump_number (f->name, &f->number);
 	printf ("\\n");
 	break;
     }
 #endif
-    printf ("%08x", (int) e);
+    printf ("%08x", (int) c);
     printf ("\"");
 }
 
@@ -170,7 +170,7 @@ dump_refs (rev_ref *refs, char *title)
 		printf ("TAIL\\n");
 	    n = 0;
 	    for (o = r; o; o = o->next)
-		if (!o->shown && o->ent == r->ent)
+		if (!o->shown && o->commit == r->commit)
 		{
 		    o->shown = 1;
 		    if (n)
@@ -195,7 +195,7 @@ dump_refs (rev_ref *refs, char *title)
 		printf ("TAIL\\n");
 	    n = 0;
 	    for (o = r; o; o = o->next)
-		if (!o->shown && o->ent == r->ent)
+		if (!o->shown && o->commit == r->commit)
 		{
 		    o->shown = 1;
 		    if (n)
@@ -207,7 +207,7 @@ dump_refs (rev_ref *refs, char *title)
 		}
 	    printf ("\"");
 	    printf (" -> ");
-	    dump_ent_graph (r->ent);
+	    dump_commit_graph (r->commit);
 	    printf ("\n");
 	}
     }
@@ -220,7 +220,7 @@ void
 dump_rev_graph_nodes (rev_list *rl, char *title)
 {
     rev_ref	*h;
-    rev_ent	*e, *p;
+    rev_commit	*c, *p;
     int		tail;
 
     printf ("nodesep=0.1;\n");
@@ -232,15 +232,15 @@ dump_rev_graph_nodes (rev_list *rl, char *title)
     for (h = rl->heads; h; h = h->next) {
 	if (h->tail)
 	    continue;
-	for (e = h->ent; e; e = p) {
-	    p = e->parent;
-	    tail = e->tail;
+	for (c = h->commit; c; c = p) {
+	    p = c->parent;
+	    tail = c->tail;
 	    if (!p)
 		break;
 	    printf ("\t");
-	    dump_ent_graph (e);
+	    dump_commit_graph (c);
 	    printf (" -> ");
-	    dump_ent_graph (p);
+	    dump_commit_graph (p);
 	    printf ("\n");
 	    if (tail)
 		break;
@@ -269,13 +269,13 @@ dump_rev_graph (rev_list *rl, char *title)
 }
 
 void
-dump_rev_ent (rev_ent *e)
+dump_rev_commit (rev_commit *c)
 {
     rev_file	*f;
     int		i;
 
-    for (i = 0; i < e->nfiles; i++) {
-	f = e->files[i];
+    for (i = 0; i < c->nfiles; i++) {
+	f = c->files[i];
 	dump_number (f->name, &f->number);
 	printf (" ");
     }
@@ -285,10 +285,10 @@ dump_rev_ent (rev_ent *e)
 void
 dump_rev_head (rev_ref *h)
 {
-    rev_ent	*e;
-    for (e = h->ent; e; e = e->parent) {
-	dump_rev_ent (e);
-	if (e->tail)
+    rev_commit	*c;
+    for (c = h->commit; c; c = c->parent) {
+	dump_rev_commit (c);
+	if (c->tail)
 	    break;
     }
 }
@@ -329,9 +329,9 @@ rev_list_file (char *name)
 
 typedef struct _rev_split {
     struct _rev_split	*next;
-    rev_ent		*childa, *childb;
-    rev_ent		*parent;
-    rev_ent		*topa, *topb;
+    rev_commit		*childa, *childb;
+    rev_commit		*parent;
+    rev_commit		*topa, *topb;
 } rev_split;
 
 char *
@@ -348,7 +348,7 @@ dump_splits (rev_list *rl)
 {
     rev_split	*splits = NULL, *s;
     rev_ref	*head;
-    rev_ent	*e, *a, *b;
+    rev_commit	*c, *a, *b;
     int		ai, bi;
     rev_file	*af, *bf;
     char	*which;
@@ -357,16 +357,16 @@ dump_splits (rev_list *rl)
     for (head = rl->heads; head; head = head->next) {
 	if (head->tail)
 	    continue;
-	for (e = head->ent; e; e = e->parent)
-	    if (e->tail) {
+	for (c = head->commit; c; c = c->parent)
+	    if (c->tail) {
 		for (s = splits; s; s = s->next)
-		    if (s->parent == e->parent)
+		    if (s->parent == c->parent)
 			break;
 		if (!s) {
 		    s = calloc (1, sizeof (rev_split));
-		    s->parent = e->parent;
-		    s->childa = e;
-		    s->topa = head->ent;
+		    s->parent = c->parent;
+		    s->childa = c;
+		    s->topa = head->commit;
 		    s->next = splits;
 		    splits = s;
 		}
@@ -377,10 +377,10 @@ dump_splits (rev_list *rl)
 	for (head = rl->heads; head; head = head->next) {
 	    if (head->tail)
 		continue;
-	    for (e = head->ent; e; e = e->parent) {
-		if (e->parent == s->parent && e != s->childa) {
-		    s->childb = e;
-		    s->topb = head->ent;
+	    for (c = head->commit; c; c = c->parent) {
+		if (c->parent == s->parent && c != s->childa) {
+		    s->childb = c;
+		    s->topb = head->commit;
 		}
 	    }
 	}
@@ -388,12 +388,12 @@ dump_splits (rev_list *rl)
     for (s = splits; s; s = s->next) {
 	if (s->parent && s->childa && s->childb) {
 	    for (head = rl->heads; head; head = head->next) {
-		if (head->ent == s->topa)
+		if (head->commit == s->topa)
 		    fprintf (stderr, "%s ", head->name);
 	    }
 	    fprintf (stderr, "->");
 	    for (head = rl->heads; head; head = head->next) {
-		if (head->ent == s->topb)
+		if (head->commit == s->topb)
 		    fprintf (stderr, "%s ", head->name);
 	    }
 	    fprintf (stderr, "\n");
@@ -444,7 +444,7 @@ dump_rev_tree (rev_list *rl)
 {
     rev_ref	*h;
     rev_ref	*oh;
-    rev_ent	*e, *p;
+    rev_commit	*c, *p;
     int		i;
     int		tail;
 
@@ -454,27 +454,27 @@ dump_rev_tree (rev_list *rl)
 	if (h->tail)
 	    continue;
 	for (oh = rl->heads; oh; oh = oh->next) {
-	    if (h->ent == oh->ent)
+	    if (h->commit == oh->commit)
 		printf ("%s:\n", oh->name);
 	}
 	printf ("\t{\n");
 	tail = h->tail;
-	for (e = h->ent; e; e = p) {
-	    printf ("\t\t0x%x ", (int) e);
-	    dump_log (e->log);
+	for (c = h->commit; c; c = p) {
+	    printf ("\t\t0x%x ", (int) c);
+	    dump_log (c->log);
 	    if (tail) {
 		printf ("\n\t\t...\n");
 		break;
 	    }
 	    printf (" {\n");
 	    
-	    p = e->parent;
-	    if (p && e->nfiles > 16) {
+	    p = c->parent;
+	    if (p && c->nfiles > 16) {
 		rev_file	*ef, *pf;
 		int		ei, pi;
 		ei = pi = 0;
-		while (ei < e->nfiles && pi < p->nfiles) {
-		    ef = e->files[ei];
+		while (ei < c->nfiles && pi < p->nfiles) {
+		    ef = c->files[ei];
 		    pf = p->files[pi];
 		    if (ef != pf) {
 			if (rev_file_later (ef, pf)) {
@@ -492,8 +492,8 @@ dump_rev_tree (rev_list *rl)
 			pi++;
 		    }
 		}
-		while (ei < e->nfiles) {
-		    ef = e->files[ei];
+		while (ei < c->nfiles) {
+		    ef = c->files[ei];
 		    fprintf (stdout, "+ ");
 		    dump_number_file (stdout, ef->name, &ef->number);
 		    ei++;
@@ -507,16 +507,16 @@ dump_rev_tree (rev_list *rl)
 		    fprintf (stdout, "\n");
 		}
 	    } else {
-		for (i = 0; i < e->nfiles; i++) {
+		for (i = 0; i < c->nfiles; i++) {
 		    printf ("\t\t\t");
-		    dump_number (e->files[i]->name, &e->files[i]->number);
+		    dump_number (c->files[i]->name, &c->files[i]->number);
 		    printf ("\n");
 		}
 	    }
 	    printf ("\t\t}\n");
-	    tail = e->tail;
+	    tail = c->tail;
 #if 0	 
-	    if (time_compare (e->date, 1079499163) <= 0) {
+	    if (time_compare (c->date, 1079499163) <= 0) {
 		printf ("\t\t...\n");
 		break;
 	    }

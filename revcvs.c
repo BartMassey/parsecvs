@@ -22,22 +22,22 @@
  * Given a single-file tree, locate the specific version number
  */
 
-static rev_ent *
-rev_find_cvs_ent (rev_list *rl, cvs_number *number)
+static rev_commit *
+rev_find_cvs_commit (rev_list *rl, cvs_number *number)
 {
     rev_ref	*h;
-    rev_ent	*e;
+    rev_commit	*c;
     rev_file	*f;
 
     for (h = rl->heads; h; h = h->next) {
 	if (h->tail)
 	    continue;
-	for (e = h->ent; e; e = e->parent)
+	for (c = h->commit; c; c = c->parent)
 	{
-	     f = e->files[0];
+	     f = c->files[0];
 	     if (cvs_number_compare (&f->number, number) == 0)
-		    return e;
-	     if (e->tail)
+		    return c;
+	     if (c->tail)
 		 break;
 	}
     }
@@ -47,32 +47,32 @@ rev_find_cvs_ent (rev_list *rl, cvs_number *number)
 /*
  * Construct a branch using CVS revision numbers
  */
-static rev_ent *
+static rev_commit *
 rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 {
     cvs_number	n;
-    rev_ent	*head = NULL;
+    rev_commit	*head = NULL;
     cvs_version	*v;
-    rev_ent	*e;
+    rev_commit	*c;
     cvs_patch	*p;
 
     n = *branch;
     n.n[n.c-1] = 0;
     while ((v = cvs_find_version (cvs, &n))) {
-	e = calloc (1, sizeof (rev_ent) + sizeof (rev_file *));
+	c = calloc (1, sizeof (rev_commit) + sizeof (rev_file *));
 	p = cvs_find_patch (cvs, &v->number);
-	e->date = v->date;
-	e->commitid = v->commitid;
+	c->date = v->date;
+	c->commitid = v->commitid;
 	if (p)
-	    e->log = p->log;
+	    c->log = p->log;
 	if (v->dead)
-	    e->nfiles = 0;
+	    c->nfiles = 0;
 	else
-	    e->nfiles = 1;
+	    c->nfiles = 1;
 	/* leave this around so the branch merging stuff can find numbers */
-	e->files[0] = rev_file_rev (cvs->name, &v->number, v->date);
-	e->parent = head;
-	head = e;
+	c->files[0] = rev_file_rev (cvs->name, &v->number, v->date);
+	c->parent = head;
+	head = c;
 	n = v->number;
     }
     return head;
@@ -95,8 +95,8 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
     rev_ref	*trunk = NULL;
     rev_ref	*vendor = NULL, **vendor_p = NULL;
     rev_ref	*h;
-    rev_ent	*t, *v;
-    rev_ent	*tp, *tc, *vc;
+    rev_commit	*t, *v;
+    rev_commit	*tp, *tc, *vc;
     rev_ref	**h_p;
     cvs_number	default_branch;
 
@@ -107,10 +107,10 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 
     for (h_p = &rl->heads; (h = *h_p); h_p = &(h->next)) {
 	if (!trunk)
-	    if (cvs_is_trunk (&h->ent->files[0]->number))
+	    if (cvs_is_trunk (&h->commit->files[0]->number))
 		trunk = h;
 	if (!vendor)
-	    if (cvs_same_branch (&h->ent->files[0]->number, &default_branch)) {
+	    if (cvs_same_branch (&h->commit->files[0]->number, &default_branch)) {
 		vendor = h;
 		vendor_p = h_p;
 	    }
@@ -119,7 +119,7 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
     assert (trunk != vendor);
     if (vendor) {
 	tc = NULL;
-	t = trunk->ent;
+	t = trunk->commit;
 	/*
 	 * Find the first commit to the trunk
 	 * This will reset the default branch set
@@ -128,7 +128,7 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 	 * branch, and should be on their own branch
 	 */
 	tc = NULL;
-	t = trunk->ent;
+	t = trunk->commit;
 	while (t && t->parent && t->parent->parent) {
 	    tc = t;
 	    t = t->parent;
@@ -138,7 +138,7 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 	 * Bracket the first trunk commit
 	 */
 	vc = NULL;
-	v = vendor->ent;
+	v = vendor->commit;
 	if (t && tp && v)
 	{
 	    while (v && time_compare (t->date, v->date) < 0) {
@@ -181,7 +181,7 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 	     * No commits to trunk, merge entire vendor branch
 	     * to trunk
 	     */
-	    trunk->ent = v;
+	    trunk->commit = v;
 	    while (v->parent)
 		v = v->parent;
 	    v->parent = t;
@@ -203,7 +203,7 @@ static void
 rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
 {
     rev_ref	*h;
-    rev_ent	*e;
+    rev_commit	*c;
     cvs_version	*cv;
     cvs_branch	*cb;
 
@@ -213,19 +213,19 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
     for (h = rl->heads; h; h = h->next) {
 	if (h->tail)
 	    continue;
-	for (e = h->ent; e && e->parent; e = e->parent)
-	    if (e->tail) {
-		e = NULL;
+	for (c = h->commit; c && c->parent; c = c->parent)
+	    if (c->tail) {
+		c = NULL;
 		break;
 	    }
-	if (e) {
+	if (c) {
 	    for (cv = cvs->versions; cv; cv = cv->next) {
 		for (cb = cv->branches; cb; cb = cb->next) {
 		    if (cvs_number_compare (&cb->number,
-					    &e->files[0]->number) == 0)
+					    &c->files[0]->number) == 0)
 		    {
-			e->parent = rev_find_cvs_ent (rl, &cv->number);
-			e->tail = 1;
+			c->parent = rev_find_cvs_commit (rl, &cv->number);
+			c->tail = 1;
 		    }
 		}
 	    }
@@ -234,7 +234,7 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
 }
 
 /*
- * For each symbol, locate the appropriate ent
+ * For each symbol, locate the appropriate commit
  */
 
 static void
@@ -242,40 +242,40 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 {
     rev_ref	*h;
     cvs_symbol	*s;
-    rev_ent	*e;
+    rev_commit	*c;
     
     /*
      * Locate a symbolic name for this head
      */
     for (s = cvs->symbols; s; s = s->next) {
-	e = NULL;
+	c = NULL;
 	if (cvs_is_head (&s->number)) {
 	    for (h = rl->heads; h; h = h->next) {
-		if (cvs_same_branch (&h->ent->files[0]->number, &s->number))
+		if (cvs_same_branch (&h->commit->files[0]->number, &s->number))
 		    break;
 	    }
 	    if (h) {
 		if (!h->name)
 		    h->name = s->name;
 		else
-		    rev_list_add_head (rl, h->ent, s->name);
+		    rev_list_add_head (rl, h->commit, s->name);
 	    } else {
 		cvs_number	n;
 
 		n = s->number;
 		while (n.c >= 4) {
 		    n.c -= 2;
-		    e = rev_find_cvs_ent (rl, &n);
-		    if (e)
+		    c = rev_find_cvs_commit (rl, &n);
+		    if (c)
 			break;
 		}
-		if (e)
-		    rev_list_add_head (rl, e, s->name);
+		if (c)
+		    rev_list_add_head (rl, c, s->name);
 	    }
 	} else {
-	    e = rev_find_cvs_ent (rl, &s->number);
-	    if (e)
-		rev_list_add_tag (rl, e, s->name);
+	    c = rev_find_cvs_commit (rl, &s->number);
+	    if (c)
+		rev_list_add_tag (rl, c, s->name);
 	}
     }
 }
@@ -290,15 +290,15 @@ static void
 rev_list_free_dead_files (rev_list *rl)
 {
     rev_ref	*h;
-    rev_ent	*e;
+    rev_commit	*c;
 
     for (h = rl->heads; h; h = h->next) {
 	if (h->tail)
 	    continue;
-	for (e = h->ent; e; e = e->parent) {
-	    if (e->nfiles == 0)
-		rev_file_free (e->files[0]);
-	    if (e->tail)
+	for (c = h->commit; c; c = c->parent) {
+	    if (c->nfiles == 0)
+		rev_file_free (c->files[0]);
+	    if (c->tail)
 		break;
 	}
     }
@@ -368,7 +368,7 @@ rev_list_sort_heads (rev_list *rl, cvs_file *cvs)
 		fprintf (stderr, "%s 1.1", h->name);
 	    if (!h->next)
 		break;
-	    if (h->next->ent != h->ent)
+	    if (h->next->commit != h->commit)
 		break;
 	    fprintf (stderr, " ");
 	    h = h->next;
@@ -383,8 +383,8 @@ rev_list_cvs (cvs_file *cvs)
 {
     rev_list	*rl = calloc (1, sizeof (rev_list));
     cvs_number	one_one;
-    rev_ent	*trunk; 
-    rev_ent	*branch;
+    rev_commit	*trunk; 
+    rev_commit	*branch;
     cvs_version	*cv;
     cvs_branch	*cb;
 
