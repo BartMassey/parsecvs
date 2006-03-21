@@ -107,7 +107,8 @@ typedef struct _rev_ref {
     time_t		date;
 } rev_ref;
 
-typedef struct {
+typedef struct _rev_list {
+    struct _rev_list	*next;
     rev_ref	*heads;
     rev_ref	*tags;
     int		watch;
@@ -130,7 +131,7 @@ rev_list *
 rev_list_cvs (cvs_file *cvs);
 
 rev_list *
-rev_list_merge (rev_list *a, rev_list *b);
+rev_list_merge (rev_list *lists);
 
 void
 rev_list_free (rev_list *rl, int free_files);
@@ -146,6 +147,9 @@ cvs_number_compare (cvs_number *a, cvs_number *b);
 
 int
 cvs_number_compare_n (cvs_number *a, cvs_number *b, int l);
+
+int
+cvs_number_degree (cvs_number *a);
 
 cvs_number
 cvs_previous_rev (cvs_number *n);
@@ -194,6 +198,9 @@ dump_versions (char *name, cvs_version *versions);
 
 void
 dump_patches (char *name, cvs_patch *patches);
+
+void
+dump_log (FILE *f, char *log);
 
 void
 dump_file (cvs_file *file);

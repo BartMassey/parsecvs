@@ -257,9 +257,10 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 	    if (h) {
 		if (!h->name) {
 		    h->name = s->name;
-		    h->degree = s->number.c;
+		    h->degree = cvs_number_degree (&s->number);
 		} else
-		    rev_list_add_head (rl, h->commit, s->name, s->number.c);
+		    rev_list_add_head (rl, h->commit, s->name,
+				       cvs_number_degree (&s->number));
 	    } else {
 		cvs_number	n;
 
@@ -271,12 +272,14 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 			break;
 		}
 		if (c)
-		    rev_list_add_head (rl, c, s->name, s->number.c);
+		    rev_list_add_head (rl, c, s->name,
+				       cvs_number_degree (&s->number));
 	    }
 	} else {
 	    c = rev_find_cvs_commit (rl, &s->number);
 	    if (c)
-		rev_list_add_tag (rl, c, s->name, s->number.c);
+		rev_list_add_tag (rl, c, s->name,
+				  cvs_number_degree (&s->number));
 	}
     }
 }
@@ -334,6 +337,26 @@ cvs_symbol_compare (cvs_symbol *a, cvs_symbol *b)
     if (!b)
 	return 1;
     return cvs_number_compare (&a->number, &b->number);
+}
+
+static void
+rev_list_patch_unnamed_heads (rev_list *rl, cvs_file *cvs)
+{
+    rev_ref	*h, **hp;
+
+    for (hp = &rl->heads; (h = *hp); ) {
+	if (!h->name) {
+	    if (h->commit) {
+		h->name = atom ("UNNAMED-HEAD");
+		h->degree = cvs_number_degree (&h->commit->files[0]->number);
+	    } else {
+		*hp = h->next;
+		free (h);
+		continue;
+	    }
+	}
+	hp = &h->next;
+    }
 }
 
 static void
@@ -411,6 +434,7 @@ rev_list_cvs (cvs_file *cvs)
     rev_list_patch_vendor_branch (rl, cvs);
     rev_list_graft_branches (rl, cvs);
     rev_list_set_refs (rl, cvs);
+    rev_list_patch_unnamed_heads (rl, cvs);
     rev_list_sort_heads (rl, cvs);
     rev_list_set_tail (rl);
     rev_list_free_dead_files (rl);

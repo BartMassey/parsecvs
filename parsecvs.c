@@ -100,8 +100,8 @@ dump_file (cvs_file *file)
     dump_patches ("patches", file->patches);
 }
 
-static void
-dump_log (char *log)
+void
+dump_log (FILE *f, char *log)
 {
     int		j;
     for (j = 0; j < 48; j++) {
@@ -120,8 +120,8 @@ dump_log (char *log)
 	    log[j] == '{' || log[j] == '}')
 	    continue;
 	if (log[j] == '"')
-	    putchar ('\\');
-	putchar (log[j]);
+	    putc ('\\', f);
+	putc (log[j], f);
 	if (log[j] == '.' && isspace (log[j+1]))
 	    break;
     }
@@ -138,13 +138,13 @@ dump_commit_graph (rev_commit *c)
     if (c->tail)
 	printf ("TAIL *** ");
     printf ("%s\\n", ctime_nonl (&c->date));
-    dump_log (c->log);
+    dump_log (stdout, c->log);
     printf ("\\n");
     for (i = 0; i < c->nfiles; i++) {
 	f = c->files[i];
 	dump_number (f->name, &f->number);
 	printf ("\\n");
-//	break;
+	break;
     }
 #endif
     printf ("%08x", (int) c);
@@ -204,7 +204,10 @@ dump_refs (rev_ref *refs, char *title)
 		}
 	    printf ("\"");
 	    printf (" -> ");
-	    dump_commit_graph (r->commit);
+	    if (r->commit)
+		dump_commit_graph (r->commit);
+	    else
+		printf ("LOST");
 	    printf ("\n");
 	}
     }
@@ -458,7 +461,7 @@ dump_rev_tree (rev_list *rl)
 	tail = h->tail;
 	for (c = h->commit; c; c = p) {
 	    printf ("\t\t0x%x ", (int) c);
-	    dump_log (c->log);
+	    dump_log (stdout, c->log);
 	    if (tail) {
 		printf ("\n\t\t...\n");
 		break;
@@ -529,8 +532,8 @@ time_t	time_now;
 int
 main (int argc, char **argv)
 {
-    rev_list	*stack[32], *rl, *old;
-    int		i;
+    rev_list	*head, **tail = &head;
+    rev_list	*rl;
     int		j = 1;
     char	name[10240];
     char	*file;
@@ -538,7 +541,6 @@ main (int argc, char **argv)
     /* force times using mktime to be interpreted in UTC */
     setenv ("TZ", "UTC", 1);
     time_now = time (NULL);
-    memset (stack, '\0', sizeof (stack));
     for (;;)
     {
 	if (argc < 2) {
@@ -558,41 +560,11 @@ main (int argc, char **argv)
 	rl = rev_list_file (file);
 	if (rl->watch)
 	    dump_rev_tree (rl);
-	for (i = 0; i < 32; i++) {
-//	    fprintf (stderr, "*");
-	    if (stack[i]) {
-		old = rl;
-		rl = rev_list_merge (old, stack[i]);
-		if (rl->watch)
-		    dump_rev_tree (rl);
-		rev_list_free (old, 0);
-		rev_list_free (stack[i], 0);
-		stack[i] = 0;
-	    } else {
-		stack[i] = rl;
-		break;
-	    }
-	}
+	*tail = rl;
+	tail = &rl->next;
 //	fprintf (stderr, "%s\n", file);
     }
-    rl = NULL;
-    for (i = 0; i < 32; i++) {
-//	fprintf (stderr, "+");
-	if (stack[i]) {
-	    if (rl) {
-		old = rl;
-		rl = rev_list_merge (rl, stack[i]);
-		if (rl->watch)
-		    dump_rev_tree (rl);
-		rev_list_free (old, 0);
-		rev_list_free (stack[i], 0);
-	    }
-	    else
-		rl = stack[i];
-	    stack[i] = 0;
-	}
-    }
-//    fprintf (stderr, "\n");
+    rl = rev_list_merge (head);
     if (rl) {
 	dump_rev_graph (rl, NULL);
 //	dump_rev_info (rl);
@@ -600,7 +572,7 @@ main (int argc, char **argv)
 	    dump_rev_tree (rl);
 //	dump_splits (rl);
     }
-    rev_list_free (rl, 1);
+//    rev_list_free (rl, 1);
     discard_atoms ();
     return err;
 }

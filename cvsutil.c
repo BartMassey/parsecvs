@@ -104,6 +104,23 @@ cvs_number_compare_n (cvs_number *a, cvs_number *b, int l)
     return 0;
 }
 
+int
+cvs_number_degree (cvs_number *n)
+{
+    cvs_number	four;
+
+    if (n->c < 4)
+	return n->c;
+    four = *n;
+    four.c = 4;
+    /*
+     * Place vendor branch between trunk and other branches
+     */
+    if (cvs_is_vendor (&four))
+	return n->c - 1;
+    return n->c;
+}
+
 cvs_number
 cvs_previous_rev (cvs_number *n)
 {
