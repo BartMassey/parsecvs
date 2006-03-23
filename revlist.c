@@ -22,7 +22,7 @@
  * Add head or tag refs
  */
 
-void
+rev_ref *
 rev_ref_add (rev_ref **list, rev_commit *commit, char *name, int degree, int head)
 {
     rev_ref	*r;
@@ -36,18 +36,19 @@ rev_ref_add (rev_ref **list, rev_commit *commit, char *name, int degree, int hea
     r->degree = degree;
     r->head = head;
     *list = r;
+    return r;
 }
 
-void
+rev_ref *
 rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree)
 {
-    rev_ref_add (&rl->heads, commit, name, degree, 1);
+    return rev_ref_add (&rl->heads, commit, name, degree, 1);
 }
 
-void
+rev_ref *
 rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name, int degree)
 {
-    rev_ref_add (&rl->tags, commit, name, degree, 0);
+    return rev_ref_add (&rl->tags, commit, name, degree, 0);
 }
 
 static rev_ref *
@@ -310,6 +311,16 @@ rev_commit_date_compare (const void *av, const void *bv)
     if (!b)
 	return -1;
     /*
+     * tailed entries sort next to last
+     */
+    if (a->tailed) {
+	if (b->tailed)
+	    return 0;
+	return 1;
+    }
+    if (b->tailed)
+	return -1;
+    /*
      * Newest entries sort first
      */
     t = -time_compare (a->date, b->date);
@@ -344,7 +355,7 @@ rev_commit_has_file (rev_commit *c, rev_file *f)
     int	n;
 
     for (n = 0; n < c->nfiles; n++)
-	if (c->files[0] == f)
+	if (c->files[n] == f)
 	    return 1;
     return 0;
 }
@@ -381,98 +392,102 @@ rev_commit_build (rev_commit **commits, int ncommit)
 }
 
 static rev_commit *
-rev_commit_locate (rev_list *rl, rev_commit **commits, int ncommit)
+rev_ref_find_commit_file (rev_ref *branch, rev_file *file)
 {
-    rev_ref	*h;
     rev_commit	*c;
-    int		n;
-    int		nseen, nfile;
-    int		best = 0;
-    rev_commit	*best_commit = NULL;
-    rev_ref	*best_ref = NULL;
-    rev_file	*f, *cf;
 
-    for (n = 0; n < ncommit; n++)
-	commits[n]->seen = 0;
-    for (h = rl->heads; h; h = h->next) {
-	if (h->tail)
-	    continue;
-	for (c = h->commit; c; c = c->parent) {
-	    nseen = 0;
-	    nfile = 0;
-	    for (n = 0; n < ncommit; n++) {
-		if (commits[n]->nfiles) {
-		    ++nfile;
-		    cf = commits[n]->files[0];
-		    f = rev_commit_find_file (c, cf->name);
-		    if (f &&
-			cvs_number_compare (&cf->number, &f->number) == 0)
-		    {
-			commits[n]->seen = 1;
-			++nseen;
-		    }
-		}
-	    }
-	    if (nseen == nfile)
-		return c;
-	    if (nseen > best) {
-		best = nseen;
-		best_commit = c;
-		best_ref = h;
-	    }
-	    if (c->tail)
-		break;
-	}
+    for (c = branch->commit; c; c = c->parent)
+	if (rev_commit_has_file (c, file))
+	    return c;
+    return NULL;
+}
+
+static int
+rev_commit_is_ancestor (rev_commit *old, rev_commit *young)
+{
+    while (young) {
+	if (young == old)
+	    return 1;
+	young = young->parent;
     }
-    fprintf (stderr, "Cannot locate commit.\n");
-    fprintf (stderr, "\tbranch: %s\n", best_ref->name);
-    fprintf (stderr, "\tlog: "); dump_log (stderr, best_commit->log);
-    fprintf (stderr, "\n\tdate: %s\n", ctime_nonl (&best_commit->date));
-    for (n = 0; n < ncommit; n++) {
-	if (commits[n]->nfiles) {
-	    cf = commits[n]->files[0];
-	    f = rev_commit_find_file (best_commit, cf->name);
-	    if (!f) {
-		fprintf (stderr, "\t%s: missing", cf->name);
-		dump_number_file (stderr, " want",
-				  &cf->number);
-		fprintf (stderr, "\n");
-	    }
-	    else if (cvs_number_compare (&cf->number, &f->number) != 0)
-	    {
-		fprintf (stderr, "\t%s: ", cf->name);
-		dump_number_file (stderr, "found",
-				  &commits[n]->files[0]->number);
-		dump_number_file (stderr, " want",
-				  &cf->number);
-	    }
-	}
+    return 0;
+}
+
+static rev_commit *
+rev_commit_locate_one (rev_ref *branch, rev_commit **commits, int ncommit)
+{
+    rev_commit	*commit;
+
+    if (!branch)
+	return NULL;
+
+    for (commit = branch->commit;
+	 commit;
+	 commit = commit->parent)
+    {
+	if (rev_commit_match (commit, commits[0]))
+	    return commit;
     }
     return NULL;
 }
 
 static rev_commit *
-rev_branch_merge (rev_ref **branches, int nbranch, rev_list *rl)
+rev_commit_locate_any (rev_ref *branch, rev_commit **commits, int ncommit)
+{
+    rev_commit	*commit;
+
+    if (!branch)
+	return NULL;
+    commit = rev_commit_locate_any (branch->next, commits, ncommit);
+    if (commit)
+	return commit;
+    return rev_commit_locate_one (branch, commits, ncommit);
+}
+
+static rev_commit *
+rev_commit_locate (rev_ref *branch, rev_commit **commits, int ncommit)
+{
+    rev_commit	*commit;
+
+    /*
+     * Check the presumed trunk first
+     */
+    commit = rev_commit_locate_one (branch, commits, ncommit);
+    if (commit)
+	return commit;
+    /*
+     * Now look through all branches
+     */
+    while (branch->parent)
+	branch = branch->parent;
+    return rev_commit_locate_any (branch, commits, ncommit);
+}
+
+static rev_commit *
+rev_branch_merge (rev_ref **branches, int nbranch, rev_ref *parent)
 {
     int		nlive;
     int		n;
     rev_commit	*prev = NULL;
-    rev_commit	*head, **tail = &head;
+    rev_commit	*head = NULL, **tail = &head;
     rev_commit	**commits = calloc (nbranch, sizeof (rev_commit *));
     rev_commit	*commit;
 
-    /*
-     * Compute number of branches with remaining entries
-     */
     nlive = 0;
-    for (n = 0; n < nbranch; n++)
-	if (!branches[n]->tail)
-	    nlive++;
-    /*
-     * Initialize commits to head of each branch
-     */
-    for (n = 0; n < nbranch; n++)
+    for (n = 0; n < nbranch; n++) {
+	/*
+	 * Initialize commits to head of each branch
+	 */
 	commits[n] = branches[n]->commit;
+	/*
+	 * Compute number of branches with remaining entries
+	 */
+	if (branches[n]->tail) {
+	    if (commits[n])
+		commits[n]->tailed = 1;
+	} else
+	    nlive++;
+    }
     /*
      * Walk down branches until each one has merged with the
      * parent branch
@@ -488,12 +503,26 @@ rev_branch_merge (rev_ref **branches, int nbranch, rev_list *rl)
 	/*
 	 * Step each branch
 	 */
+	nlive = 0;
 	for (n = nbranch - 1; n >= 0; n--) {
-	    if (n == 0 || rev_commit_match (commits[0], commits[n])) {
-		if (commits[n]->tail || commits[n]->parent == NULL)
-		    nlive--;
+	    if (commits[n]->tailed)
+		;
+	    else if (n == 0 || rev_commit_match (commits[0], commits[n])) {
+		/*
+		 * Check to see if this entry should keep advancing
+		 * Stop when we reach the revision at the
+		 * merge point or when we run out of commits on the
+		 * branch
+		 */
+		if (commits[n]->tail) {
+		    assert (commits[n]->parent);
+		    commits[n]->parent->tailed = 1;
+		} else if (commits[n]->parent) {
+		    nlive++;
+		}
 		commits[n] = commits[n]->parent;
-	    }
+	    } else
+		nlive++;
 	}
 	    
 	*tail = commit;
@@ -506,7 +535,7 @@ rev_branch_merge (rev_ref **branches, int nbranch, rev_list *rl)
     nbranch = rev_commit_date_sort (commits, nbranch);
     if (nbranch)
     {
-	*tail = rev_commit_locate (rl, commits, nbranch);
+	*tail = rev_commit_locate (parent, commits, nbranch);
 //	assert (*tail);
 	if (!*tail) {
 	    fprintf (stderr, "Lost branch point\n");
@@ -515,6 +544,9 @@ rev_branch_merge (rev_ref **branches, int nbranch, rev_list *rl)
 	else if (prev)
 	    prev->tail = 1;
     }
+    for (n = 0; n < nbranch; n++)
+	if (commits[n])
+	    commits[n]->tailed = 0;
     free (commits);
     return head;
 }
@@ -523,7 +555,7 @@ rev_branch_merge (rev_ref **branches, int nbranch, rev_list *rl)
  * Locate position in tree cooresponding to specific tag
  */
 static rev_commit *
-rev_tag_search (rev_ref **tags, int ntag, rev_list *rl)
+rev_tag_search (rev_ref **tags, int ntag, rev_ref *branch)
 {
     rev_commit	**commits = calloc (ntag, sizeof (rev_commit *));
     rev_commit	*commit;
@@ -533,11 +565,63 @@ rev_tag_search (rev_ref **tags, int ntag, rev_list *rl)
 	commits[n] = tags[n]->commit;
     
     ntag = rev_commit_date_sort (commits, ntag);
-    commit = rev_commit_locate (rl, commits, ntag);
+    commit = rev_commit_locate (branch, commits, ntag);
     if (!commit)
 	commit = rev_commit_build (commits, ntag);
     free (commits);
     return commit;
+}
+
+static int
+rev_branch_name_is_ancestor (rev_ref *old, rev_ref *young)
+{
+    while (young) {
+	if (young->name == old->name)
+	    return 1;
+	young = young->parent;
+    }
+    return 0;
+}
+
+static rev_ref *
+rev_ref_parent (rev_ref **refs, int nref, rev_list *rl)
+{
+    rev_ref	*parent = NULL;
+    rev_ref	*branch = NULL;
+    int		n;
+    rev_ref	*h;
+
+    for (n = 0; n < nref; n++)
+    {
+	if (refs[n]->parent) {
+	    if (!parent) {
+		parent = refs[n]->parent;
+		branch = refs[n];
+	    } else if (parent->name != refs[n]->parent->name) {
+		if (rev_branch_name_is_ancestor (refs[n]->parent, parent))
+		    ;
+		else if (rev_branch_name_is_ancestor (parent, refs[n]->parent)) {
+		    parent = refs[n]->parent;
+		    branch = refs[n];
+		} else {
+		    fprintf (stderr, "Branch name collision:\n");
+		    fprintf (stderr, "\tfirst branch: ");
+		    dump_ref_name (stderr, branch);
+		    fprintf (stderr, "\n");
+		    fprintf (stderr, "\tsecond branch: ");
+		    dump_ref_name (stderr, refs[n]);
+		    fprintf (stderr, "\n");
+		}
+	    }
+	}
+    }
+    if (!parent)
+	return NULL;
+    for (h = rl->heads; h; h = h->next)
+	if (parent->name == h->name)
+	    return h;
+    fprintf (stderr, "Reference missing in merge: %s\n", parent->name);
+    return NULL;
 }
 
 rev_list *
@@ -568,8 +652,8 @@ rev_list_merge (rev_list *head)
      * Sort by degree so that finding branch points always works
      */
     rl->heads = rev_ref_sel_sort (rl->heads);
-    for (h = rl->heads; h; h = h->next)
-	fprintf (stderr, "head %s(%d)\n", h->name, h->degree);
+//    for (h = rl->heads; h; h = h->next)
+//	fprintf (stderr, "head %s(%d)\n", h->name, h->degree);
     /*
      * Merge common branches
      */
@@ -584,8 +668,10 @@ rev_list_merge (rev_list *head)
 	    if (lh)
 		refs[nref++] = lh;
 	}
-	if (nref)
-	    h->commit = rev_branch_merge (refs, nref, rl);
+	if (nref) {
+	    h->parent = rev_ref_parent (refs, nref, rl);
+	    h->commit = rev_branch_merge (refs, nref, h->parent);
+	}
     }
     /*
      * Compute 'tail' values
@@ -617,8 +703,11 @@ rev_list_merge (rev_list *head)
 	    if (lh)
 		refs[nref++] = lh;
 	}
-	if (nref)
-	    t->commit = rev_tag_search (refs, nref, rl);
+	if (nref) {
+	    t->parent = rev_ref_parent (refs, nref, rl);
+	    if (t->parent)
+		t->commit = rev_tag_search (refs, nref, t->parent);
+	}
 	if (!t->commit)
 	    fprintf (stderr, "lost tag %s\n", t->name);
     }
@@ -737,7 +826,7 @@ rev_list_validate (rev_list *rl)
 	for (c = h->commit; c && c->parent; c = c->parent) {
 	    if (c->tail)
 		break;
-	    assert (time_compare (c->date, c->parent->date) >= 0);
+//	    assert (time_compare (c->date, c->parent->date) >= 0);
 	}
     }
 }

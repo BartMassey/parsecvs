@@ -88,6 +88,7 @@ typedef struct _rev_commit {
     char		tail;
     char		seen;
     char		used;
+    char		tailed;
     time_t		date;
     char		*log;
     char		*commitid;
@@ -99,9 +100,11 @@ typedef struct _rev_commit {
 typedef struct _rev_ref {
     struct _rev_ref	*next;
     rev_commit		*commit;
+    struct _rev_ref	*parent;	/* link into tree */
     int			head;
     int			tail;
     int			degree;	/* number of digits in original CVS version */
+    cvs_number		number;
     char		*name;
     int			shown;
     time_t		date;
@@ -149,6 +152,9 @@ int
 cvs_number_compare_n (cvs_number *a, cvs_number *b, int l);
 
 int
+cvs_is_branch_of (cvs_number *trunk, cvs_number *branch);
+
+int
 cvs_number_degree (cvs_number *a);
 
 cvs_number
@@ -180,6 +186,9 @@ cvs_file_free (cvs_file *cvs);
 
 long
 time_compare (time_t a, time_t b);
+
+void
+dump_ref_name (FILE *f, rev_ref *ref);
 
 void
 dump_number_file (FILE *f, char *name, cvs_number *number);
@@ -249,17 +258,14 @@ atom (char *string);
 void
 discard_atoms (void);
 
-void
+rev_ref *
 rev_ref_add (rev_ref **list, rev_commit *commit, char *name, int degree, int head);
 
-void
+rev_ref *
 rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree);
 
-void
+rev_ref *
 rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name, int degree);
-
-void
-rev_list_add_branch (rev_list *rl, rev_commit *commit);
 
 rev_file *
 rev_file_rev (char *name, cvs_number *n, time_t date);

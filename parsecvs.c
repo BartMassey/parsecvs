@@ -152,6 +152,16 @@ dump_commit_graph (rev_commit *c)
 }
 
 void
+dump_ref_name (FILE *f, rev_ref *ref)
+{
+    if (ref->parent) {
+	dump_ref_name (f, ref->parent);
+	fprintf (f, " > ");
+    }
+    fprintf (f, "%s", ref->name);
+}
+
+void
 dump_refs (rev_ref *refs, char *title)
 {
     rev_ref	*r, *o;
@@ -174,7 +184,8 @@ dump_refs (rev_ref *refs, char *title)
 			printf ("\\n");
 		    if (o->head)
 			printf ("*");
-		    printf ("%s(%d)", o->name, o->degree);
+		    dump_ref_name (stdout, o);
+		    printf (" (%d)", o->degree);
 		    n++;
 		}
 	    printf ("\" [fontsize=6,fixedsize=false,shape=ellipse];\n");
@@ -199,7 +210,8 @@ dump_refs (rev_ref *refs, char *title)
 			printf ("\\n");
 		    if (o->head)
 			printf ("*");
-		    printf ("%s(%d)", o->name, o->degree);
+		    dump_ref_name (stdout, o);
+		    printf (" (%d)", o->degree);
 		    n++;
 		}
 	    printf ("\"");

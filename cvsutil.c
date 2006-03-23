@@ -105,6 +105,19 @@ cvs_number_compare_n (cvs_number *a, cvs_number *b, int l)
 }
 
 int
+cvs_is_branch_of (cvs_number *trunk, cvs_number *branch)
+{
+    cvs_number	n;
+
+    if (branch->c > 2) {
+	n = *branch;
+	n.c -= 2;
+	return cvs_same_branch (trunk, &n);
+    }
+    return 0;
+}
+
+int
 cvs_number_degree (cvs_number *n)
 {
     cvs_number	four;
@@ -221,14 +234,19 @@ cvs_is_trunk (cvs_number *number)
     return number->c == 2;
 }
 
+/*
+ * Import branches are of the form 1.1.x where x is odd
+ */
 int
 cvs_is_vendor (cvs_number *number)
 {
-    int i;
     if (number->c != 4) return 0;
-    for (i = 0; i < 3; i++)
-	if (number->n[i] != 1)
-	    return 0;
+    if (number->n[0] != 1)
+	return 0;
+    if (number->n[1] != 1)
+	return 0;
+    if ((number->n[2] & 1) != 1)
+	return 0;
     return 1;
 }
 

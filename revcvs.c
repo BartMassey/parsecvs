@@ -79,9 +79,9 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 }
 
 /*
- * The "vendor branch" (1.1.1) is created by importing sources from
- * an external source. In X.org, this was from XFree86. When this
- * tree is imported, cvs sets the 'default' branch in each ,v file
+ * "Vendor branches" (1.1.x) are created by importing sources from
+ * an external source. In X.org, this was from XFree86 and DRI. When
+ * these trees are imported, cvs sets the 'default' branch in each ,v file
  * to point along this branch. This means that tags made between
  * the time the vendor branch is imported and when a new revision
  * is committed to the head branch are placed on the vendor branch
@@ -95,103 +95,132 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
     rev_ref	*trunk = NULL;
     rev_ref	*vendor = NULL, **vendor_p = NULL;
     rev_ref	*h;
-    rev_commit	*t, *v;
-    rev_commit	*tp, *tc, *vc;
+    rev_commit	*t, **tp, *v, **vp;
+    rev_commit	*vlast;
+    rev_commit	*tc;
     rev_ref	**h_p;
-    cvs_number	default_branch;
+    int		delete_head;
 
-    if (cvs->branch.c == 3)
-	default_branch = cvs->branch;
-    else
-	default_branch = lex_number ("1.1.1");
-
-    for (h_p = &rl->heads; (h = *h_p); h_p = &(h->next)) {
-	if (!trunk)
-	    if (cvs_is_trunk (&h->commit->files[0]->number))
-		trunk = h;
-	if (!vendor)
-	    if (cvs_same_branch (&h->commit->files[0]->number, &default_branch)) {
-		vendor = h;
-		vendor_p = h_p;
-	    }
-    }
-    assert (trunk);
-    assert (trunk != vendor);
-    if (vendor) {
-	tc = NULL;
-	t = trunk->commit;
-	/*
-	 * Find the first commit to the trunk
-	 * This will reset the default branch set
-	 * when the initial import was done.
-	 * Subsequent imports will *not* set the default
-	 * branch, and should be on their own branch
-	 */
-	tc = NULL;
-	t = trunk->commit;
-	while (t && t->parent && t->parent->parent) {
-	    tc = t;
-	    t = t->parent;
-	}
-	tp = t->parent;
-	/*
-	 * Bracket the first trunk commit
-	 */
-	vc = NULL;
-	v = vendor->commit;
-	if (t && tp && v)
+    trunk = rl->heads;
+    for (h_p = &rl->heads; (h = *h_p);) {
+	delete_head = 0;
+	if (h->commit && cvs_is_vendor (&h->commit->files[0]->number))
 	{
-	    while (v && time_compare (t->date, v->date) < 0) {
-		vc = v;
-		v = v->parent;
-	    }
 	    /*
-	     * The picture now looks like this:
-	     *
-	     *	      tc
-	     *	      |          vc
-	     *        t          |
-	     *        |          v
-	     *        tp
-	     *
-	     * Hook it up so that it looks like:
-	     *
-	     *	     tc
-	     *       |     /--- vc
-	     *       t----/
-	     *       |
-	     *       v
-	     *       |
-	     *       tp
+	     * Find version 1.2 on the trunk.
+	     * This will reset the default branch set
+	     * when the initial import was done.
+	     * Subsequent imports will *not* set the default
+	     * branch, and should be on their own branch
 	     */
-	
-	    if (vc) {
-		vc->parent = t;
-	    } else {
-		*vendor_p = vendor->next;
-		free (vendor);
-		vendor = NULL;
-	    }
-	    t->parent = v;
-	    while (v->parent)
-		v = v->parent;
-	    v->parent = tp;
-	} else if (t && v) {
+	    vendor = h;
+	    vendor_p = h_p;
+	    t = trunk->commit;
+	    v = vendor->commit;
+	    for (vlast = vendor->commit; vlast; vlast = vlast->parent)
+		if (!vlast->parent)
+		    break;
+	    tc = NULL;
+	    tp = &trunk->commit;
 	    /*
-	     * No commits to trunk, merge entire vendor branch
-	     * to trunk
+	     * Find the latest trunk revision older than
+	     * the entire vendor branch
 	     */
-	    trunk->commit = v;
-	    while (v->parent)
-		v = v->parent;
-	    v->parent = t;
-	    *vendor_p = vendor->next;
-	    free (vendor);
-	    vendor = NULL;
+	    while ((t = *tp))
+	    {
+		if (!t->parent || 
+		    time_compare (vlast->files[0]->date,
+				  t->parent->files[0]->date) >= 0)
+		{
+		    break;
+		}
+		tp = &t->parent;
+	    }
+	    if (t)
+	    {
+		/*
+		 * If the first commit is older than the last element
+		 * of the vendor branch, paste them together and
+		 * nuke the vendor branch
+		 */
+		if (time_compare (vlast->files[0]->date,
+				  t->files[0]->date) >= 0)
+		{
+		    delete_head = 1;
+		}
+		else
+		{
+		    /*
+		     * Splice out any portion of the vendor branch
+		     * newer than a the next trunk commit after
+		     * the oldest branch commit.
+		     */
+		    for (vp = &vendor->commit; (v = *vp); vp = &v->parent)
+			if (time_compare (v->date, t->date) <= 0)
+			    break;
+		    if (vp == &vendor->commit)
+		    {
+			/*
+			 * Nothing newer, nuke vendor branch
+			 */
+			delete_head = 1;
+		    }
+		    else
+		    {
+			/*
+			 * Some newer stuff, patch parent
+			 */
+			*vp = NULL;
+		    }
+		}
+	    }
+	    else
+		delete_head = 1;
+	    /*
+	     * Merge two branches based on dates
+	     */
+	    while (t && v)
+	    {
+		if (time_compare (v->files[0]->date,
+				  t->files[0]->date) >= 0)
+		{
+		    *tp = v;
+		    tp = &v->parent;
+		    v = v->parent;
+		}
+		else
+		{
+		    *tp = t;
+		    tp = &t->parent;
+		    t = t->parent;
+		}
+	    }
+	    if (t)
+		*tp = t;
+	    else
+		*tp = v;
+	    if (!delete_head) {
+		fprintf (stderr, "Vendor branch left with:\n");
+		for (v = vendor->commit; v; v = v->parent) {
+		    fprintf (stderr, "\t");
+		    dump_number_file (stderr, v->files[0]->name,
+				      &v->files[0]->number);
+		    fprintf (stderr, "\n");
+		}
+	    }
+	}
+	if (delete_head) {
+	    *h_p = h->next;
+	    free (h);
+	} else {
+	    h_p = &(h->next);
 	}
     }
-    if (vendor)
-	vendor->name = atom ("VENDOR-BRANCH");
+//    fprintf (stderr, "%s spliced:\n", cvs->name);
+//    for (t = trunk->commit; t; t = t->parent) {
+//	dump_number_file (stderr, "\t", &t->files[0]->number);
+//	fprintf (stderr, "\n");
+//    }
 }
 
 /*
@@ -237,12 +266,37 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
  * For each symbol, locate the appropriate commit
  */
 
+static rev_ref *
+rev_list_find_branch (rev_list *rl, cvs_number *number)
+{
+    cvs_number	n;
+    rev_ref	*h;
+
+    if (number->c < 2)
+	return NULL;
+    n = *number;
+    h = NULL;
+    while (n.c >= 2)
+    {
+	for (h = rl->heads; h; h = h->next) {
+	    if (cvs_same_branch (&h->number, &n)) {
+		break;
+	    }
+	}
+	if (h)
+	    break;
+	n.c -= 2;
+    }
+    return h;
+}
+
 static void
 rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 {
     rev_ref	*h;
     cvs_symbol	*s;
     rev_commit	*c;
+    rev_ref	*t;
     
     /*
      * Locate a symbolic name for this head
@@ -259,8 +313,8 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 		    h->name = s->name;
 		    h->degree = cvs_number_degree (&s->number);
 		} else
-		    rev_list_add_head (rl, h->commit, s->name,
-				       cvs_number_degree (&s->number));
+		    h = rev_list_add_head (rl, h->commit, s->name,
+					   cvs_number_degree (&s->number));
 	    } else {
 		cvs_number	n;
 
@@ -272,16 +326,70 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 			break;
 		}
 		if (c)
-		    rev_list_add_head (rl, c, s->name,
-				       cvs_number_degree (&s->number));
+		    h = rev_list_add_head (rl, c, s->name,
+					   cvs_number_degree (&s->number));
 	    }
+	    if (h)
+		h->number = s->number;
 	} else {
 	    c = rev_find_cvs_commit (rl, &s->number);
-	    if (c)
-		rev_list_add_tag (rl, c, s->name,
-				  cvs_number_degree (&s->number));
+	    if (c) {
+		t = rev_list_add_tag (rl, c, s->name,
+				      cvs_number_degree (&s->number));
+		t->number = s->number;
+	    }
 	}
     }
+    /*
+     * Fix up unnamed heads
+     */
+    for (h = rl->heads; h; h = h->next) {
+	cvs_number	n;
+	rev_commit	*c;
+
+	if (h->name)
+	    continue;
+	for (c = h->commit; c; c = c->parent) {
+	    if (c->nfiles)
+		break;
+	}
+	if (!c)
+	    continue;
+	n = c->files[0]->number;
+	/* convert to branch form */
+	n.n[n.c-1] = n.n[n.c-2];
+	n.n[n.c-2] = 0;
+	h->number = n;
+	h->degree = cvs_number_degree (&n);
+	/* compute name after patching parents */
+    }
+    /*
+     * Link heads together in a tree
+     */
+    for (h = rl->heads; h; h = h->next) {
+	cvs_number	n;
+
+	if (h->number.c >= 4) {
+	    n = h->number;
+	    n.c -= 2;
+	    h->parent = rev_list_find_branch (rl, &n);
+	    if (!h->parent && ! cvs_is_vendor (&h->number))
+		fprintf (stderr, "Branch has no parent: %s\n", h->name);
+	}
+	if (h->parent && !h->name) {
+	    char	name[1024];
+
+	    fprintf (stderr, "File %s has unnamed branch from %s\n",
+		     cvs->name, h->parent->name);
+	    sprintf (name, "%s-UNNAMED-BRANCH", h->parent->name);
+	    h->name = atom (name);
+	}
+    }
+    /*
+     * Link tags to containing branch
+     */
+    for (t = rl->tags; t; t = t->next)
+	t->parent = rev_list_find_branch (rl, &t->number);
 }
 
 /*
@@ -340,22 +448,11 @@ cvs_symbol_compare (cvs_symbol *a, cvs_symbol *b)
 }
 
 static void
-rev_list_patch_unnamed_heads (rev_list *rl, cvs_file *cvs)
+rev_list_dump_ref_parents (FILE *f, rev_ref *h)
 {
-    rev_ref	*h, **hp;
-
-    for (hp = &rl->heads; (h = *hp); ) {
-	if (!h->name) {
-	    if (h->commit) {
-		h->name = atom ("UNNAMED-HEAD");
-		h->degree = cvs_number_degree (&h->commit->files[0]->number);
-	    } else {
-		*hp = h->next;
-		free (h);
-		continue;
-	    }
-	}
-	hp = &h->next;
+    if (h) {
+	rev_list_dump_ref_parents (f, h->parent);
+	fprintf (f, "%s > ", h->name);
     }
 }
 
@@ -383,20 +480,8 @@ rev_list_sort_heads (rev_list *rl, cvs_file *cvs)
     fprintf (stderr, "Sorted heads\n");
     for (h = rl->heads; h;) {
 	fprintf (stderr, "\t");
-	for (;;) {
-	    hs = cvs_find_symbol (cvs, h->name);
-	    if (hs)
-		dump_number_file (stderr, h->name,
-				  &hs->number);
-	    else
-		fprintf (stderr, "%s 1.1", h->name);
-	    if (!h->next)
-		break;
-	    if (h->next->commit != h->commit)
-		break;
-	    fprintf (stderr, " ");
-	    h = h->next;
-	}
+	rev_list_dump_ref_parents (stderr, h->parent);
+	dump_number_file (stderr, h->name, &h->number);
 	fprintf (stderr, "\n");
 	h = h->next;
     }
@@ -411,14 +496,17 @@ rev_list_cvs (cvs_file *cvs)
     rev_commit	*branch;
     cvs_version	*cv;
     cvs_branch	*cb;
+    rev_ref	*t;
 
     /*
      * Generate trunk branch
      */
     one_one = lex_number ("1.1");
     trunk = rev_branch_cvs (cvs, &one_one);
-    if (trunk)
-	rev_list_add_head (rl, trunk, atom ("HEAD"), 2);
+    if (trunk) {
+	t = rev_list_add_head (rl, trunk, atom ("HEAD"), 2);
+	t->number = one_one;
+    }
     /*
      * Search for other branches
      */
@@ -434,7 +522,6 @@ rev_list_cvs (cvs_file *cvs)
     rev_list_patch_vendor_branch (rl, cvs);
     rev_list_graft_branches (rl, cvs);
     rev_list_set_refs (rl, cvs);
-    rev_list_patch_unnamed_heads (rl, cvs);
     rev_list_sort_heads (rl, cvs);
     rev_list_set_tail (rl);
     rev_list_free_dead_files (rl);
