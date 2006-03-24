@@ -255,6 +255,7 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
 		    {
 			c->parent = rev_find_cvs_commit (rl, &cv->number);
 			c->tail = 1;
+			h->date = c->date;
 		    }
 		}
 	    }

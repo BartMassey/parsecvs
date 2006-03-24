@@ -104,6 +104,7 @@ typedef struct _rev_ref {
     int			head;
     int			tail;
     int			degree;	/* number of digits in original CVS version */
+    int			depth;	/* depth in branching tree (1 is trunk) */
     cvs_number		number;
     char		*name;
     int			shown;
