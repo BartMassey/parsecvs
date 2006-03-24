@@ -242,12 +242,21 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
     for (h = rl->heads; h; h = h->next) {
 	if (h->tail)
 	    continue;
+	/*
+	 * Find last commit on branch
+	 */
 	for (c = h->commit; c && c->parent; c = c->parent)
 	    if (c->tail) {
-		c = NULL;
+		c = NULL;	/* already been done, skip */
 		break;
 	    }
 	if (c) {
+	    h->date = c->date;
+	    /*
+	     * Walk the version tree, looking for the branch location.
+	     * Note that in the presense of vendor branches, the
+	     * branch location may actually be out on that vendor branch
+	     */
 	    for (cv = cvs->versions; cv; cv = cv->next) {
 		for (cb = cv->branches; cb; cb = cb->next) {
 		    if (cvs_number_compare (&cb->number,
@@ -255,8 +264,50 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
 		    {
 			c->parent = rev_find_cvs_commit (rl, &cv->number);
 			c->tail = 1;
-			h->date = c->date;
+			break;
 		    }
+		}
+		if (c->parent)
+		{
+#if 0
+		    /*
+		     * check for a parallel vendor branch
+		     */
+		    for (cb = cv->branches; cb; cb = cb->next) {
+			if (cvs_is_vendor (&cb->number)) {
+			    cvs_number	v_n;
+			    rev_commit	*v_c, *n_v_c;
+			    fprintf (stderr, "Found merge into vendor branch\n");
+			    v_n = cb->number;
+			    v_c = NULL;
+			    /*
+			     * Walk to head of vendor branch
+			     */
+			    while ((n_v_c = rev_find_cvs_commit (rl, &v_n)))
+			    {
+				/*
+				 * Stop if we reach a date after the
+				 * branch version date
+				 */
+				if (time_compare (n_v_c->date, c->date) > 0)
+				    break;
+				v_c = n_v_c;
+				v_n.n[v_n.c - 1]++;
+			    }
+			    if (v_c)
+			    {
+				fprintf (stderr, "%s: rewrite branch", cvs->name);
+				dump_number_file (stderr, " branch point",
+						  &v_c->files[0]->number);
+				dump_number_file (stderr, " branch version",
+						  &c->files[0]->number);
+				fprintf (stderr, "\n");
+				c->parent = v_c;
+			    }
+			}
+		    }
+#endif
+		    break;
 		}
 	    }
 	}

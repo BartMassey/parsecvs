@@ -410,7 +410,7 @@ rev_commit_is_ancestor (rev_commit *old, rev_commit *young)
 }
 
 static rev_commit *
-rev_commit_locate_one (rev_ref *branch, rev_commit **commits, int ncommit)
+rev_commit_locate_one (rev_ref *branch, rev_commit *file)
 {
     rev_commit	*commit;
 
@@ -421,34 +421,34 @@ rev_commit_locate_one (rev_ref *branch, rev_commit **commits, int ncommit)
 	 commit;
 	 commit = commit->parent)
     {
-	if (rev_commit_match (commit, commits[0]))
+	if (rev_commit_match (commit, file))
 	    return commit;
     }
     return NULL;
 }
 
 static rev_commit *
-rev_commit_locate_any (rev_ref *branch, rev_commit **commits, int ncommit)
+rev_commit_locate_any (rev_ref *branch, rev_commit *file)
 {
     rev_commit	*commit;
 
     if (!branch)
 	return NULL;
-    commit = rev_commit_locate_any (branch->next, commits, ncommit);
+    commit = rev_commit_locate_any (branch->next, file);
     if (commit)
 	return commit;
-    return rev_commit_locate_one (branch, commits, ncommit);
+    return rev_commit_locate_one (branch, file);
 }
 
 static rev_commit *
-rev_commit_locate (rev_ref *branch, rev_commit **commits, int ncommit)
+rev_commit_locate (rev_ref *branch, rev_commit *file)
 {
     rev_commit	*commit;
 
     /*
      * Check the presumed trunk first
      */
-    commit = rev_commit_locate_one (branch, commits, ncommit);
+    commit = rev_commit_locate_one (branch, file);
     if (commit)
 	return commit;
     /*
@@ -456,7 +456,7 @@ rev_commit_locate (rev_ref *branch, rev_commit **commits, int ncommit)
      */
     while (branch->parent)
 	branch = branch->parent;
-    return rev_commit_locate_any (branch, commits, ncommit);
+    return rev_commit_locate_any (branch, file);
 }
 
 static rev_ref *
@@ -552,9 +552,12 @@ rev_branch_merge (rev_ref **branches, int nbranch,
     nbranch = rev_commit_date_sort (commits, nbranch);
     if (nbranch)
     {
-//	branch->parent = rev_branch_of_commit (rl, commits[0]);
-	*tail = rev_commit_locate_one (branch->parent, commits, nbranch);
-//	assert (*tail);
+	for (n = 0; n < nbranch; n++)
+	{
+	    *tail = rev_commit_locate_one (branch->parent, commits[n]);
+	    if (*tail)
+		break;
+	}
 	if (!*tail) {
 	    rev_ref	*lost = rev_branch_of_commit (rl, commits[0]);
 
@@ -581,7 +584,6 @@ static void
 rev_tag_search (rev_ref **tags, int ntag, rev_ref *tag, rev_list *rl)
 {
     rev_commit	**commits = calloc (ntag, sizeof (rev_commit *));
-    rev_commit	*commit;
     int		n;
 
     for (n = 0; n < ntag; n++)
@@ -590,7 +592,7 @@ rev_tag_search (rev_ref **tags, int ntag, rev_ref *tag, rev_list *rl)
     
     tag->parent = rev_branch_of_commit (rl, commits[0]);
     if (tag->parent)
-	tag->commit = rev_commit_locate (tag->parent, commits, ntag);
+	tag->commit = rev_commit_locate (tag->parent, commits[0]);
     if (!tag->commit)
 	tag->commit = rev_commit_build (commits, ntag);
     free (commits);
