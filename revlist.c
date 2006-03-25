@@ -187,7 +187,7 @@ rev_commit_dump (FILE *f, char *title, rev_commit *c, rev_commit *m)
 void
 rev_list_set_tail (rev_list *rl)
 {
-    rev_ref	*head;
+    rev_ref	*head, *tag;
     rev_commit	*c;
     int		tail;
 
@@ -204,7 +204,10 @@ rev_list_set_tail (rev_list *rl)
 	    }
 	    c->seen++;
 	}
+	head->commit->tagged = 1;
     }
+    for (tag = rl->tags; tag; tag = tag->next)
+	tag->commit->tagged = 1;
 }
 
 static int
@@ -410,6 +413,19 @@ rev_commit_is_ancestor (rev_commit *old, rev_commit *young)
 }
 
 static rev_commit *
+rev_commit_locate_date (rev_ref *branch, time_t date)
+{
+    rev_commit	*commit;
+
+    for (commit = branch->commit; commit; commit = commit->parent)
+    {
+	if (time_compare (commit->date, date) <= 0)
+	    return commit;
+    }
+    return NULL;
+}
+
+static rev_commit *
 rev_commit_locate_one (rev_ref *branch, rev_commit *file)
 {
     rev_commit	*commit;
@@ -459,8 +475,8 @@ rev_commit_locate (rev_ref *branch, rev_commit *file)
     return rev_commit_locate_any (branch, file);
 }
 
-static rev_ref *
-rev_branch_of_commit (rev_list *rl, rev_commit *commit)\
+rev_ref *
+rev_branch_of_commit (rev_list *rl, rev_commit *commit)
 {
     rev_ref	*h;
     rev_commit	*c;
@@ -550,13 +566,17 @@ rev_branch_merge (rev_ref **branches, int nbranch,
      * Connect to parent branch
      */
     nbranch = rev_commit_date_sort (commits, nbranch);
-    if (nbranch)
+    if (nbranch && branch->parent)
     {
-	for (n = 0; n < nbranch; n++)
-	{
-	    *tail = rev_commit_locate_one (branch->parent, commits[n]);
+	*tail = rev_commit_locate_one (branch->parent, commits[0]);
+	if (!*tail) {
+	    *tail = rev_commit_locate_date (branch->parent, commits[0]->date);
 	    if (*tail)
-		break;
+		fprintf (stderr, "Warning: branch point %s -> %s matched by date\n",
+			 branch->name, branch->parent->name);
+	    else
+		fprintf (stderr, "Error: branch point %s -> %s not found\n",
+			 branch->name, branch->parent->name);
 	}
 	if (!*tail) {
 	    rev_ref	*lost = rev_branch_of_commit (rl, commits[0]);
@@ -738,7 +758,6 @@ rev_list_merge (rev_list *head)
      * Merge common branches
      */
     for (h = rl->heads; h; h = h->next) {
-	fprintf (stderr, "merge head %s\n", h->name);
 	/*
 	 * Locate branch in every tree
 	 */
@@ -786,6 +805,8 @@ rev_list_merge (rev_list *head)
 	}
 	if (!t->commit)
 	    fprintf (stderr, "lost tag %s\n", t->name);
+	else
+	    t->commit->tagged = 1;
     }
     rev_list_validate (rl);
     return rl;

@@ -128,15 +128,18 @@ dump_log (FILE *f, char *log)
 }
 
 void
-dump_commit_graph (rev_commit *c)
+dump_commit_graph (rev_commit *c, rev_ref *branch)
 {
     rev_file	*f;
     int		i;
 
     printf ("\"");
 #if 1
-    if (c->tail)
-	printf ("TAIL *** ");
+    if (branch)
+	dump_ref_name (stdout, branch);
+//    if (c->tail)
+//	printf ("*** TAIL");
+    printf ("\\n");
     printf ("%s\\n", ctime_nonl (&c->date));
     dump_log (stdout, c->log);
     printf ("\\n");
@@ -161,8 +164,30 @@ dump_ref_name (FILE *f, rev_ref *ref)
     fprintf (f, "%s", ref->name);
 }
 
+static
+rev_ref *
+dump_find_branch (rev_list *rl, rev_commit *commit)
+{
+    rev_ref	*h;
+    rev_commit	*c;
+
+    for (h = rl->heads; h; h = h->next)
+    {
+	if (h->tail)
+	    continue;
+	for (c = h->commit; c; c = c->parent)
+	{
+	    if (c == commit)
+		return h;
+	    if (c->tail)
+		break;
+	}
+    }
+    return NULL;
+}
+
 void
-dump_refs (rev_ref *refs, char *title)
+dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 {
     rev_ref	*r, *o;
     int		n;
@@ -182,13 +207,11 @@ dump_refs (rev_ref *refs, char *title)
 		    o->shown = 1;
 		    if (n)
 			printf ("\\n");
-		    if (o->head)
-			printf ("*");
 		    dump_ref_name (stdout, o);
 		    printf (" (%d)", o->degree);
 		    n++;
 		}
-	    printf ("\" [fontsize=6,fixedsize=false,shape=ellipse];\n");
+	    printf ("\" [fontsize=6,fixedsize=false,shape=%s];\n", shape);
 	}
     }
     for (r = refs; r; r = r->next)
@@ -208,8 +231,6 @@ dump_refs (rev_ref *refs, char *title)
 		    o->shown = 1;
 		    if (n)
 			printf ("\\n");
-		    if (o->head)
-			printf ("*");
 		    dump_ref_name (stdout, o);
 		    printf (" (%d)", o->degree);
 		    n++;
@@ -217,16 +238,29 @@ dump_refs (rev_ref *refs, char *title)
 	    printf ("\"");
 	    printf (" -> ");
 	    if (r->commit)
-		dump_commit_graph (r->commit);
+		dump_commit_graph (r->commit, dump_find_branch (rl,
+								r->commit));
 	    else
 		printf ("LOST");
-	    printf ("\n");
+	    printf (" [weight=%d];\n", r->head  && !r->tail ? 100 : 3);
 	}
     }
     for (r = refs; r; r = r->next)
 	r->shown = 0;
 }
 
+int elide = 1;
+
+static rev_commit *
+dump_get_rev_parent (rev_commit *c)
+{
+    int	seen = c->seen;
+
+    c = c->parent;
+    while (c && c->seen == seen && !c->tail && !c->tagged)
+	c = c->parent;
+    return c;
+}
 
 void
 dump_rev_graph_nodes (rev_list *rl, char *title)
@@ -239,20 +273,22 @@ dump_rev_graph_nodes (rev_list *rl, char *title)
     printf ("ranksep=0.1;\n");
     printf ("edge [dir=none];\n");
     printf ("node [shape=box,fontsize=6];\n");
-    dump_refs (rl->heads, title);
-    dump_refs (rl->tags, title);
+    dump_refs (rl, rl->heads, title, "ellipse");
+    dump_refs (rl, rl->tags, title, "diamond");
     for (h = rl->heads; h; h = h->next) {
 	if (h->tail)
 	    continue;
 	for (c = h->commit; c; c = p) {
-	    p = c->parent;
+	    p = dump_get_rev_parent (c);
 	    tail = c->tail;
 	    if (!p)
 		break;
 	    printf ("\t");
-	    dump_commit_graph (c);
+	    dump_commit_graph (c, h);
 	    printf (" -> ");
-	    dump_commit_graph (p);
+	    dump_commit_graph (p, tail ? h->parent : h);
+	    if (!tail)
+		printf (" [weight=10];");
 	    printf ("\n");
 	    if (tail)
 		break;

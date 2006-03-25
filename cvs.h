@@ -89,6 +89,7 @@ typedef struct _rev_commit {
     char		seen;
     char		used;
     char		tailed;
+    char		tagged;
     time_t		date;
     char		*log;
     char		*commitid;
@@ -219,7 +220,7 @@ void
 dump_commit (rev_commit *e);
 
 void
-dump_refs (rev_ref *refs, char *title);
+dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape);
 
 void
 dump_rev_commit (rev_commit *e);
@@ -243,7 +244,7 @@ void
 dump_rev_graph_end (void);
 
 void
-dump_commit_graph (rev_commit *c);
+dump_commit_graph (rev_commit *c, rev_ref *branch);
 
 void
 dump_rev_graph (rev_list *rl, char *title);
@@ -267,6 +268,9 @@ rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree);
 
 rev_ref *
 rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name, int degree);
+
+rev_ref *
+rev_branch_of_commit (rev_list *rl, rev_commit *commit);
 
 rev_file *
 rev_file_rev (char *name, cvs_number *n, time_t date);
