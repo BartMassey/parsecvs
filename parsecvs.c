@@ -127,6 +127,8 @@ dump_log (FILE *f, char *log)
     }
 }
 
+int allfiles = 0;
+    
 void
 dump_commit_graph (rev_commit *c, rev_ref *branch)
 {
@@ -134,7 +136,6 @@ dump_commit_graph (rev_commit *c, rev_ref *branch)
     int		i;
 
     printf ("\"");
-#if 1
     if (branch)
 	dump_ref_name (stdout, branch);
 //    if (c->tail)
@@ -147,9 +148,9 @@ dump_commit_graph (rev_commit *c, rev_ref *branch)
 	f = c->files[i];
 	dump_number (f->name, &f->number);
 	printf ("\\n");
-	break;
+	if (!allfiles)
+	    break;
     }
-#endif
     printf ("%08x", (int) c);
     printf ("\"");
 }
@@ -249,7 +250,7 @@ dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 	r->shown = 0;
 }
 
-int elide = 1;
+int elide = 0;
 
 static rev_commit *
 dump_get_rev_parent (rev_commit *c)
@@ -257,7 +258,7 @@ dump_get_rev_parent (rev_commit *c)
     int	seen = c->seen;
 
     c = c->parent;
-    while (c && c->seen == seen && !c->tail && !c->tagged)
+    while (elide && c && c->seen == seen && !c->tail && !c->tagged)
 	c = c->parent;
     return c;
 }

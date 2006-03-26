@@ -312,26 +312,33 @@ rev_commit_date_compare (const void *av, const void *bv)
 	return 1;
     else if (!b)
 	return -1;
+#if 0
     /*
-     * tailed entries sort next to last
+     * Entries with no files sort next
      */
-    if (a->tailed && !b->tailed)
-	return 1;
-    if (b->tailed && !a->tailed)
-	return -1;
+    if (a->nfiles != b->nfiles)
+	return b->nfiles - a->nfiles;
+#endif
+    /*
+     * tailed entries sort next
+     */
+    if (a->tailed != b->tailed)
+	return a->tailed - b->tailed;
     /*
      * Newest entries sort first
      */
     t = -time_compare (a->date, b->date);
     if (t)
 	return t;
-    /*
-     * Ensure total order by ordering based on file address
-     */
-    if ((uintptr_t) a->files[0] > (uintptr_t) b->files[0])
-	return -1;
-    if ((uintptr_t) a->files[0] < (uintptr_t) b->files[0])
-	return 1;
+    if (a->nfiles && b->nfiles) {
+	/*
+	 * Ensure total order by ordering based on file address
+	 */
+	if ((uintptr_t) a->files[0] > (uintptr_t) b->files[0])
+	    return -1;
+	if ((uintptr_t) a->files[0] < (uintptr_t) b->files[0])
+	    return 1;
+    }
     return 0;
 }
 
@@ -554,7 +561,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 		    nlive++;
 		}
 		commits[n] = commits[n]->parent;
-	    } else
+	    } else if (commits[n]->parent || commits[n]->nfiles)
 		nlive++;
 	}
 	    
@@ -566,29 +573,58 @@ rev_branch_merge (rev_ref **branches, int nbranch,
      * Connect to parent branch
      */
     nbranch = rev_commit_date_sort (commits, nbranch);
-    if (nbranch && branch->parent)
+    if (nbranch && branch->parent )
     {
-	*tail = rev_commit_locate_one (branch->parent, commits[0]);
-	if (!*tail) {
-	    *tail = rev_commit_locate_date (branch->parent, commits[0]->date);
-	    if (*tail)
-		fprintf (stderr, "Warning: branch point %s -> %s matched by date\n",
-			 branch->name, branch->parent->name);
-	    else
-		fprintf (stderr, "Error: branch point %s -> %s not found\n",
-			 branch->name, branch->parent->name);
-	}
-	if (!*tail) {
-	    rev_ref	*lost = rev_branch_of_commit (rl, commits[0]);
+	rev_ref	*lost;
+	int	present;
 
-	    fprintf (stderr, "Lost branch point\n");
-	    if (lost)
-		fprintf (stderr, "Found possible match on %s\n", lost->name);
-	    
-	    *tail = rev_commit_build (commits, nbranch);
+//	present = 0;
+	for (present = 0; present < nbranch; present++)
+	    if (commits[present]->nfiles)
+		break;
+	if (present == nbranch)
+	    *tail = NULL;
+	else if ((*tail = rev_commit_locate_one (branch->parent, commits[present]))) {
+	    if (prev && time_compare ((*tail)->date, prev->date) > 0) {
+		fprintf (stderr, "Warning: branch point %s -> %s later than branch\n",
+			 branch->name, branch->parent->name);
+#if 0
+		for (n = 0; n < nbranch; n++) {
+		    fprintf (stderr, "\ttrunk(%3d):  %s %s", n,
+			     ctime_nonl (&commits[n]->date), commits[n]->nfiles ? " " : "D" );
+//		    if (commits[n]->nfiles)
+			dump_number_file (stderr,
+					  commits[n]->files[0]->name,
+					  &commits[n]->files[0]->number);
+		    fprintf (stderr, "\n");
+		}
+		for (n = 0; n < prev->nfiles; n++) {
+		    fprintf (stderr, "\tbranch(%3d): %s", n,
+			     ctime_nonl (&prev->files[n]->date));
+		    dump_number_file (stderr,
+				      prev->files[n]->name,
+				      &prev->files[n]->number);
+		    fprintf (stderr, "\n");
+		}
+#endif
+	    }
+	} else if ((*tail = rev_commit_locate_date (branch->parent,
+						  commits[present]->date)))
+	    fprintf (stderr, "Warning: branch point %s -> %s matched by date\n",
+		     branch->name, branch->parent->name);
+	else {
+	    fprintf (stderr, "Error: branch point %s -> %s not found.",
+		     branch->name, branch->parent->name);
+
+	    if ((lost = rev_branch_of_commit (rl, commits[present])))
+		fprintf (stderr, " Possible match on %s.", lost->name);
+	    fprintf (stderr, "\n");
 	}
-	else if (prev)
-	    prev->tail = 1;
+	if (*tail) {
+	    if (prev)
+		prev->tail = 1;
+	} else 
+	    *tail = rev_commit_build (commits, nbranch);
     }
     for (n = 0; n < nbranch; n++)
 	if (commits[n])
