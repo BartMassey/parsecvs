@@ -69,8 +69,6 @@ atom (char *string)
     hash_bucket_t	*b;
     int			len = strlen (string);
 
-    if (len > 10000)
-	printf ("long string\n");
     while ((b = *head)) {
 	if (b->crc == crc && !strcmp (string, b->string))
 	    return b->string;
