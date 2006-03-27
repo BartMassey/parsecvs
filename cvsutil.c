@@ -49,6 +49,11 @@ cvs_same_branch (cvs_number *a, cvs_number *b)
     }
     if (a->c != b->c)
 	return 0;
+    /*
+     * Everything on x.y is HEAD
+     */
+    if (a->c == 2)
+	return 1;
     n = a->c;
     for (i = 0; i < n - 1; i++) {
 	an = a->n[i];

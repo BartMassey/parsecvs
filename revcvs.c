@@ -426,12 +426,13 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 	    n.c -= 2;
 	    h->parent = rev_list_find_branch (rl, &n);
 	    if (!h->parent && ! cvs_is_vendor (&h->number))
-		fprintf (stderr, "Branch has no parent: %s\n", h->name);
+		fprintf (stderr, "Warning: %s: branch %s has no parent\n",
+			 cvs->name, h->name);
 	}
 	if (h->parent && !h->name) {
 	    char	name[1024];
 
-	    fprintf (stderr, "File %s has unnamed branch from %s\n",
+	    fprintf (stderr, "Warning: %s: unnamed branch from %s\n",
 		     cvs->name, h->parent->name);
 	    sprintf (name, "%s-UNNAMED-BRANCH", h->parent->name);
 	    h->name = atom (name);
@@ -543,21 +544,36 @@ rev_list *
 rev_list_cvs (cvs_file *cvs)
 {
     rev_list	*rl = calloc (1, sizeof (rev_list));
-    cvs_number	one_one;
+    cvs_number	trunk_number;
     rev_commit	*trunk; 
     rev_commit	*branch;
     cvs_version	*cv;
     cvs_branch	*cb;
     rev_ref	*t;
+    cvs_version	*ctrunk = NULL;
 
+    /*
+     * Locate first revision on trunk branch
+     */
+    for (cv = cvs->versions; cv; cv = cv->next) {
+	if (cvs_is_trunk (&cv->number) &&
+	    (!ctrunk || cvs_number_compare (&cv->number,
+					    &ctrunk->number) < 0))
+	{
+	    ctrunk = cv;
+	}
+    }
     /*
      * Generate trunk branch
      */
-    one_one = lex_number ("1.1");
-    trunk = rev_branch_cvs (cvs, &one_one);
+    if (ctrunk)
+	trunk_number = ctrunk->number;
+    else
+	trunk_number = lex_number ("1.1");
+    trunk = rev_branch_cvs (cvs, &trunk_number);
     if (trunk) {
 	t = rev_list_add_head (rl, trunk, atom ("HEAD"), 2);
-	t->number = one_one;
+	t->number = trunk_number;
     }
     /*
      * Search for other branches

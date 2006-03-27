@@ -502,6 +502,20 @@ rev_branch_of_commit (rev_list *rl, rev_commit *commit)
     return NULL;
 }
 
+/*
+ * Time of first commit along entire history
+ */
+static time_t
+rev_commit_first_date (rev_commit *commit)
+{
+    while (commit->parent)
+	commit = commit->parent;
+    return commit->date;
+}
+
+/*
+ * Merge a set of per-file branches into a global branch
+ */
 static void
 rev_branch_merge (rev_ref **branches, int nbranch,
 		  rev_ref *branch, rev_list *rl)
@@ -580,33 +594,42 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 
 //	present = 0;
 	for (present = 0; present < nbranch; present++)
-	    if (commits[present]->nfiles)
+	    if (commits[present]->nfiles) {
+		/*
+		 * Skip files which appear in the repository after
+		 * the first commit along the branch
+		 */
+		if (prev && commits[present]->date > prev->date &&
+		    commits[present]->date == rev_commit_first_date (commits[present]))
+		{
+		    fprintf (stderr, "Warning: file %s appears after branch %s date\n",
+			     commits[present]->files[0]->name, branch->name);
+		    continue;
+		}
 		break;
+	    }
 	if (present == nbranch)
 	    *tail = NULL;
-	else if ((*tail = rev_commit_locate_one (branch->parent, commits[present]))) {
+	else if ((*tail = rev_commit_locate_one (branch->parent,
+						 commits[present])))
+	{
 	    if (prev && time_compare ((*tail)->date, prev->date) > 0) {
 		fprintf (stderr, "Warning: branch point %s -> %s later than branch\n",
 			 branch->name, branch->parent->name);
-#if 0
-		for (n = 0; n < nbranch; n++) {
-		    fprintf (stderr, "\ttrunk(%3d):  %s %s", n,
-			     ctime_nonl (&commits[n]->date), commits[n]->nfiles ? " " : "D" );
-//		    if (commits[n]->nfiles)
-			dump_number_file (stderr,
-					  commits[n]->files[0]->name,
-					  &commits[n]->files[0]->number);
-		    fprintf (stderr, "\n");
-		}
-		for (n = 0; n < prev->nfiles; n++) {
-		    fprintf (stderr, "\tbranch(%3d): %s", n,
-			     ctime_nonl (&prev->files[n]->date));
+		fprintf (stderr, "\ttrunk(%3d):  %s %s", n,
+			 ctime_nonl (&commits[present]->date),
+			 commits[present]->nfiles ? " " : "D" );
+		if (commits[present]->nfiles)
 		    dump_number_file (stderr,
-				      prev->files[n]->name,
-				      &prev->files[n]->number);
-		    fprintf (stderr, "\n");
-		}
-#endif
+				      commits[present]->files[0]->name,
+				      &commits[present]->files[0]->number);
+		fprintf (stderr, "\n");
+		fprintf (stderr, "\tbranch(%3d): %s", n,
+			 ctime_nonl (&prev->files[0]->date));
+		dump_number_file (stderr,
+				  prev->files[0]->name,
+				  &prev->files[0]->number);
+		fprintf (stderr, "\n");
 	    }
 	} else if ((*tail = rev_commit_locate_date (branch->parent,
 						  commits[present]->date)))
@@ -787,8 +810,8 @@ rev_list_merge (rev_list *head)
      */
     for (h = rl->heads; h; h = h->next) {
 	rev_ref_set_parent (rl, h, head);
-	dump_ref_name (stderr, h);
-	fprintf (stderr, "\n");
+//	dump_ref_name (stderr, h);
+//	fprintf (stderr, "\n");
     }
     /*
      * Merge common branches
