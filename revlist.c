@@ -391,6 +391,7 @@ rev_commit_build (rev_commit **commits, int ncommit)
     commit->date = commits[0]->date;
     commit->commitid = commits[0]->commitid;
     commit->log = commits[0]->log;
+    commit->author = commits[0]->author;
     nfile = 0;
     for (n = 0; n < ncommit; n++)
 	if (commits[n]->nfiles > 0)

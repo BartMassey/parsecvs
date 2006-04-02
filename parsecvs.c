@@ -356,6 +356,7 @@ dump_rev_list (rev_list *rl)
 
 extern FILE *yyin;
 static int err = 0;
+char *yyfilename;
 
 static rev_list *
 rev_list_file (char *name)
@@ -367,10 +368,12 @@ rev_list_file (char *name)
 	perror (name);
 	++err;
     }
+    yyfilename = name;
     this_file = calloc (1, sizeof (cvs_file));
     this_file->name = name;
     yyparse ();
     fclose (yyin);
+    yyfilename = 0;
     rl = rev_list_cvs (this_file);
     cvs_file_free (this_file);
     return rl;

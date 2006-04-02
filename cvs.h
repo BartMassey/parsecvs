@@ -93,6 +93,7 @@ typedef struct _rev_commit {
     char		tagged;
     time_t		date;
     char		*log;
+    char		*author;
     char		*commitid;
     char		*sha1;
     int			nfiles;
@@ -136,6 +137,8 @@ typedef struct _rev_diff {
 extern cvs_file     *this_file;
 
 int yyparse (void);
+
+extern char *yyfilename;
 
 char *
 ctime_nonl (time_t *date);

@@ -18,8 +18,10 @@
  */
 #include "cvs.h"
 #include "y.tab.h"
-static void skip_data (void);
     
+static char *
+parse_data (int save);
+
 %}
 %s CONTENT SKIP
 %%
@@ -41,8 +43,7 @@ static void skip_data (void);
 <INITIAL>log			return LOG;
 <INITIAL>text			BEGIN(SKIP); return TEXT;
 <SKIP>@				{
-					skip_data ();
-					yylval.s = atom ("skip");
+					yylval.s = parse_data (0);
 					BEGIN(INITIAL);
 					return DATA;
 				}
@@ -56,32 +57,55 @@ static void skip_data (void);
 				}
 ;				BEGIN(INITIAL); return SEMI;
 :				return COLON;
-<INITIAL,CONTENT>@(@@|[^@]|\n)*@			{
-					yytext[yyleng-1] = '\0';
-					yylval.s = atom (yytext+1);
+<INITIAL,CONTENT>@		{
+					yylval.s = parse_data (1);
 					return DATA;
 				}
 " " 				;
 \t				;
 \n				;
-.				fprintf (stderr, "ignoring %c\n", yytext[0]);
+.				{ 
+				    fprintf (stderr, "%s: (%d) ignoring %c\n", 
+					     yyfilename, yyget_lineno (),
+					     yytext[0]);
+				}
 %%
 int yywrap (void) { return 1; }
 
-static void
-skip_data (void)
+static char *
+parse_data (int save)
 {
-    int	c;
+    int		c;
+    char	*buf = NULL;
+    char	*ret;
+    int		n = 0;
+    int 	buflen = 0;
 
-    while ((c = input ()) != EOF) {
+    do {
+	c = input ();
 	if (c == '@') {
 	    c = input ();
 	    if (c != '@') {
 		unput (c);
-		break;
+		c = EOF;
 	    }
 	}
-    }
+	if (save) {
+	    if (n == buflen) {
+		if (buflen)
+		    buf = realloc (buf, buflen *= 2);
+		else
+		    buf = malloc (buflen = 256);
+	    }
+	    buf[n++] = c == EOF ? '\0' : c;
+	}
+    } while (c != EOF);
+    if (save) {
+	ret = atom (buf);
+	free (buf);
+    } else
+	ret = atom ("skip");
+    return ret;
 }
 
 cvs_number
@@ -122,7 +146,8 @@ lex_date (cvs_number *n)
 	d = mktime (&tm);
 	if (d == 0) {
 	    int i;
-	    fprintf (stderr, "unparsable date: ");
+	    fprintf (stderr, "%s: (%d) unparsable date: ", yyfilename,
+		     yyget_lineno ());
 	    for (i = 0; i < n->c; i++) {
 		if (i) fprintf (stderr, ".");
 		fprintf (stderr, "%d", n->n[i]);

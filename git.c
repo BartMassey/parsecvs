@@ -274,6 +274,8 @@ git_cvs_file (char *base)
     return filename;
 }
 
+#define LOG_COMMAND "edit-change-log"
+
 static char *
 git_log_file (rev_commit *commit)
 {
@@ -294,6 +296,15 @@ git_log_file (rev_commit *commit)
 	return NULL;
     }
     fclose (f);
+#ifdef LOG_COMMAND
+    {
+	char	command[MAXPATHLEN*2+1];
+	snprintf (command, sizeof (command),
+		  "%s '%s'", LOG_COMMAND, filename);
+	if (git_system (command) != 0)
+	    return NULL;
+    }
+#endif
     return filename;
 }
 
@@ -307,6 +318,92 @@ static char *
 git_commit_file (void)
 {
     return git_cvs_file ("commit");
+}
+
+typedef struct _cvs_author {
+    struct _cvs_author	*next;
+    char		*name;
+    char		*full;
+    char		*email;
+} cvs_author;
+
+#define AUTHOR_HASH 1021
+
+static cvs_author	*author_buckets[AUTHOR_HASH];
+
+static cvs_author *
+git_fullname (char *name)
+{
+    cvs_author	**bucket = &author_buckets[((unsigned long) name) % AUTHOR_HASH];
+    cvs_author	*a;
+
+    for (a = *bucket; a; a = a->next)
+	if (a->name == name)
+	    return a;
+    return NULL;
+}
+
+static int
+git_load_author_map (char *filename)
+{
+    char    line[10240];
+    char    *equal;
+    char    *angle;
+    char    *email;
+    char    *name;
+    char    *full;
+    FILE    *f;
+    int	    lineno = 0;
+    cvs_author	*a, **bucket;
+    
+    f = fopen (filename, "r");
+    if (!f) {
+	fprintf (stderr, "%s: %s\n", filename, strerror (errno));
+	return 0;
+    }
+    while (fgets (line, sizeof (line) - 1, f)) {
+	lineno++;
+	if (line[0] == '#')
+	    continue;
+	equal = strchr (line, '=');
+	if (!equal) {
+	    fprintf (stderr, "%s: (%d) missing '='\n", filename, lineno);
+	    return 0;
+	}
+	*equal = '\0';
+	full = equal + 1;
+	name = atom (line);
+	if (git_fullname (name)) {
+	    fprintf (stderr, "%s: (%d) duplicate name '%s' ignored\n",
+		     filename, lineno, name);
+	    return 0;
+	}
+	a = calloc (1, sizeof (cvs_author));
+	a->name = name;
+	angle = strchr (full, '<');
+	if (!angle) {
+	    fprintf (stderr, "%s: (%d) missing email address '%s'\n",
+		     filename, lineno, name);
+	    return 0;
+	}
+	email = angle + 1;
+        while (angle > full && angle[-1] == ' ')
+	    angle--;
+	*angle = '\0';
+	a->full = atom(full);
+	angle = strchr (email, '>');
+	if (!angle) {
+	    fprintf (stderr, "%s: (%d) malformed email address '%s\n",
+		     filename, lineno, name);
+	    return 0;
+	}
+	*angle = '\0';
+	a->email = atom (email);
+	bucket = &author_buckets[((unsigned long) name) % AUTHOR_HASH];
+	a->next = *bucket;
+	*bucket = a;
+    }
+    return 1;
 }
 
 static char *
@@ -349,7 +446,7 @@ git_status (void)
     int	s;
 
     fprintf (STATUS, "              ");
-    fprintf (STATUS, "%30.30s: ", git_current_head);
+    fprintf (STATUS, "%28.28s: ", git_current_head);
     for (s = 0; s < PROGRESS_LEN + 1; s++)
 	putc (s == spot ? '*' : '.', STATUS);
     fprintf (STATUS, " %5d of %5d\r", git_current_commit, git_total_commits);
@@ -363,6 +460,10 @@ git_spin (void)
     fflush (STATUS);
 }
 
+/*
+ * Create a commit object in the repository using the current
+ * index and the information from the provided rev_commit
+ */
 static int
 git_commit (rev_commit *commit)
 {
@@ -370,7 +471,11 @@ git_commit (rev_commit *commit)
     char    *log;
     char    *tree;
     char    *id;
+    cvs_author	*author;
     char    *tree_sha1;
+    char    *full;
+    char    *email;
+    char    *date;
 
     log = git_log_file (commit);
     if (!log)
@@ -386,6 +491,26 @@ git_commit (rev_commit *commit)
     tree_sha1 = git_load_file (tree);
     if (!tree_sha1)
 	return 0;
+
+    /*
+     * Prepare environment for git-commit-tree
+     */
+    author = git_fullname (commit->author);
+    if (!author) {
+	fprintf (stderr, "%s: not in author map\n", commit->author);
+	full = commit->author;
+	email = commit->author;
+    } else {
+	full = author->full;
+	email = author->email;
+    }
+    date = ctime_nonl (&commit->date);
+    setenv ("GIT_AUTHOR_NAME", full, 1);
+    setenv ("GIT_AUTHOR_EMAIL", email, 1);
+    setenv ("GIT_AUTHOR_DATE", date, 1);
+    setenv ("GIT_COMMITTER_NAME", full, 1);
+    setenv ("GIT_COMMITTER_EMAIL", email, 1);
+    setenv ("GIT_COMMITTER_DATE", date, 1);
     if (commit->parent)
         snprintf (command, sizeof (command) - 1,
 	          "git-commit-tree '%s' -p '%s' < '%s' > '%s'",
@@ -409,6 +534,7 @@ git_switch_commit (rev_commit *old, rev_commit *new, int strip)
     rev_file_list   *fl;
 
     git_total_files = diff->ndel + diff->nadd;
+    git_current_file = 0;
     for (fl = diff->del; fl; fl = fl->next) {
 	++git_current_file;
 	git_spin ();
@@ -546,6 +672,7 @@ git_rev_list_commit (rev_list *rl, int strip)
 {
     rev_ref *h;
 
+    git_load_author_map ("Authors");
     git_total_commits = git_ncommit (rl);
     git_current_commit = 0;
     for (h = rl->heads; h; h = h->next)

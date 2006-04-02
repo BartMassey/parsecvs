@@ -63,6 +63,7 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 	p = cvs_find_patch (cvs, &v->number);
 	c->date = v->date;
 	c->commitid = v->commitid;
+	c->author = v->author;
 	if (p)
 	    c->log = p->log;
 	if (v->dead)
