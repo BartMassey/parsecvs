@@ -355,11 +355,13 @@ rev_commit_date_sort (rev_commit **commits, int ncommit)
     return ncommit;
 }
 
-static int
+int
 rev_commit_has_file (rev_commit *c, rev_file *f)
 {
     int	n;
 
+    if (!c)
+	return 0;
     for (n = 0; n < c->nfiles; n++)
 	if (c->files[n] == f)
 	    return 1;

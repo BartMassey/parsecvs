@@ -250,7 +250,7 @@ dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 	r->shown = 0;
 }
 
-int elide = 0;
+int elide = 1;
 
 static rev_commit *
 dump_get_rev_parent (rev_commit *c)
@@ -578,13 +578,30 @@ dump_rev_tree (rev_list *rl)
 
 time_t	time_now;
 
+static int
+strcommon (char *a, char *b)
+{
+    int	c = 0;
+    
+    while (*a == *b) {
+	if (!*a)
+	    break;
+	a++;
+	b++;
+	c++;
+    }
+    return c;
+}
+
 int
 main (int argc, char **argv)
 {
     rev_list	*head, **tail = &head;
     rev_list	*rl;
     int		j = 1;
-    char	name[10240];
+    char	name[10240], last[10240];
+    int		strip = -1;
+    int		c;
     char	*file;
 
     /* force times using mktime to be interpreted in UTC */
@@ -612,14 +629,23 @@ main (int argc, char **argv)
 	*tail = rl;
 	tail = &rl->next;
 //	fprintf (stderr, "%s\n", file);
+	if (strip > 0) {
+	    c = strcommon (name, last);
+	    if (c < strip)
+		strip = c;
+	} else if (strip < 0) {
+	    strip = strlen (name);
+	}
+	strcpy (last, name);
     }
     rl = rev_list_merge (head);
     if (rl) {
-	dump_rev_graph (rl, NULL);
+//	dump_rev_graph (rl, NULL);
 //	dump_rev_info (rl);
-	if (rl->watch)
-	    dump_rev_tree (rl);
+//	if (rl->watch)
+//	    dump_rev_tree (rl);
 //	dump_splits (rl);
+	git_rev_list_commit (rl, strip);
     }
 //    rev_list_free (rl, 1);
     discard_atoms ();

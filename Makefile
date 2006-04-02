@@ -5,9 +5,9 @@ GCC_WARNINGS=$(GCC_WARNINGS1) $(GCC_WARNINGS2) $(GCC_WARNINGS3)
 CFLAGS=-O0 -g $(GCC_WARNINGS)
 YFLAGS=-d
 
-SRCS=gram.y lex.l cvs.h parsecvs.c cvsutil.c revlist.c atom.c revcvs.c
+SRCS=gram.y lex.l cvs.h parsecvs.c cvsutil.c revlist.c atom.c revcvs.c git.c
 
-OBJS=gram.o lex.o parsecvs.o cvsutil.o revlist.o atom.o revcvs.o
+OBJS=gram.o lex.o parsecvs.o cvsutil.o revlist.o atom.o revcvs.o git.o
 
 parsecvs: $(OBJS)
 	cc $(CFLAGS) -o $@ $(OBJS) $(LIBS)

@@ -572,7 +572,7 @@ rev_list_cvs (cvs_file *cvs)
 	trunk_number = lex_number ("1.1");
     trunk = rev_branch_cvs (cvs, &trunk_number);
     if (trunk) {
-	t = rev_list_add_head (rl, trunk, atom ("HEAD"), 2);
+	t = rev_list_add_head (rl, trunk, atom ("master"), 2);
 	t->number = trunk_number;
     }
     /*

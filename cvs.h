@@ -29,6 +29,7 @@
 #include <ctype.h>
 
 #define CVS_MAX_DEPTH	12
+#define CVS_MAX_REV_LEN	(CVS_MAX_DEPTH * 11)
 
 typedef struct _cvs_number {
     int			c;
@@ -93,6 +94,7 @@ typedef struct _rev_commit {
     time_t		date;
     char		*log;
     char		*commitid;
+    char		*sha1;
     int			nfiles;
     struct _rev_commit	*user;
     rev_file		*files[0];
@@ -118,6 +120,18 @@ typedef struct _rev_list {
     rev_ref	*tags;
     int		watch;
 } rev_list;
+
+typedef struct _rev_file_list {
+    struct _rev_file_list   *next;
+    rev_file		    *file;
+} rev_file_list;
+
+typedef struct _rev_diff {
+    rev_file_list	*del;
+    rev_file_list	*add;
+    int			ndel;
+    int			nadd;
+} rev_diff;
 
 extern cvs_file     *this_file;
 
@@ -185,6 +199,9 @@ cvs_is_vendor (cvs_number *number);
 
 void
 cvs_file_free (cvs_file *cvs);
+
+char *
+cvs_number_string (cvs_number *n, char *str);
 
 long
 time_compare (time_t a, time_t b);
@@ -269,6 +286,9 @@ rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree);
 rev_ref *
 rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name, int degree);
 
+int
+rev_commit_has_file (rev_commit *c, rev_file *f);
+
 rev_ref *
 rev_branch_of_commit (rev_list *rl, rev_commit *commit);
 
@@ -294,5 +314,8 @@ void
 rev_list_validate (rev_list *rl);
 
 #define time_compare(a,b) ((long) (a) - (long) (b))
+
+int
+git_rev_list_commit (rev_list *rl, int strip);
 
 #endif /* _CVS_H_ */

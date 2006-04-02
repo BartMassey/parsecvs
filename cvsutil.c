@@ -50,7 +50,7 @@ cvs_same_branch (cvs_number *a, cvs_number *b)
     if (a->c != b->c)
 	return 0;
     /*
-     * Everything on x.y is HEAD
+     * Everything on x.y is trunk
      */
     if (a->c == 2)
 	return 1;
@@ -309,3 +309,18 @@ cvs_file_free (cvs_file *cvs)
     free (cvs);
 }
 
+char *
+cvs_number_string (cvs_number *n, char *str)
+{
+    char    r[11];
+    int	    i;
+
+    str[0] = '\0';
+    for (i = 0; i < n->c; i++) {
+	snprintf (r, 10, "%d", n->n[i]);
+	if (i > 0)
+	    strcat (str, ".");
+	strcat (str, r);
+    }
+    return str;
+}
