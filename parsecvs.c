@@ -673,7 +673,7 @@ main (int argc, char **argv)
 //	if (rl->watch)
 //	    dump_rev_tree (rl);
 //	dump_splits (rl);
-//	git_rev_list_commit (rl, strip);
+	git_rev_list_commit (rl, strip);
     }
 //    rev_list_free (rl, 1);
     discard_atoms ();

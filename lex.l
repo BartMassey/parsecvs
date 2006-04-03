@@ -22,6 +22,11 @@
 static char *
 parse_data (int save);
 
+#define YY_INPUT(buf,result,max_size) { \
+    int c = getc (yyin); \
+    result = (c == EOF) ? YY_NULL : (buf[0] = c, 1); \
+}
+    
 %}
 %s CONTENT SKIP
 %%
@@ -47,7 +52,7 @@ parse_data (int save);
 					BEGIN(INITIAL);
 					return DATA;
 				}
-<CONTENT>[-a-zA-Z_0-9][-a-zA-Z_0-9]* {
+<CONTENT>[-a-zA-Z_0-9+][-a-zA-Z_0-9+]* {
 					yylval.s = atom (yytext);
 					return NAME;
 				}
@@ -66,7 +71,7 @@ parse_data (int save);
 \n				;
 .				{ 
 				    fprintf (stderr, "%s: (%d) ignoring %c\n", 
-					     yyfilename, yyget_lineno(),
+					     yyfilename, yylineno,
 					     yytext[0]);
 				}
 %%
@@ -82,11 +87,11 @@ parse_data (int save)
     int 	buflen = 0;
 
     do {
-	c = input ();
+	c = getc (yyin);
 	if (c == '@') {
-	    c = input ();
+	    c = getc (yyin);
 	    if (c != '@') {
-		unput (c);
+		ungetc (c, yyin);
 		c = EOF;
 	    }
 	}
@@ -147,7 +152,7 @@ lex_date (cvs_number *n)
 	if (d == 0) {
 	    int i;
 	    fprintf (stderr, "%s: (%d) unparsable date: ", yyfilename,
-		     yyget_lineno());
+		     yylineno);
 	    for (i = 0; i < n->c; i++) {
 		if (i) fprintf (stderr, ".");
 		fprintf (stderr, "%d", n->n[i]);
