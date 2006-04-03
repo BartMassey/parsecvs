@@ -165,6 +165,7 @@ rev_commit_match (rev_commit *a, rev_commit *b)
     return 1;
 }
 
+#if UNUSED
 static void
 rev_commit_dump (FILE *f, char *title, rev_commit *c, rev_commit *m)
 {
@@ -183,6 +184,7 @@ rev_commit_dump (FILE *f, char *title, rev_commit *c, rev_commit *m)
 	c = c->parent;
     }
 }
+#endif
 
 void
 rev_list_set_tail (rev_list *rl)
@@ -368,6 +370,7 @@ rev_commit_has_file (rev_commit *c, rev_file *f)
     return 0;
 }
 
+#if UNUSED
 static rev_file *
 rev_commit_find_file (rev_commit *c, char *name)
 {
@@ -378,6 +381,7 @@ rev_commit_find_file (rev_commit *c, char *name)
 	    return c->files[n];
     return NULL;
 }
+#endif
 
 static rev_commit *
 rev_commit_build (rev_commit **commits, int ncommit)
@@ -400,6 +404,7 @@ rev_commit_build (rev_commit **commits, int ncommit)
     return commit;
 }
 
+#if UNUSED
 static rev_commit *
 rev_ref_find_commit_file (rev_ref *branch, rev_file *file)
 {
@@ -421,6 +426,7 @@ rev_commit_is_ancestor (rev_commit *old, rev_commit *young)
     }
     return 0;
 }
+#endif
 
 static rev_commit *
 rev_commit_locate_date (rev_ref *branch, time_t date)
@@ -712,6 +718,7 @@ rev_ref_set_parent (rev_list *rl, rev_ref *dest, rev_list *source)
 }
 
 
+#if UNUSED
 static void
 rev_head_find_parent (rev_list *rl, rev_ref *h, rev_list *lhead)
 {
@@ -725,7 +732,9 @@ rev_head_find_parent (rev_list *rl, rev_ref *h, rev_list *lhead)
 	
     }
 }
+#endif
 
+#if UNUSED
 static int
 rev_branch_name_is_ancestor (rev_ref *old, rev_ref *young)
 {
@@ -736,7 +745,9 @@ rev_branch_name_is_ancestor (rev_ref *old, rev_ref *young)
     }
     return 0;
 }
+#endif
 
+#if UNUSED
 static rev_ref *
 rev_ref_parent (rev_ref **refs, int nref, rev_list *rl)
 {
@@ -777,6 +788,7 @@ rev_ref_parent (rev_ref **refs, int nref, rev_list *rl)
     fprintf (stderr, "Reference missing in merge: %s\n", parent->name);
     return NULL;
 }
+#endif
 
 rev_list *
 rev_list_merge (rev_list *head)
@@ -989,3 +1001,72 @@ rev_list_validate (rev_list *rl)
 	}
     }
 }
+
+/*
+ * Generate a list of files in uniq that aren't in common
+ */
+
+static rev_file_list *
+rev_uniq_file (rev_commit *uniq, rev_commit *common, int *nuniqp)
+{
+    int	n;
+    int nuniq = 0;
+    rev_file_list   *head = NULL, **tail = &head, *fl;
+    
+    if (!uniq)
+	return NULL;
+    for (n = 0; n < uniq->nfiles; n++)
+	if (!rev_commit_has_file (common, uniq->files[n])) {
+	    fl = calloc (1, sizeof (rev_file_list));
+	    fl->file = uniq->files[n];
+	    *tail = fl;
+	    tail = &fl->next;
+	    ++nuniq;
+	}
+    *nuniqp = nuniq;
+    return head;
+}
+
+int
+rev_file_list_has_filename (rev_file_list *fl, char *name)
+{
+    for (; fl; fl = fl->next)
+	if (fl->file->name == name)
+	    return 1;
+    return 0;
+}
+
+/*
+ * Generate a diff between two commits. Either may be NULL
+ */
+
+rev_diff *
+rev_commit_diff (rev_commit *old, rev_commit *new)
+{
+    rev_diff	*diff = calloc (1, sizeof (rev_diff));
+
+    diff->del = rev_uniq_file (old, new, &diff->ndel);
+    diff->add = rev_uniq_file (new, old, &diff->nadd);
+    return diff;
+}
+
+static void
+rev_file_list_free (rev_file_list *fl)
+{
+    rev_file_list   *next;
+
+    while (fl) {
+	next = fl->next;
+	free (fl);
+	fl = next;
+    }
+}
+
+void
+rev_diff_free (rev_diff *d)
+{
+    rev_file_list_free (d->del);
+    rev_file_list_free (d->add);
+    free (d);
+}
+

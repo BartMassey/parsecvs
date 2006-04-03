@@ -470,6 +470,7 @@ rev_list_free_dead_files (rev_list *rl)
     }
 }
 
+#if UNUSED
 static int
 rev_order_compare (cvs_number *a, cvs_number *b)
 {
@@ -477,6 +478,7 @@ rev_order_compare (cvs_number *a, cvs_number *b)
 	return a->c - b->c;
     return cvs_number_compare (b, a);
 }
+#endif
 
 static cvs_symbol *
 cvs_find_symbol (cvs_file *cvs, char *name)

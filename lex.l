@@ -66,7 +66,7 @@ parse_data (int save);
 \n				;
 .				{ 
 				    fprintf (stderr, "%s: (%d) ignoring %c\n", 
-					     yyfilename, yyget_lineno (),
+					     yyfilename, yyget_lineno(),
 					     yytext[0]);
 				}
 %%
@@ -147,7 +147,7 @@ lex_date (cvs_number *n)
 	if (d == 0) {
 	    int i;
 	    fprintf (stderr, "%s: (%d) unparsable date: ", yyfilename,
-		     yyget_lineno ());
+		     yyget_lineno());
 	    for (i = 0; i < n->c; i++) {
 		if (i) fprintf (stderr, ".");
 		fprintf (stderr, "%d", n->n[i]);

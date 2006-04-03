@@ -19,6 +19,10 @@
 
 cvs_file	*this_file;
 
+int elide = 0;
+int difffiles = 1;
+int allfiles = 1;
+    
 void
 dump_number_file (FILE *f, char *name, cvs_number *number)
 {
@@ -127,8 +131,6 @@ dump_log (FILE *f, char *log)
     }
 }
 
-int allfiles = 0;
-    
 void
 dump_commit_graph (rev_commit *c, rev_ref *branch)
 {
@@ -144,12 +146,37 @@ dump_commit_graph (rev_commit *c, rev_ref *branch)
     printf ("%s\\n", ctime_nonl (&c->date));
     dump_log (stdout, c->log);
     printf ("\\n");
-    for (i = 0; i < c->nfiles; i++) {
-	f = c->files[i];
-	dump_number (f->name, &f->number);
-	printf ("\\n");
-	if (!allfiles)
-	    break;
+    if (difffiles) {
+	rev_diff    *diff = rev_commit_diff (c->parent, c);
+	rev_file_list   *fl;
+
+	for (fl = diff->add; fl; fl = fl->next) {
+	    if (!rev_file_list_has_filename (diff->del, fl->file->name)) {
+		printf ("+");
+		dump_number (fl->file->name, &fl->file->number);
+	    }
+	}
+	for (fl = diff->add; fl; fl = fl->next) {
+	    if (rev_file_list_has_filename (diff->del, fl->file->name)) {
+		printf ("|");
+		dump_number (fl->file->name, &fl->file->number);
+	    }
+	}
+	for (fl = diff->del; fl; fl = fl->next) {
+	    if (!rev_file_list_has_filename (diff->add, fl->file->name)) {
+		printf ("-");
+		dump_number (fl->file->name, &fl->file->number);
+	    }
+	}
+	rev_diff_free (diff);
+    } else {
+	for (i = 0; i < c->nfiles; i++) {
+	    f = c->files[i];
+	    dump_number (f->name, &f->number);
+	    printf ("\\n");
+	    if (!allfiles)
+		break;
+	}
     }
     printf ("%08x", (int) c);
     printf ("\"");
@@ -249,8 +276,6 @@ dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
     for (r = refs; r; r = r->next)
 	r->shown = 0;
 }
-
-int elide = 1;
 
 static rev_commit *
 dump_get_rev_parent (rev_commit *c)
@@ -648,7 +673,7 @@ main (int argc, char **argv)
 //	if (rl->watch)
 //	    dump_rev_tree (rl);
 //	dump_splits (rl);
-	git_rev_list_commit (rl, strip);
+//	git_rev_list_commit (rl, strip);
     }
 //    rev_list_free (rl, 1);
     discard_atoms ();

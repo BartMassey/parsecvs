@@ -292,6 +292,15 @@ rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name, int degree);
 int
 rev_commit_has_file (rev_commit *c, rev_file *f);
 
+rev_diff *
+rev_commit_diff (rev_commit *old, rev_commit *new);
+
+int
+rev_file_list_has_filename (rev_file_list *fl, char *name);
+
+void
+rev_diff_free (rev_diff *d);
+
 rev_ref *
 rev_branch_of_commit (rev_list *rl, rev_commit *commit);
 
