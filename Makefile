@@ -3,7 +3,8 @@ GCC_WARNINGS2=-Wmissing-prototypes -Wmissing-declarations
 GCC_WARNINGS3=-Wnested-externs -fno-strict-aliasing
 GCC_WARNINGS=$(GCC_WARNINGS1) $(GCC_WARNINGS2) $(GCC_WARNINGS3)
 CFLAGS=-O0 -g $(GCC_WARNINGS)
-YFLAGS=-d
+YFLAGS=-d -l
+LFLAGS=-l
 
 SRCS=gram.y lex.l cvs.h parsecvs.c cvsutil.c revlist.c atom.c revcvs.c git.c
 
