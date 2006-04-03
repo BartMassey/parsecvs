@@ -21,4 +21,4 @@ lex.o: lex.c
 y.tab.h: gram.c
 
 clean:
-	rm -f $(OBJS) y.tab.h gram.c parsecvs
+	rm -f $(OBJS) y.tab.h gram.c lex.c parsecvs
