@@ -44,6 +44,19 @@ rev_find_cvs_commit (rev_list *rl, cvs_number *number)
     return NULL;
 }
 
+static char *
+rev_cvs_to_blob (char *file, cvs_number *number)
+{
+    char    command[MAXPATHLEN*2 + 1];
+    char    rev[CVS_MAX_REV_LEN];
+    
+    cvs_number_string (number, rev);
+    snprintf (command, sizeof (command),
+	      "co -kk -p%s '%s' 2>/dev/null | git-hash-object -w --stdin",
+	      rev, file);
+    return git_system_to_string (command);
+}
+
 /*
  * Construct a branch using CVS revision numbers
  */
@@ -72,6 +85,10 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 	    c->nfiles = 1;
 	/* leave this around so the branch merging stuff can find numbers */
 	c->files[0] = rev_file_rev (cvs->name, &v->number, v->date);
+	if (!v->dead) {
+	    c->files[0]->sha1 = rev_cvs_to_blob (cvs->name, &v->number);
+	    c->files[0]->mode = cvs->mode;
+	}
 	c->parent = head;
 	head = c;
 	n = v->number;

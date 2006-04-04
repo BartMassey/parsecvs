@@ -39,7 +39,7 @@ void yyerror (char *msg);
 %token		BRANCHES NEXT COMMITID EXPAND
 %token		DESC LOG TEXT STRICT AUTHOR STATE
 %token		SEMI COLON
-%token <s>	HEX NAME DATA
+%token <s>	HEX NAME DATA TEXT_DATA
 %token <number>	NUMBER
 
 %type <s>	text log
@@ -166,7 +166,7 @@ patch		: NUMBER log text
 log		: LOG DATA
 		  { $$ = $2; }
 		;
-text		: TEXT DATA
+text		: TEXT TEXT_DATA
 		  { $$ = $2; }
 		;
 %%

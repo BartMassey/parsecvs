@@ -48,9 +48,9 @@ parse_data (int save);
 <INITIAL>log			return LOG;
 <INITIAL>text			BEGIN(SKIP); return TEXT;
 <SKIP>@				{
-					yylval.s = parse_data (0);
+					yylval.s = parse_data (1);
 					BEGIN(INITIAL);
-					return DATA;
+					return TEXT_DATA;
 				}
 <CONTENT>[-a-zA-Z_0-9+][-a-zA-Z_0-9+]* {
 					yylval.s = atom (yytext);
@@ -63,7 +63,7 @@ parse_data (int save);
 ;				BEGIN(INITIAL); return SEMI;
 :				return COLON;
 <INITIAL,CONTENT>@		{
-					yylval.s = parse_data (1);
+					yylval.s = parse_data (0);
 					return DATA;
 				}
 " " 				;
@@ -78,13 +78,14 @@ parse_data (int save);
 int yywrap (void) { return 1; }
 
 static char *
-parse_data (int save)
+parse_data (int text)
 {
     int		c;
     char	*buf = NULL;
     char	*ret;
     int		n = 0;
     int 	buflen = 0;
+    int		save = !text;
 
     do {
 	c = getc (yyin);
@@ -106,8 +107,13 @@ parse_data (int save)
 	}
     } while (c != EOF);
     if (save) {
-	ret = atom (buf);
-	free (buf);
+	if (text)
+	    ret = buf;
+	else
+	{
+	    ret = atom (buf);
+	    free (buf);
+	}
     } else
 	ret = atom ("skip");
     return ret;

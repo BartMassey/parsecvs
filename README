@@ -1,21 +1,19 @@
 	    			Parsecvs
 			   keithp@keithp.com
-	  		      March, 2006
+	  		      April, 2006
 
 This directory contains code which can directly read RCS ,v files and
 generate a git-style rev-list structure from them. Revision lists can be
 merged together to produce a composite revision history for an arbitrary
 collection of files.
 
-The code is not ready for any serious use yet, it only produces a graphviz
-file of the resulting tree structure. Optional behaviors are controlled by
-editing the source and recompiling.
+Optional behaviors are controlled by editing the source and recompiling.
 
 If arguments are supplied, parsecvs assumes they're all ,v files and reads
 them in. If no arguments are supplied, parsecvs reads filenames from stdin,
 one per line.
 
-Missing features:
+Working features:
 
 	Attic support. Files found in the Attic are not dealt with specially
 	at all; they should be renamed in the output, and the terminal
@@ -39,11 +37,14 @@ Missing features:
 	emitting git commands and sending them to a shell, or by linking
 	against a git library and doing everything internally.
 
+	Author translation. Just as git-cvsimport does.
+	
+
+Missing features:
+
 	Reasonable command line syntax. The current lack of command line
 	parsing should be fixed to align with the usual git tools.
 
-	Author translation. Just as git-cvsimport does.
-	
 	Testing. I'm sure there are plenty of additional bugs to be found;
 	I've tested with valgrind and eliminated memory leaks and other
 	errors.

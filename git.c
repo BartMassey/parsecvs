@@ -17,14 +17,6 @@
  */
 
 #include "cvs.h"
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <errno.h>
-
-#define MAXPATHLEN  10240
-
-#define GIT_REV_LEN 128
 
 static int
 git_filename (rev_file *file, char *name, int strip)
@@ -45,142 +37,6 @@ git_filename (rev_file *file, char *name, int strip)
     len = strlen (name);
     if (len > 2 && !strcmp (name + len - 2, ",v"))
 	name[len-2] = '\0';
-    return 1;
-}
-
-static int
-git_system (char *command)
-{
-    int	ret = 0;
-    
-//    printf ("\t%s\n", command);
-#if 1
-    ret = system (command);
-    if (ret != 0) {
-	fprintf (stderr, "%s failed\n", command);
-    }
-#endif
-    return ret;
-}
-
-static int
-git_unlink (char *file)
-{
-//    printf ("\trm '%s'\n", file);
-#if 1
-    if (unlink (file) != 0 && errno != ENOENT) {
-	fprintf (stderr, "rm '%s' failed\n", file);
-	return 0;
-    }
-#endif
-    return 1;
-}
-
-static int
-git_del_file (rev_file *file, int strip)
-{
-    char    filename[MAXPATHLEN + 1];
-    char    command[MAXPATHLEN * 2 + 1];
-    
-    if (!git_filename (file, filename, strip))
-	return 0;
-    git_unlink (filename);
-    snprintf (command, sizeof (command) - 1, "git-update-index --remove '%s'",
-	      filename);
-    if (git_system (command) != 0)
-	return 0;
-    return 1;
-}
-
-static int
-git_ensure_path (char *filename)
-{
-    char    dirname[MAXPATHLEN + 1];
-    char    *slash;
-    struct stat	buf;
-
-    strcpy (dirname, filename);
-    slash = strrchr (dirname + 1, '/');
-    if (slash) {
-	*slash = '\0';
-	if (stat (dirname, &buf) == 0) {
-	    if (!S_ISDIR(buf.st_mode)) {
-		fprintf (stderr, "%s: not a directory\n", dirname);
-		return 0;
-	    }
-	} else if (errno == ENOENT) {
-	    if (!git_ensure_path (dirname))
-		return 0;
-	    if (mkdir (dirname, 0777) != 0) {
-		fprintf (stderr, "%s: %s\n", dirname, strerror (errno));
-		return 0;
-	    }
-	} else {
-	    fprintf (stderr, "%s: %s\n", dirname, strerror (errno));
-	    return 0;
-	}
-    }
-    return 1;
-}
-
-static int
-git_checkout_file (rev_file *file, char *filename)
-{
-    char    command[MAXPATHLEN * 2 + 1];
-    char    rev[CVS_MAX_REV_LEN];
-    struct stat	buf;
-
-    if (stat (file->name, &buf) != 0) {
-	fprintf (stderr, "%s: %s\n", file->name, strerror (errno));
-	return 0;
-    }
-    git_unlink (filename);
-    cvs_number_string (&file->number, rev);
-    git_ensure_path (filename);
-    snprintf (command, sizeof (command) - 1, "co -kk -p%s '%s' > '%s' 2>/dev/null",
-	      rev, file->name, filename);
-    if (git_system (command) != 0) {
-	fprintf (stderr, "%s failed\n", command);
-	return 0;
-    }
-    if (chmod (filename, buf.st_mode & 0777) != 0) {
-	fprintf (stderr, "%s: %s\n", filename, strerror (errno));
-	return 0;
-    }
-    return 1;
-}
-
-static int
-git_add_file (rev_file *file, int strip)
-{
-    char    filename[MAXPATHLEN + 1];
-    char    command[MAXPATHLEN * 2 + 1];
-    
-    if (!git_filename (file, filename, strip))
-	return 0;
-    if (!git_checkout_file (file, filename))
-	return 0;
-    snprintf (command, sizeof (command) - 1, "git-update-index --add '%s'",
-	      filename);
-    if (git_system (command) != 0)
-	return 0;
-    return 1;
-}
-
-static int
-git_update_file (rev_file *file, int strip)
-{
-    char    filename[MAXPATHLEN + 1];
-    char    command[MAXPATHLEN * 2 + 1];
-    
-    if (!git_filename (file, filename, strip))
-	return 0;
-    if (!git_checkout_file (file, filename))
-	return 0;
-    snprintf (command, sizeof (command) - 1, "git-update-index '%s'",
-	      filename);
-    if (git_system (command) != 0)
-	return 0;
     return 1;
 }
 
@@ -238,6 +94,67 @@ git_log_file (rev_commit *commit)
     }
 #endif
     return filename;
+}
+
+static FILE *git_update_data;
+static char *git_update_data_name;
+
+static int
+git_start_switch (void)
+{
+    git_update_data_name = git_cvs_file ("switch");
+    if (!git_update_data_name)
+	return 0;
+    git_update_data = fopen (git_update_data_name, "w");
+    if (!git_update_data)
+	return 0;
+    return 1;
+}
+
+static int
+git_end_switch (void)
+{
+    char    command[MAXPATHLEN*2 + 1];
+    
+    if (fclose (git_update_data) == EOF)
+	return 0;
+    snprintf (command, sizeof (command) - 1,
+	      "git-update-index --index-info < %s", git_update_data_name);
+    if (git_system (command) != 0)
+	return 0;
+    return 1;
+}
+
+static int
+git_del_file (rev_file *file, int strip)
+{
+    char    filename[MAXPATHLEN + 1];
+    
+    if (!git_filename (file, filename, strip))
+	return 0;
+    fprintf (git_update_data, 
+	     "0 0000000000000000000000000000000000000000\t%s\n",
+	     filename);
+    return 1;
+}
+
+static int
+git_add_file (rev_file *file, int strip)
+{
+    char    filename[MAXPATHLEN + 1];
+    
+    if (!git_filename (file, filename, strip))
+	return 0;
+    fprintf (git_update_data, 
+	     "%o %s\t%s\n",
+	     file->mode, file->sha1, filename);
+    return 1;
+}
+
+static int
+git_update_file (rev_file *file, int strip)
+{
+    return git_add_file (file, strip);
 }
 
 static char *
@@ -377,8 +294,7 @@ git_status (void)
     int	spot = git_current_commit * PROGRESS_LEN / git_total_commits;
     int	s;
 
-    fprintf (STATUS, "              ");
-    fprintf (STATUS, "%28.28s: ", git_current_head);
+    fprintf (STATUS, "Save: %35.35s ", git_current_head);
     for (s = 0; s < PROGRESS_LEN + 1; s++)
 	putc (s == spot ? '*' : '.', STATUS);
     fprintf (STATUS, " %5d of %5d\r", git_current_commit, git_total_commits);
@@ -388,8 +304,8 @@ git_status (void)
 static void
 git_spin (void)
 {
-    fprintf (STATUS, "%5d of %5d\r", git_current_file, git_total_files);
-    fflush (STATUS);
+//    fprintf (STATUS, "%5d of %5d\r", git_current_file, git_total_files);
+//    fflush (STATUS);
 }
 
 /*
@@ -467,6 +383,7 @@ git_switch_commit (rev_commit *old, rev_commit *new, int strip)
 
     git_total_files = diff->ndel + diff->nadd;
     git_current_file = 0;
+    git_start_switch ();
     for (fl = diff->del; fl; fl = fl->next) {
 	++git_current_file;
 	git_spin ();
@@ -486,7 +403,8 @@ git_switch_commit (rev_commit *old, rev_commit *new, int strip)
 	}
     }
     rev_diff_free (diff);
-    old = new;
+    if (!git_end_switch ())
+	return 0;
     return 1;
 }
 
@@ -539,9 +457,6 @@ git_commit_recurse (rev_ref *head, rev_commit *commit, rev_ref *tags, int strip)
 	    if (!git_commit_recurse (head, commit->parent, tags, strip))
 		return 0;
 	}
-    } else {
-	if (git_system ("git-init-db > /dev/null") != 0)
-	    return 0;
     }
     ++git_current_commit;
     git_status ();
@@ -611,7 +526,8 @@ git_rev_list_commit (rev_list *rl, int strip)
 	if (!git_head_commit (h, rl->tags, strip))
 	    return 0;
     fprintf (STATUS, "\n");
-    if (!git_checkout ("master"))
-	return 0;
+//    if (!git_checkout ("master"))
+//	return 0;
     return 1;
 }
+

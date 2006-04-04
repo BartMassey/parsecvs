@@ -16,8 +16,18 @@
  *  59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
  */
 #include "cvs.h"
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <errno.h>
+
+#ifndef MAXPATHLEN
+#define MAXPATHLEN  10240
+#endif
 
 cvs_file	*this_file;
+
+rev_execution_mode rev_mode = ExecuteGit;
 
 int elide = 0;
 int difffiles = 1;
@@ -387,6 +397,7 @@ static rev_list *
 rev_list_file (char *name)
 {
     rev_list	*rl;
+    struct stat	buf;
 
     yyin = fopen (name, "r");
     if (!yyin) {
@@ -396,10 +407,13 @@ rev_list_file (char *name)
     yyfilename = name;
     this_file = calloc (1, sizeof (cvs_file));
     this_file->name = name;
+    assert (fstat (fileno (yyin), &buf) == 0);
+    this_file->mode = buf.st_mode;
     yyparse ();
     fclose (yyin);
     yyfilename = 0;
     rl = rev_list_cvs (this_file);
+	    
     cvs_file_free (this_file);
     return rl;
 }
@@ -621,16 +635,43 @@ strcommon (char *a, char *b)
     return c;
 }
 
+typedef struct _rev_filename {
+    struct _rev_filename	*next;
+    char		*file;
+} rev_filename;
+
+#define STATUS	stdout
+#define PROGRESS_LEN	20
+static int load_current_file, load_total_files;
+
+static void load_status (char *name)
+{
+    int	spot = load_current_file * PROGRESS_LEN / load_total_files;
+    int	    s;
+    int	    l;
+
+    l = strlen (name);
+    if (l > 41) name += l - 41;
+
+    fprintf (STATUS, "Load: %35.35s ", name);
+    for (s = 0; s < PROGRESS_LEN + 1; s++)
+	putc (s == spot ? '*' : '.', STATUS);
+    fprintf (STATUS, " %5d of %5d\r", load_current_file, load_total_files);
+    fflush (STATUS);
+}
+
 int
 main (int argc, char **argv)
 {
-    rev_list	*head, **tail = &head;
-    rev_list	*rl;
-    int		j = 1;
-    char	name[10240], last[10240];
-    int		strip = -1;
-    int		c;
-    char	*file;
+    rev_filename    *fn_head, **fn_tail = &fn_head, *fn;
+    rev_list	    *head, **tail = &head;
+    rev_list	    *rl;
+    int		    j = 1;
+    char	    name[10240], *last;
+    int		    strip = -1;
+    int		    c;
+    char	    *file;
+    int		    nfile = 0;
 
     /* force times using mktime to be interpreted in UTC */
     setenv ("TZ", "UTC", 1);
@@ -650,32 +691,55 @@ main (int argc, char **argv)
 	    if (!file)
 		break;
 	}
-	file = atom (file);
-	rl = rev_list_file (file);
+	fn = calloc (1, sizeof (rev_filename));
+	fn->file = atom (file);
+	*fn_tail = fn;
+	fn_tail = &fn->next;
+	if (strip > 0) {
+	    c = strcommon (fn->file, last);
+	    if (c < strip)
+		strip = c;
+	} else if (strip < 0) {
+	    strip = strlen (fn->file);
+	}
+	last = fn->file;
+	nfile++;
+    }
+    if (git_system ("git-init-db") != 0)
+	exit (1);
+    load_total_files = nfile;
+    load_current_file = 0;
+    while (fn_head) {
+	fn = fn_head;
+	fn_head = fn_head->next;
+	++load_current_file;
+	load_status (fn->file + strip);
+	rl = rev_list_file (fn->file);
 	if (rl->watch)
 	    dump_rev_tree (rl);
 	*tail = rl;
 	tail = &rl->next;
-//	fprintf (stderr, "%s\n", file);
-	if (strip > 0) {
-	    c = strcommon (name, last);
-	    if (c < strip)
-		strip = c;
-	} else if (strip < 0) {
-	    strip = strlen (name);
-	}
-	strcpy (last, name);
     }
     rl = rev_list_merge (head);
     if (rl) {
-//	dump_rev_graph (rl, NULL);
-//	dump_rev_info (rl);
-//	if (rl->watch)
-//	    dump_rev_tree (rl);
-//	dump_splits (rl);
-	git_rev_list_commit (rl, strip);
+	switch (rev_mode) {
+	case ExecuteGraph:
+	    dump_rev_graph (rl, NULL);
+	    break;
+	case ExecuteSplits:
+	    dump_splits (rl);
+	    break;
+	case ExecuteGit:
+	    git_rev_list_commit (rl, strip);
+	    break;
+	}
     }
-//    rev_list_free (rl, 1);
+    rev_list_free (rl, 0);
+    while (head) {
+	rl = head;
+	head = head->next;
+	rev_list_free (rl, 1);
+    }
     discard_atoms ();
     return err;
 }

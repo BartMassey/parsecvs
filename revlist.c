@@ -883,6 +883,7 @@ rev_list_merge (rev_list *head)
 	    t->commit->tagged = 1;
     }
     rev_list_validate (rl);
+    free (refs);
     return rl;
 }
 

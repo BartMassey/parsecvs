@@ -27,6 +27,14 @@
 #include <assert.h>
 #include <stdint.h>
 #include <ctype.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <errno.h>
+
+#ifndef MAXPATHLEN
+#define MAXPATHLEN  10240
+#endif
 
 #define CVS_MAX_DEPTH	12
 #define CVS_MAX_REV_LEN	(CVS_MAX_DEPTH * 11)
@@ -73,12 +81,15 @@ typedef struct {
     cvs_symbol		*symbols;
     cvs_version		*versions;
     cvs_patch		*patches;
+    mode_t		mode;
 } cvs_file;
 
 typedef struct _rev_file {
     char		*name;
     cvs_number		number;
     time_t		date;
+    char		*sha1;
+    mode_t		mode;
     struct _rev_file	*link;
 } rev_file;
 
@@ -133,6 +144,12 @@ typedef struct _rev_diff {
     int			ndel;
     int			nadd;
 } rev_diff;
+
+typedef enum _rev_execution_mode {
+    ExecuteGit, ExecuteGraph, ExecuteSplits
+} rev_execution_mode;
+
+extern rev_execution_mode	rev_mode;
 
 extern cvs_file     *this_file;
 
@@ -329,5 +346,14 @@ rev_list_validate (rev_list *rl);
 
 int
 git_rev_list_commit (rev_list *rl, int strip);
+
+int
+git_system (char *command);
+
+char *
+git_system_to_string (char *command);
+
+int
+git_string_to_system (char *command, char *string);
 
 #endif /* _CVS_H_ */
