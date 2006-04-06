@@ -27,7 +27,7 @@
 
 cvs_file	*this_file;
 
-rev_execution_mode rev_mode = ExecuteGit;
+rev_execution_mode rev_mode = ExecuteGraph;
 
 int elide = 0;
 int difffiles = 1;
@@ -164,18 +164,21 @@ dump_commit_graph (rev_commit *c, rev_ref *branch)
 	    if (!rev_file_list_has_filename (diff->del, fl->file->name)) {
 		printf ("+");
 		dump_number (fl->file->name, &fl->file->number);
+		printf ("\\n");
 	    }
 	}
 	for (fl = diff->add; fl; fl = fl->next) {
 	    if (rev_file_list_has_filename (diff->del, fl->file->name)) {
 		printf ("|");
 		dump_number (fl->file->name, &fl->file->number);
+		printf ("\\n");
 	    }
 	}
 	for (fl = diff->del; fl; fl = fl->next) {
 	    if (!rev_file_list_has_filename (diff->add, fl->file->name)) {
 		printf ("-");
 		dump_number (fl->file->name, &fl->file->number);
+		printf ("\\n");
 	    }
 	}
 	rev_diff_free (diff);
@@ -650,6 +653,8 @@ static void load_status (char *name)
     int	    s;
     int	    l;
 
+    if (rev_mode == ExecuteGraph)
+	return;
     l = strlen (name);
     if (l > 41) name += l - 41;
 

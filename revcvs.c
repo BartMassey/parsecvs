@@ -195,6 +195,35 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 	    else
 		delete_head = 1;
 	    /*
+	     * Patch up the remaining vendor branch pieces
+	     */
+	    if (!delete_head) {
+		rev_commit  *vr;
+		if (!vendor->name) {
+		    char	rev[CVS_MAX_REV_LEN];
+		    char	name[MAXPATHLEN];
+		    cvs_number	branch;
+
+		    branch = vlast->files[0]->number;
+		    branch.c--;
+		    cvs_number_string (&branch, rev);
+		    snprintf (name, sizeof (name),
+			      "import-%s", rev);
+		    vendor->name = atom (name);
+		    vendor->parent = trunk;
+		    vendor->degree = vlast->files[0]->number.c;
+		}
+		for (vr = vendor->commit; vr; vr = vr->parent)
+		{
+		    if (!vr->parent) {
+			vr->tail = 1;
+			vr->parent = v;
+			break;
+		    }
+		}
+	    }
+	    
+	    /*
 	     * Merge two branches based on dates
 	     */
 	    while (t && v)
@@ -217,15 +246,6 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 		*tp = t;
 	    else
 		*tp = v;
-	    if (!delete_head) {
-		fprintf (stderr, "Vendor branch left with:\n");
-		for (v = vendor->commit; v; v = v->parent) {
-		    fprintf (stderr, "\t");
-		    dump_number_file (stderr, v->files[0]->name,
-				      &v->files[0]->number);
-		    fprintf (stderr, "\n");
-		}
-	    }
 	}
 	if (delete_head) {
 	    *h_p = h->next;
