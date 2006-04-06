@@ -27,7 +27,7 @@
 
 cvs_file	*this_file;
 
-rev_execution_mode rev_mode = ExecuteGraph;
+rev_execution_mode rev_mode = ExecuteGit;
 
 int elide = 0;
 int difffiles = 1;
