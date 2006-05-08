@@ -705,7 +705,12 @@ main (int argc, char **argv)
 	    if (c < strip)
 		strip = c;
 	} else if (strip < 0) {
-	    strip = strlen (fn->file);
+	    int i;
+
+	    strip = 0;
+	    for (i = 0; i < strlen (fn->file); i++)
+		if (fn->file[i] == '/')
+		    strip = i + 1;
 	}
 	last = fn->file;
 	nfile++;
