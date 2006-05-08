@@ -167,3 +167,9 @@ lex_date (cvs_number *n)
 	}
 	return d;
 }
+
+char *
+lex_text (void)
+{
+    return yytext;
+}
