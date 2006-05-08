@@ -117,7 +117,6 @@ rev_commit_later (rev_commit *a, rev_commit *b)
     return 0;
 }
 
-#if 0
 static rev_ref *
 rev_find_ref (rev_list *rl, char *name)
 {
@@ -128,7 +127,6 @@ rev_find_ref (rev_list *rl, char *name)
 	r = rev_find_tag (rl, name);
     return r;
 }
-#endif
 
 /*
  * Commits further than 60 minutes apart are assume to be different
@@ -212,6 +210,7 @@ rev_list_set_tail (rev_list *rl)
 	tag->commit->tagged = 1;
 }
 
+#if 0
 static int
 rev_ref_len (rev_ref *r)
 {
@@ -285,6 +284,58 @@ rev_ref_sel_sort (rev_ref *r)
 	assert (s->degree <= s->next->degree);
     }
     return r;
+}
+#endif
+
+static rev_ref *
+rev_ref_find_name (rev_ref *h, char *name)
+{
+    for (; h; h = h->next)
+	if (h->name == name)
+	    return h;
+    return NULL;
+}
+
+static int
+rev_ref_is_ready (char *name, rev_list *source, rev_ref *ready)
+{
+    rev_ref	*source_ref;
+
+    for (; source; source = source->next) {
+	source_ref = rev_find_ref (source, name);
+	if (source_ref && 
+	    source_ref->parent && 
+	    !rev_ref_find_name (ready, source_ref->parent->name))
+	    return 0;
+    }
+    return 1;
+}
+
+static rev_ref *
+rev_ref_tsort (rev_ref *refs, rev_list *head)
+{
+    rev_ref *done = NULL;
+    rev_ref **done_tail = &done;
+    rev_ref *r, **prev;
+
+//    fprintf (stderr, "Tsort refs:\n");
+    while (refs) {
+	for (prev = &refs; (r = *prev); prev = &(*prev)->next) {
+	    if (rev_ref_is_ready (r->name, head, done)) {
+		break;
+	    }
+	}
+	if (!r) {
+	    fprintf (stderr, "Error: branch cycle\n");
+	    return NULL;
+	}
+	*prev = r->next;
+	*done_tail = r;
+//	fprintf (stderr, "\t%s\n", r->name);
+	r->next = NULL;
+	done_tail = &r->next;
+    }
+    return done;
 }
 
 static int
@@ -817,9 +868,13 @@ rev_list_merge (rev_list *head)
     /*
      * Sort by degree so that finding branch points always works
      */
-    rl->heads = rev_ref_sel_sort (rl->heads);
+//    rl->heads = rev_ref_sel_sort (rl->heads);
+    rl->heads = rev_ref_tsort (rl->heads, head);
+    if (!rl->heads)
+	return NULL;
 //    for (h = rl->heads; h; h = h->next)
-//	fprintf (stderr, "head %s(%d)\n", h->name, h->degree);
+//	fprintf (stderr, "head %s (%d)\n",
+//		 h->name, h->degree);
     /*
      * Find branch parent relationships
      */
@@ -860,7 +915,7 @@ rev_list_merge (rev_list *head)
 		t->degree = lt->degree;
 	}
     }
-    rl->tags = rev_ref_sel_sort (rl->tags);
+//    rl->tags = rev_ref_sel_sort (rl->tags);
     /*
      * Find tag locations
      */

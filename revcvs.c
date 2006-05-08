@@ -289,7 +289,6 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
 		break;
 	    }
 	if (c) {
-	    h->date = c->date;
 	    /*
 	     * Walk the version tree, looking for the branch location.
 	     * Note that in the presense of vendor branches, the
@@ -570,7 +569,7 @@ rev_list_sort_heads (rev_list *rl, cvs_file *cvs)
 	}
     }
     return;
-    fprintf (stderr, "Sorted heads\n");
+    fprintf (stderr, "Sorted heads for %s\n", cvs->name);
     for (h = rl->heads; h;) {
 	fprintf (stderr, "\t");
 	rev_list_dump_ref_parents (stderr, h->parent);

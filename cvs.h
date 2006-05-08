@@ -123,7 +123,6 @@ typedef struct _rev_ref {
     cvs_number		number;
     char		*name;
     int			shown;
-    time_t		date;
 } rev_ref;
 
 typedef struct _rev_list {

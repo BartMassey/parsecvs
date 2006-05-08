@@ -483,6 +483,7 @@ git_head_commit (rev_ref *head, rev_ref *tags, int strip)
     return 1;
 }
 
+#if 0
 static int
 git_checkout (char *name)
 {
@@ -494,6 +495,7 @@ git_checkout (char *name)
 	return 0;
     return 1;
 }
+#endif
 
 static int
 git_ncommit (rev_list *rl)
