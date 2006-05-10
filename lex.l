@@ -20,7 +20,7 @@
 #include "y.tab.h"
     
 static char *
-parse_data (int save);
+parse_data (int strip);
 
 #define YY_INPUT(buf,result,max_size) { \
     int c = getc (yyin); \
@@ -48,7 +48,7 @@ parse_data (int save);
 <INITIAL>log			return LOG;
 <INITIAL>text			BEGIN(SKIP); return TEXT;
 <SKIP>@				{
-					yylval.s = parse_data (1);
+					yylval.s = parse_data (0);
 					BEGIN(INITIAL);
 					return TEXT_DATA;
 				}
@@ -63,7 +63,7 @@ parse_data (int save);
 ;				BEGIN(INITIAL); return SEMI;
 :				return COLON;
 <INITIAL,CONTENT>@		{
-					yylval.s = parse_data (0);
+					yylval.s = parse_data (1);
 					return DATA;
 				}
 " " 				;
@@ -77,45 +77,50 @@ parse_data (int save);
 %%
 int yywrap (void) { return 1; }
 
-static char *
-parse_data (int text)
-{
-    int		c;
-    char	*buf = NULL;
-    char	*ret;
-    int		n = 0;
-    int 	buflen = 0;
-    int		save = !text;
+struct varbuf {
+	int len, cur;
+	char *string;
+};
 
-    do {
+static inline void addbuf(struct varbuf *buf, char c)
+{
+	if (buf->cur == buf->len) 
+		buf->string = realloc(buf->string, buf->len *= 2);
+	buf->string[buf->cur++] = c;
+}
+
+static char *
+parse_data (int strip)
+{
+    int c;
+    char *ret;
+    struct varbuf buf;
+
+    buf.cur = 0;
+    buf.len = 256;
+    buf.string = malloc(buf.len);
+
+    if (!strip)
+    	addbuf(&buf, '@');
+    for(;;) {
 	c = getc (yyin);
 	if (c == '@') {
+	    if (!strip)
+	    	addbuf(&buf, c);
 	    c = getc (yyin);
-	    if (c != '@') {
-		ungetc (c, yyin);
-		c = EOF;
-	    }
+	    if (c != '@') 
+		break;
 	}
-	if (save) {
-	    if (n == buflen) {
-		if (buflen)
-		    buf = realloc (buf, buflen *= 2);
-		else
-		    buf = malloc (buflen = 256);
-	    }
-	    buf[n++] = c == EOF ? '\0' : c;
-	}
-    } while (c != EOF);
-    if (save) {
-	if (text)
-	    ret = buf;
-	else
-	{
-	    ret = atom (buf);
-	    free (buf);
-	}
-    } else
-	ret = atom ("skip");
+	addbuf(&buf, c);
+    }
+    ungetc (c, yyin);
+    addbuf(&buf, 0);
+    if (strip) {
+       ret = atom (buf.string);
+       free (buf.string);
+    } else {
+       ret = buf.string;
+    }
     return ret;
 }
 

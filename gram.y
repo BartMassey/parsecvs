@@ -74,6 +74,7 @@ header		: HEAD NUMBER SEMI
 		| LOCKS SEMI lock_type SEMI
 		| COMMENT DATA SEMI
 		| EXPAND DATA SEMI
+		  { this_file->expand = $2; }
 		;
 lock_type	: STRICT
 		;
@@ -103,6 +104,7 @@ revision	: NUMBER date author state branches next opt_commitid
 			$$->number = $1;
 			$$->date = $2;
 			$$->author = $3;
+			$$->state = $4;
 			$$->dead = !strcmp ($4, "dead");
 			$$->branches = $5;
 			$$->parent = $6;

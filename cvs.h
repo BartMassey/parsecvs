@@ -60,6 +60,7 @@ typedef struct _cvs_version {
     cvs_number		number;
     time_t		date;
     char		*author;
+    char		*state;
     int			dead;
     cvs_branch		*branches;
     cvs_number		parent;	/* next in ,v file */
@@ -82,6 +83,7 @@ typedef struct {
     cvs_version		*versions;
     cvs_patch		*patches;
     mode_t		mode;
+    char 		*expand;
 } cvs_file;
 
 typedef struct _rev_file {
@@ -355,5 +357,13 @@ git_system_to_string (char *command);
 
 int
 git_string_to_system (char *command, char *string);
+
+/*
+ * rev - string representation of the rcs revision number eg. 1.1
+ * path - RCS filename path eg. ./cfb16/Makefile,v
+ * sha1_hex - a buffer of at least 41 characterrs to receive
+ *           the ascii hexidecimal id of the resulting object
+ */
+void rcs2git(cvs_file *cvs, cvs_number *number, char *sha1_hex);
 
 #endif /* _CVS_H_ */

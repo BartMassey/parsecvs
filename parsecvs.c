@@ -672,7 +672,7 @@ main (int argc, char **argv)
     rev_list	    *head, **tail = &head;
     rev_list	    *rl;
     int		    j = 1;
-    char	    name[10240], *last;
+    char	    name[10240], *last = NULL;
     int		    strip = -1;
     int		    c;
     char	    *file;
@@ -724,6 +724,7 @@ main (int argc, char **argv)
 	    dump_rev_tree (rl);
 	*tail = rl;
 	tail = &rl->next;
+	free(fn);
     }
     rl = rev_list_merge (head);
     if (rl) {
