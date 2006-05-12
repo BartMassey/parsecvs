@@ -665,6 +665,14 @@ static void load_status (char *name)
     fflush (STATUS);
 }
 
+static void load_status_next (void)
+{
+    if (rev_mode == ExecuteGraph)
+	return;
+    fprintf (STATUS, "\n");
+    fflush (STATUS);
+}
+    
 int
 main (int argc, char **argv)
 {
@@ -730,6 +738,7 @@ main (int argc, char **argv)
 	*tail = rl;
 	tail = &rl->next;
     }
+    load_status_next ();
     rl = rev_list_merge (head);
     if (rl) {
 	switch (rev_mode) {
