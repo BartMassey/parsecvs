@@ -117,7 +117,6 @@ rev_commit_later (rev_commit *a, rev_commit *b)
     return 0;
 }
 
-#if 0
 static rev_ref *
 rev_find_ref (rev_list *rl, char *name)
 {
@@ -128,7 +127,6 @@ rev_find_ref (rev_list *rl, char *name)
 	r = rev_find_tag (rl, name);
     return r;
 }
-#endif
 
 /*
  * Commits further than 60 minutes apart are assume to be different
@@ -212,6 +210,7 @@ rev_list_set_tail (rev_list *rl)
 	tag->commit->tagged = 1;
 }
 
+#if 0
 static int
 rev_ref_len (rev_ref *r)
 {
@@ -285,6 +284,58 @@ rev_ref_sel_sort (rev_ref *r)
 	assert (s->degree <= s->next->degree);
     }
     return r;
+}
+#endif
+
+static rev_ref *
+rev_ref_find_name (rev_ref *h, char *name)
+{
+    for (; h; h = h->next)
+	if (h->name == name)
+	    return h;
+    return NULL;
+}
+
+static int
+rev_ref_is_ready (char *name, rev_list *source, rev_ref *ready)
+{
+    rev_ref	*source_ref;
+
+    for (; source; source = source->next) {
+	source_ref = rev_find_ref (source, name);
+	if (source_ref && 
+	    source_ref->parent && 
+	    !rev_ref_find_name (ready, source_ref->parent->name))
+	    return 0;
+    }
+    return 1;
+}
+
+static rev_ref *
+rev_ref_tsort (rev_ref *refs, rev_list *head)
+{
+    rev_ref *done = NULL;
+    rev_ref **done_tail = &done;
+    rev_ref *r, **prev;
+
+//    fprintf (stderr, "Tsort refs:\n");
+    while (refs) {
+	for (prev = &refs; (r = *prev); prev = &(*prev)->next) {
+	    if (rev_ref_is_ready (r->name, head, done)) {
+		break;
+	    }
+	}
+	if (!r) {
+	    fprintf (stderr, "Error: branch cycle\n");
+	    return NULL;
+	}
+	*prev = r->next;
+	*done_tail = r;
+//	fprintf (stderr, "\t%s\n", r->name);
+	r->next = NULL;
+	done_tail = &r->next;
+    }
+    return done;
 }
 
 static int
@@ -559,6 +610,28 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 	nbranch = rev_commit_date_sort (commits, nbranch);
 
 	/*
+	 * Trim off files where the trunk revision
+	 * is newer than this commit
+	 */
+
+	for (n = nbranch; n && commits[n-1]->tailed; n--)
+	    ;
+	
+	while (n < nbranch && commits[n]->tailed &&
+	       time_compare (commits[0]->date,
+			     commits[n]->date) < 0)
+	{
+	    fprintf (stderr, "Warning: %s late addition to branch %s\n",
+		     commits[n]->nfiles ?
+		     commits[n]->files[0]->name : "no file",
+		     branch->name);
+	    memmove (commits + n, commits + n + 1, 
+		     (nbranch - n - 1) * sizeof (rev_commit *));
+	    commits[nbranch-1] = NULL;
+	    nbranch--;
+	}
+	
+	/*
 	 * Construct current commit
 	 */
 	commit = rev_commit_build (commits, nbranch);
@@ -633,7 +706,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 				      commits[present]->files[0]->name,
 				      &commits[present]->files[0]->number);
 		fprintf (stderr, "\n");
-		fprintf (stderr, "\tbranch(%3d): %s", n,
+		fprintf (stderr, "\tbranch(%3d): %s  ", n,
 			 ctime_nonl (&prev->files[0]->date));
 		dump_number_file (stderr,
 				  prev->files[0]->name,
@@ -817,9 +890,13 @@ rev_list_merge (rev_list *head)
     /*
      * Sort by degree so that finding branch points always works
      */
-    rl->heads = rev_ref_sel_sort (rl->heads);
+//    rl->heads = rev_ref_sel_sort (rl->heads);
+    rl->heads = rev_ref_tsort (rl->heads, head);
+    if (!rl->heads)
+	return NULL;
 //    for (h = rl->heads; h; h = h->next)
-//	fprintf (stderr, "head %s(%d)\n", h->name, h->degree);
+//	fprintf (stderr, "head %s (%d)\n",
+//		 h->name, h->degree);
     /*
      * Find branch parent relationships
      */
@@ -860,7 +937,7 @@ rev_list_merge (rev_list *head)
 		t->degree = lt->degree;
 	}
     }
-    rl->tags = rev_ref_sel_sort (rl->tags);
+//    rl->tags = rev_ref_sel_sort (rl->tags);
     /*
      * Find tag locations
      */

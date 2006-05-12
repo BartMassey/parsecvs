@@ -125,7 +125,6 @@ typedef struct _rev_ref {
     cvs_number		number;
     char		*name;
     int			shown;
-    time_t		date;
 } rev_ref;
 
 typedef struct _rev_list {
@@ -167,6 +166,9 @@ lex_number (char *);
 
 time_t
 lex_date (cvs_number *n);
+
+char *
+lex_text (void);
 
 rev_list *
 rev_list_cvs (cvs_file *cvs);
