@@ -610,6 +610,28 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 	nbranch = rev_commit_date_sort (commits, nbranch);
 
 	/*
+	 * Trim off files where the trunk revision
+	 * is newer than this commit
+	 */
+
+	for (n = nbranch; n && commits[n-1]->tailed; n--)
+	    ;
+	
+	while (n < nbranch && commits[n]->tailed &&
+	       time_compare (commits[0]->date,
+			     commits[n]->date) < 0)
+	{
+	    fprintf (stderr, "Warning: %s late addition to branch %s\n",
+		     commits[n]->nfiles ?
+		     commits[n]->files[0]->name : "no file",
+		     branch->name);
+	    memmove (commits + n, commits + n + 1, 
+		     (nbranch - n - 1) * sizeof (rev_commit *));
+	    commits[nbranch-1] = NULL;
+	    nbranch--;
+	}
+	
+	/*
 	 * Construct current commit
 	 */
 	commit = rev_commit_build (commits, nbranch);
@@ -684,7 +706,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 				      commits[present]->files[0]->name,
 				      &commits[present]->files[0]->number);
 		fprintf (stderr, "\n");
-		fprintf (stderr, "\tbranch(%3d): %s", n,
+		fprintf (stderr, "\tbranch(%3d): %s  ", n,
 			 ctime_nonl (&prev->files[0]->date));
 		dump_number_file (stderr,
 				  prev->files[0]->name,
