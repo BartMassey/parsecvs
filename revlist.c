@@ -621,10 +621,9 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 	       time_compare (commits[0]->date,
 			     commits[n]->date) < 0)
 	{
-	    fprintf (stderr, "Warning: %s late addition to branch %s\n",
-		     commits[n]->nfiles ?
-		     commits[n]->files[0]->name : "no file",
-		     branch->name);
+	    if (commits[n]->nfiles)
+		fprintf (stderr, "Warning: %s late addition to branch %s\n",
+			 commits[n]->files[0]->name, branch->name);
 	    memmove (commits + n, commits + n + 1, 
 		     (nbranch - n - 1) * sizeof (rev_commit *));
 	    commits[nbranch-1] = NULL;
