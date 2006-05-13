@@ -45,7 +45,7 @@ git_filename (rev_file *file, char *name, int strip)
 static char *
 git_cvs_file (char *base)
 {
-    char    filename_buf[MAXPATHLEN + 1];
+    char    *filename_buf;
     char    *filename;
     static int	id;
     
@@ -56,9 +56,12 @@ git_cvs_file (char *base)
 	    return NULL;
 	}
     }
-    snprintf (filename_buf, sizeof (filename_buf),
-	      "%s/%s-%d", GIT_CVS_DIR, base, id++);
+    filename_buf = git_format_command ("%s/%s-%d",
+				       GIT_CVS_DIR, base, id++);
+    if (!filename_buf)
+	return NULL;
     filename = atom (filename_buf);
+    free (filename_buf);
     return filename;
 }
 
@@ -86,10 +89,14 @@ git_log_file (rev_commit *commit)
     fclose (f);
 #ifdef LOG_COMMAND
     {
-	char	command[MAXPATHLEN*2+1];
-	snprintf (command, sizeof (command),
-		  "%s '%s'", LOG_COMMAND, filename);
-	if (git_system (command) != 0)
+	char	*command;
+	int	n;
+	command = git_format_command ("%s '%s'", LOG_COMMAND, filename);
+	if (!command)
+	    return NULL;
+	n = git_system (command);
+	free (command);
+	if (n != 0)
 	    return NULL;
     }
 #endif
@@ -114,13 +121,18 @@ git_start_switch (void)
 static int
 git_end_switch (void)
 {
-    char    command[MAXPATHLEN*2 + 1];
+    char    *command;
+    int	    n;
     
     if (fclose (git_update_data) == EOF)
 	return 0;
-    snprintf (command, sizeof (command) - 1,
-	      "git-update-index --index-info < %s", git_update_data_name);
-    if (git_system (command) != 0)
+    command = git_format_command ("git-update-index --index-info < %s",
+				  git_update_data_name);
+    if (!command)
+	return 0;
+    n = git_system (command);
+    free (command);
+    if (n != 0)
 	return 0;
     return 1;
 }
@@ -155,18 +167,6 @@ static int
 git_update_file (rev_file *file, int strip)
 {
     return git_add_file (file, strip);
-}
-
-static char *
-git_tree_file (void)
-{
-    return git_cvs_file ("id");
-}
-
-static char *
-git_commit_file (void)
-{
-    return git_cvs_file ("commit");
 }
 
 typedef struct _cvs_author {
@@ -255,30 +255,6 @@ git_load_author_map (char *filename)
     return 1;
 }
 
-static char *
-git_load_file (char *file)
-{
-    FILE    *f;
-    char    buf[1024];
-    char    *nl;
-    
-    f = fopen (file, "r");
-    if (!f) {
-	fprintf (stderr, "%s: %s\n", file, strerror (errno));
-	return NULL;
-    }
-    if (fgets (buf, sizeof (buf), f) == NULL) {
-	fprintf (stderr, "%s: %s\n", file, strerror (errno));
-	fclose (f);
-	return NULL;
-    }
-    fclose (f);
-    nl = strchr (buf, '\n');
-    if (nl)
-	*nl = '\0';
-    return atom (buf);
-}
-
 static int git_total_commits;
 static int git_current_commit;
 static char *git_current_head;
@@ -315,10 +291,8 @@ git_spin (void)
 static int
 git_commit (rev_commit *commit)
 {
-    char    command[MAXPATHLEN * 2];
+    char    *command;
     char    *log;
-    char    *tree;
-    char    *id;
     cvs_author	*author;
     char    *tree_sha1;
     char    *full;
@@ -328,15 +302,7 @@ git_commit (rev_commit *commit)
     log = git_log_file (commit);
     if (!log)
 	return 0;
-    tree = git_tree_file ();
-    if (!tree)
-	return 0;
-    id = git_commit_file ();
-    snprintf (command, sizeof (command) - 1,
-	      "git-write-tree --missing-ok > '%s'", tree);
-    if (git_system (command) != 0)
-	return 0;
-    tree_sha1 = git_load_file (tree);
+    tree_sha1 = git_system_to_string ("git-write-tree --missing-ok");
     if (!tree_sha1)
 	return 0;
 
@@ -360,16 +326,15 @@ git_commit (rev_commit *commit)
     setenv ("GIT_COMMITTER_EMAIL", email, 1);
     setenv ("GIT_COMMITTER_DATE", date, 1);
     if (commit->parent)
-        snprintf (command, sizeof (command) - 1,
-	          "git-commit-tree '%s' -p '%s' < '%s' > '%s'",
-		  tree_sha1, commit->parent->sha1, log, id);
+	command = git_format_command ("git-commit-tree '%s' -p '%s' < '%s'",
+				      tree_sha1, commit->parent->sha1, log);
     else
-        snprintf (command, sizeof (command) - 1,
-	          "git-commit-tree '%s' < '%s' > '%s' 2> /dev/null",
-		  tree_sha1, log, id);
-    if (git_system (command) != 0)
+	command = git_format_command ("git-commit-tree '%s' < '%s' 2>/dev/null",
+				      tree_sha1, log);
+    if (!command)
 	return 0;
-    commit->sha1 = git_load_file (id);
+    commit->sha1 = git_system_to_string (command);
+    free (command);
     if (!commit->sha1)
 	return 0;
     return 1;
@@ -411,11 +376,16 @@ git_switch_commit (rev_commit *old, rev_commit *new, int strip)
 static int
 git_update_ref (rev_commit *commit, char *type, char *name)
 {
-    char    command[MAXPATHLEN * 2 + 1];
+    char    *command;
+    int	    n;
 
-    snprintf (command, sizeof (command) - 1, "git-update-ref 'refs/%s/%s' '%s'",
-	      type, name, commit->sha1);
-    if (git_system (command) != 0)
+    command = git_format_command ("git-update-ref 'refs/%s/%s' '%s'",
+				  type, name, commit->sha1);
+    if (!command)
+	return 0;
+    n = git_system (command);
+    free (command);
+    if (n != 0)
 	return 0;
     return 1;
 }
@@ -435,11 +405,15 @@ git_head (rev_commit *commit, char *name)
 static int
 git_read_tree (rev_commit *commit)
 {
-    char    command[MAXPATHLEN*2+1];
+    char    *command;
+    int	    n;
 
-    snprintf (command, sizeof (command), 
-	      "git-read-tree '%s'", commit->sha1);
-    if (git_system (command) != 0)
+    command = git_format_command ("git-read-tree '%s'", commit->sha1);
+    if (!command)
+	return 0;
+    n = git_system (command);
+    free (command);
+    if (n != 0)
 	return 0;
     return 1;
 }
@@ -482,20 +456,6 @@ git_head_commit (rev_ref *head, rev_ref *tags, int strip)
 	return 0;
     return 1;
 }
-
-#if 0
-static int
-git_checkout (char *name)
-{
-    char    command[MAXPATHLEN*2+1];
-
-    snprintf (command, sizeof (command),
-	      "git-reset --hard '%s'", name);
-    if (git_system (command) != 0)
-	return 0;
-    return 1;
-}
-#endif
 
 static int
 git_ncommit (rev_list *rl)

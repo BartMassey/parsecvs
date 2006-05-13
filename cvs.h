@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -359,6 +360,9 @@ git_system_to_string (char *command);
 
 int
 git_string_to_system (char *command, char *string);
+
+char *
+git_format_command (const char *fmt, ...);
 
 /*
  * rev - string representation of the rcs revision number eg. 1.1
