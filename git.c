@@ -140,7 +140,8 @@ git_end_switch (void)
 static int
 git_del_file (rev_file *file, int strip)
 {
-    char    filename[MAXPATHLEN + 1];
+    /* avoid stack allocation to avoid running out of stack */
+    static char    filename[MAXPATHLEN + 1];
     
     if (!git_filename (file, filename, strip))
 	return 0;
@@ -153,7 +154,8 @@ git_del_file (rev_file *file, int strip)
 static int
 git_add_file (rev_file *file, int strip)
 {
-    char    filename[MAXPATHLEN + 1];
+    /* avoid stack allocation to avoid running out of stack */
+    static char    filename[MAXPATHLEN + 1];
     
     if (!git_filename (file, filename, strip))
 	return 0;
