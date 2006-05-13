@@ -66,7 +66,7 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
     cvs_patch	*p;
 
     n = *branch;
-    n.n[n.c-1] = 0;
+    n.n[n.c-1] = -1;
     while ((v = cvs_find_version (cvs, &n))) {
 	c = calloc (1, sizeof (rev_commit) + sizeof (rev_file *));
 	p = cvs_find_patch (cvs, &v->number);
