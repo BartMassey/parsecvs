@@ -723,7 +723,7 @@ main (int argc, char **argv)
 	last = fn->file;
 	nfile++;
     }
-    if (git_system ("git-init-db") != 0)
+    if (git_system ("git-init-db --shared") != 0)
 	exit (1);
     load_total_files = nfile;
     load_current_file = 0;
