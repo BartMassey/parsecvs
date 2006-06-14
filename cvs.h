@@ -84,6 +84,7 @@ typedef struct {
     cvs_version		*versions;
     cvs_patch		*patches;
     mode_t		mode;
+    int			nversions;
     char 		*expand;
 } cvs_file;
 
@@ -359,6 +360,9 @@ rev_list_validate (rev_list *rl);
 int
 git_rev_list_commit (rev_list *rl, int strip);
 
+void
+git_rev_list_pack (rev_list *rl, int strip);
+    
 int
 git_system (char *command);
 

@@ -131,6 +131,7 @@ git_end_switch (void)
     if (!command)
 	return 0;
     n = git_system (command);
+    unlink (git_update_data_name);
     free (command);
     if (n != 0)
 	return 0;
@@ -326,8 +327,10 @@ git_commit (rev_commit *commit)
     if (!log)
 	return 0;
     tree_sha1 = git_system_to_string ("git-write-tree --missing-ok");
-    if (!tree_sha1)
+    if (!tree_sha1) {
+	unlink (log);
 	return 0;
+    }
 
     /*
      * Prepare environment for git-commit-tree
@@ -354,9 +357,12 @@ git_commit (rev_commit *commit)
     else
 	command = git_format_command ("git-commit-tree '%s' < '%s' 2>/dev/null",
 				      tree_sha1, log);
-    if (!command)
+    if (!command) {
+	unlink (log);
 	return 0;
+    }
     commit->sha1 = git_system_to_string (command);
+    unlink (log);
     free (command);
     if (!commit->sha1)
 	return 0;
@@ -514,5 +520,144 @@ git_rev_list_commit (rev_list *rl, int strip)
 //    if (!git_checkout ("master"))
 //	return 0;
     return 1;
+}
+
+static FILE *packf;
+
+static char *
+git_start_pack (void)
+{
+    char    *pack_file = git_cvs_file ("pack");
+
+    packf = fopen (pack_file, "w");
+    if (!packf)
+	return NULL;
+    return pack_file;
+}
+
+static void
+git_file_pack (rev_file *file, int strip)
+{
+    char    filename[MAXPATHLEN + 1];
+
+    if (!git_filename (file, filename, strip))
+	return;
+    fprintf (packf, "%s %s\n", file->sha1, filename);
+}
+
+static void
+git_end_pack (char *pack_file, char *pack_dir)
+{
+    char    *command;
+    char    *pack_name;
+    char    *src_pack_pack, *src_pack_idx;
+    char    *dst_pack_pack, *dst_pack_idx;
+
+    if (fclose (packf) == EOF)
+	return;
+    command = git_format_command ("git-pack-objects -q --non-empty .tmp-pack < '%s'", 
+				  pack_file);
+    if (!command) {
+	unlink (pack_file);
+	return;
+    }
+    pack_name = git_system_to_string (command);
+    unlink (pack_file);
+    free (command);
+    if (!pack_name)
+	return;
+    fprintf (stderr, "\nPack pack-%s created\n", pack_name);
+    src_pack_pack = git_format_command (".tmp-pack-%s.pack", pack_name);
+    src_pack_idx = git_format_command (".tmp-pack-%s.idx", pack_name);
+    dst_pack_pack = git_format_command ("%s/pack-%s.pack", pack_dir, pack_name);
+    dst_pack_idx = git_format_command ("%s/pack-%s.idx", pack_dir, pack_name);
+    if (!src_pack_pack || !src_pack_idx ||
+	!dst_pack_pack || !dst_pack_idx)
+    {
+	if (src_pack_pack) free (src_pack_pack);
+	if (src_pack_idx) free (src_pack_idx);
+	if (dst_pack_pack) free (dst_pack_pack);
+	if (dst_pack_idx) free (dst_pack_idx);
+	return;
+    }
+    if (rename (src_pack_pack, dst_pack_pack) == -1 ||
+	rename (src_pack_idx, dst_pack_idx) == -1)
+	return;
+    free (src_pack_pack);
+    free (src_pack_idx);
+    free (dst_pack_pack);
+    free (dst_pack_idx);
+    
+    (void) git_system ("git-prune-packed");
+}
+
+static char *
+git_pack_directory (void)
+{
+    static char    *pack_dir;
+
+    if (!pack_dir)
+    {
+	char    *git_dir;
+	char	*objects_dir;
+	
+	git_dir = git_system_to_string ("git-rev-parse --git-dir");
+	if (!git_dir)
+	    return NULL;
+	objects_dir = git_format_command ("%s/objects", git_dir);
+	if (!objects_dir)
+	    return NULL;
+	if (access (objects_dir, F_OK) == -1 &&
+	    mkdir (objects_dir, 0777) == -1) 
+	{
+	    free (git_dir);
+	    free (objects_dir);
+	    return NULL;
+	}
+	free (objects_dir);
+	pack_dir = git_format_command ("%s/objects/pack", git_dir);
+        free (git_dir);
+	if (!pack_dir)
+	    return NULL;
+	if (access (pack_dir, F_OK) == -1 &&
+	    mkdir (pack_dir, 0777) == -1) 
+	{
+	    free (pack_dir);
+	    pack_dir = NULL;
+	}
+    }
+    return pack_dir;
+}
+
+void
+git_rev_list_pack (rev_list *rl, int strip)
+{
+    char    *pack_file;
+    char    *pack_dir;
+    
+    pack_dir = git_pack_directory ();
+    if (!pack_dir)
+	return;
+    pack_file = git_start_pack ();
+    if (!pack_file)
+	return;
+    
+    while (rl) {
+	rev_ref	*h;
+	rev_commit	*c;
+
+	for (h = rl->heads; h; h = h->next) {
+	    if (h->tail)
+		continue;
+	    for (c = h->commit; c; c = c->parent) {
+		if (c->file)
+		    git_file_pack (c->file, strip);
+		if (c->tail)
+		    break;
+	    }
+	}
+	rl = rl->next;
+    }
+    git_end_pack (pack_file, pack_dir);
 }
 

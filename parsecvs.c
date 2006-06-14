@@ -30,8 +30,9 @@ cvs_file	*this_file;
 rev_execution_mode rev_mode = ExecuteGit;
 
 int elide = 0;
-int difffiles = 1;
+int difffiles = 0;
 int allfiles = 1;
+int autopack = 1;
     
 void
 dump_number_file (FILE *f, char *name, cvs_number *number)
@@ -183,7 +184,7 @@ dump_commit_graph (rev_commit *c, rev_ref *branch)
 	}
 	rev_diff_free (diff);
     } else {
-	if (allfiles) {
+	if (!allfiles) {
 	    dump_number (c->file->name, &c->file->number);
 	    printf ("\\n");
 	} else {
@@ -405,9 +406,10 @@ dump_rev_list (rev_list *rl)
 extern FILE *yyin;
 static int err = 0;
 char *yyfilename;
+extern int yylineno;
 
 static rev_list *
-rev_list_file (char *name)
+rev_list_file (char *name, int *nversions)
 {
     rev_list	*rl;
     struct stat	buf;
@@ -418,6 +420,7 @@ rev_list_file (char *name)
 	++err;
     }
     yyfilename = name;
+    yylineno = 0;
     this_file = calloc (1, sizeof (cvs_file));
     this_file->name = name;
     if (yyin)
@@ -428,6 +431,7 @@ rev_list_file (char *name)
     yyfilename = 0;
     rl = rev_list_cvs (this_file);
 	    
+    *nversions = this_file->nversions;
     cvs_file_free (this_file);
     return rl;
 }
@@ -686,7 +690,9 @@ static void load_status_next (void)
     fprintf (STATUS, "\n");
     fflush (STATUS);
 }
-    
+
+#define OBJ_PACK_TIME	4096
+
 int
 main (int argc, char **argv)
 {
@@ -699,6 +705,8 @@ main (int argc, char **argv)
     int		    c;
     char	    *file;
     int		    nfile = 0;
+    rev_list	    *pack_start = NULL;
+    int		    pack_objcount = 0;
 
     /* force times using mktime to be interpreted in UTC */
     setenv ("TZ", "UTC", 1);
@@ -742,17 +750,39 @@ main (int argc, char **argv)
     load_total_files = nfile;
     load_current_file = 0;
     while (fn_head) {
+	int nversions;
+	
 	fn = fn_head;
 	fn_head = fn_head->next;
 	++load_current_file;
 	load_status (fn->file + strip);
-	rl = rev_list_file (fn->file);
+	rl = rev_list_file (fn->file, &nversions);
 	if (rl->watch)
 	    dump_rev_tree (rl);
 	*tail = rl;
 	tail = &rl->next;
+
+	if (rev_mode == ExecuteGit && autopack)
+	{
+	    /*
+	     * Pack objects on occasion to reduce .git directory
+	     * cost
+	     */
+	    if (!pack_start)
+		pack_start = rl;
+	    pack_objcount += nversions;
+	    if (pack_objcount > OBJ_PACK_TIME) 
+	    {
+		git_rev_list_pack (pack_start, strip);
+		pack_start = NULL;
+		pack_objcount = 0;
+	    }
+	}
+
 	free(fn);
     }
+    if (rev_mode == ExecuteGit && pack_objcount && autopack)
+	git_rev_list_pack (pack_start, strip);
     load_status_next ();
     rl = rev_list_merge (head);
     if (rl) {

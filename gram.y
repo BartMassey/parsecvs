@@ -123,6 +123,7 @@ revision	: NUMBER date author state branches next opt_commitid
 			$$->branches = $5;
 			$$->parent = $6;
 			$$->commitid = $7;
+			++this_file->nversions;
 		  }
 		;
 date		: DATE NUMBER SEMI

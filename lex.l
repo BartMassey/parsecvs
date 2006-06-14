@@ -28,7 +28,7 @@ parse_data (int strip);
 }
     
 %}
-%s CONTENT SKIP
+%s CONTENT SKIP COMMIT
 %%
 <INITIAL>head			BEGIN(CONTENT); return HEAD;
 <INITIAL>branch			BEGIN(CONTENT); return BRANCH;
@@ -40,7 +40,7 @@ parse_data (int strip);
 <INITIAL>date			BEGIN(CONTENT); return DATE;
 <INITIAL>branches		BEGIN(CONTENT); return BRANCHES;
 <INITIAL>next			BEGIN(CONTENT); return NEXT;
-<INITIAL>commitid		BEGIN(CONTENT); return COMMITID;
+<INITIAL>commitid		BEGIN(COMMIT); return COMMITID;
 <INITIAL>strict			BEGIN(CONTENT); return STRICT;
 <INITIAL>author			BEGIN(CONTENT); return AUTHOR;
 <INITIAL>state			BEGIN(CONTENT); return STATE;
@@ -53,6 +53,10 @@ parse_data (int strip);
 					return TEXT_DATA;
 				}
 <CONTENT>[-a-zA-Z_+%][-a-zA-Z_0-9+/%.]* {
+					yylval.s = atom (yytext);
+					return NAME;
+				}
+<COMMIT>[0-9a-zA-Z]+		{
 					yylval.s = atom (yytext);
 					return NAME;
 				}
