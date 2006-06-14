@@ -48,7 +48,7 @@ void yyerror (char *msg);
 %type <date>	date
 %type <branch>	branches numbers
 %type <s>	opt_commitid commitid
-%type <s>	desc
+%type <s>	desc name
 %type <s>	author state
 %type <number>	next opt_number
 %type <patch>	patches patch
@@ -92,11 +92,19 @@ symbols		: symbols symbol
 		|
 		  { $$ = NULL; }
 		;
-symbol		: NAME COLON NUMBER
+symbol		: name COLON NUMBER
 		  {
 			$$ = calloc (1, sizeof (cvs_symbol));
 			$$->name = $1;
 			$$->number = $3;
+		  }
+		;
+name		: NAME
+		| NUMBER
+		  {
+		    char    name[CVS_MAX_REV_LEN];
+		    cvs_number_string (&$1, name);
+		    $$ = atom (name);
 		  }
 		;
 revisions	: revision revisions
