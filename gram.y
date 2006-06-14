@@ -71,12 +71,18 @@ header		: HEAD NUMBER SEMI
 		| ACCESS SEMI
 		| symbollist
 		  { this_file->symbols = $1; }
-		| LOCKS SEMI lock_type SEMI
+		| LOCKS locks SEMI lock_type
 		| COMMENT DATA SEMI
 		| EXPAND DATA SEMI
 		  { this_file->expand = $2; }
 		;
-lock_type	: STRICT
+locks		: locks lock
+		|
+		;
+lock		: NAME COLON NUMBER
+		;
+lock_type	: STRICT SEMI
+		|
 		;
 symbollist	: SYMBOLS symbols SEMI
 		  { $$ = $2; }

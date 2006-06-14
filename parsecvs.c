@@ -768,7 +768,8 @@ main (int argc, char **argv)
 	    break;
 	}
     }
-    rev_list_free (rl, 0);
+    if (rl)
+	rev_list_free (rl, 0);
     while (head) {
 	rl = head;
 	head = head->next;

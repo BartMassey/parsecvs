@@ -52,7 +52,7 @@ parse_data (int strip);
 					BEGIN(INITIAL);
 					return TEXT_DATA;
 				}
-<CONTENT>[-a-zA-Z_0-9+][-a-zA-Z_0-9+/]* {
+<CONTENT>[-a-zA-Z_+%][-a-zA-Z_0-9+/%.]* {
 					yylval.s = atom (yytext);
 					return NAME;
 				}

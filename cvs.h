@@ -37,7 +37,7 @@
 #define MAXPATHLEN  10240
 #endif
 
-#define CVS_MAX_DEPTH	12
+#define CVS_MAX_DEPTH	20
 #define CVS_MAX_REV_LEN	(CVS_MAX_DEPTH * 11)
 
 typedef struct _cvs_number {

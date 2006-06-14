@@ -334,7 +334,7 @@ git_commit (rev_commit *commit)
      */
     author = git_fullname (commit->author);
     if (!author) {
-	fprintf (stderr, "%s: not in author map\n", commit->author);
+//	fprintf (stderr, "%s: not in author map\n", commit->author);
 	full = commit->author;
 	email = commit->author;
     } else {
