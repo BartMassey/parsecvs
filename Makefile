@@ -8,10 +8,10 @@ LIBS=-L$(GITPATH) -lgit -lssl -lz
 YFLAGS=-d -l
 LFLAGS=-l
 
-SRCS=gram.y lex.l cvs.h parsecvs.c cvsutil.c \
+SRCS=gram.y lex.l cvs.h parsecvs.c cvsutil.c revdir.c \
 	revlist.c atom.c revcvs.c git.c gitutil.c rcs2git.c
 
-OBJS=gram.o lex.o parsecvs.o cvsutil.o \
+OBJS=gram.o lex.o parsecvs.o cvsutil.o revdir.o \
 	revlist.o atom.o revcvs.o git.o gitutil.o rcs2git.o
 
 parsecvs: $(OBJS)

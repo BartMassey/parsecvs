@@ -96,6 +96,11 @@ typedef struct _rev_file {
     struct _rev_file	*link;
 } rev_file;
 
+typedef struct _rev_dir {
+    int			nfiles;
+    rev_file		*files[0];
+} rev_dir;
+
 extern time_t	time_now;
 
 typedef struct _rev_commit {
@@ -110,9 +115,11 @@ typedef struct _rev_commit {
     char		*author;
     char		*commitid;
     char		*sha1;
-    int			nfiles;
     struct _rev_commit	*user;
-    rev_file		*files[0];
+    rev_file		*file;		/* first file */
+    int			nfiles;
+    int			ndirs;
+    rev_dir		*dirs[0];
 } rev_commit;
 
 typedef struct _rev_ref {
@@ -364,6 +371,9 @@ git_string_to_system (char *command, char *string);
 char *
 git_format_command (const char *fmt, ...);
 
+void
+git_free_author_map (void);
+
 /*
  * rev - string representation of the rcs revision number eg. 1.1
  * path - RCS filename path eg. ./cfb16/Makefile,v
@@ -371,5 +381,14 @@ git_format_command (const char *fmt, ...);
  *           the ascii hexidecimal id of the resulting object
  */
 void rcs2git(cvs_file *cvs, cvs_number *number, char *sha1_hex);
+
+rev_dir **
+rev_pack_files (rev_file **files, int nfiles, int *ndr);
+
+void
+rev_free_dirs (void);
+    
+void
+rev_commit_cleanup (void);
 
 #endif /* _CVS_H_ */

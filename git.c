@@ -194,6 +194,22 @@ git_fullname (char *name)
     return NULL;
 }
 
+void
+git_free_author_map (void)
+{
+    int	h;
+
+    for (h = 0; h < AUTHOR_HASH; h++) {
+	cvs_author	**bucket = &author_buckets[h];
+	cvs_author	*a;
+
+	while ((a = *bucket)) {
+	    *bucket = a->next;
+	    free (a);
+	}
+    }
+}
+
 static int
 git_load_author_map (char *filename)
 {
@@ -219,6 +235,7 @@ git_load_author_map (char *filename)
 	equal = strchr (line, '=');
 	if (!equal) {
 	    fprintf (stderr, "%s: (%d) missing '='\n", filename, lineno);
+	    fclose (f);
 	    return 0;
 	}
 	*equal = '\0';
@@ -227,6 +244,7 @@ git_load_author_map (char *filename)
 	if (git_fullname (name)) {
 	    fprintf (stderr, "%s: (%d) duplicate name '%s' ignored\n",
 		     filename, lineno, name);
+	    fclose (f);
 	    return 0;
 	}
 	a = calloc (1, sizeof (cvs_author));
@@ -235,6 +253,7 @@ git_load_author_map (char *filename)
 	if (!angle) {
 	    fprintf (stderr, "%s: (%d) missing email address '%s'\n",
 		     filename, lineno, name);
+	    fclose (f);
 	    return 0;
 	}
 	email = angle + 1;
@@ -246,6 +265,7 @@ git_load_author_map (char *filename)
 	if (!angle) {
 	    fprintf (stderr, "%s: (%d) malformed email address '%s\n",
 		     filename, lineno, name);
+	    fclose (f);
 	    return 0;
 	}
 	*angle = '\0';
@@ -254,6 +274,7 @@ git_load_author_map (char *filename)
 	a->next = *bucket;
 	*bucket = a;
     }
+    fclose (f);
     return 1;
 }
 

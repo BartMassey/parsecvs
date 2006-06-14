@@ -34,7 +34,7 @@ rev_find_cvs_commit (rev_list *rl, cvs_number *number)
 	    continue;
 	for (c = h->commit; c; c = c->parent)
 	{
-	     f = c->files[0];
+	     f = c->file;
 	     if (cvs_number_compare (&f->number, number) == 0)
 		    return c;
 	     if (c->tail)
@@ -68,7 +68,7 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
     n = *branch;
     n.n[n.c-1] = -1;
     while ((v = cvs_find_version (cvs, &n))) {
-	c = calloc (1, sizeof (rev_commit) + sizeof (rev_file *));
+	c = calloc (1, sizeof (rev_commit));
 	p = cvs_find_patch (cvs, &v->number);
 	c->date = v->date;
 	c->commitid = v->commitid;
@@ -80,10 +80,10 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 	else
 	    c->nfiles = 1;
 	/* leave this around so the branch merging stuff can find numbers */
-	c->files[0] = rev_file_rev (cvs->name, &v->number, v->date);
+	c->file = rev_file_rev (cvs->name, &v->number, v->date);
 	if (!v->dead) {
-	    c->files[0]->sha1 = rev_cvs_to_blob (cvs, &v->number);
-	    c->files[0]->mode = cvs->mode;
+	    c->file->sha1 = rev_cvs_to_blob (cvs, &v->number);
+	    c->file->mode = cvs->mode;
 	}
 	c->parent = head;
 	head = c;
@@ -118,7 +118,7 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
     trunk = rl->heads;
     for (h_p = &rl->heads; (h = *h_p);) {
 	delete_head = 0;
-	if (h->commit && cvs_is_vendor (&h->commit->files[0]->number))
+	if (h->commit && cvs_is_vendor (&h->commit->file->number))
 	{
 	    /*
 	     * Find version 1.2 on the trunk.
@@ -143,8 +143,8 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 	    while ((t = *tp))
 	    {
 		if (!t->parent || 
-		    time_compare (vlast->files[0]->date,
-				  t->parent->files[0]->date) >= 0)
+		    time_compare (vlast->file->date,
+				  t->parent->file->date) >= 0)
 		{
 		    break;
 		}
@@ -157,8 +157,8 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 		 * of the vendor branch, paste them together and
 		 * nuke the vendor branch
 		 */
-		if (time_compare (vlast->files[0]->date,
-				  t->files[0]->date) >= 0)
+		if (time_compare (vlast->file->date,
+				  t->file->date) >= 0)
 		{
 		    delete_head = 1;
 		}
@@ -200,14 +200,14 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 		    char	name[MAXPATHLEN];
 		    cvs_number	branch;
 
-		    branch = vlast->files[0]->number;
+		    branch = vlast->file->number;
 		    branch.c--;
 		    cvs_number_string (&branch, rev);
 		    snprintf (name, sizeof (name),
 			      "import-%s", rev);
 		    vendor->name = atom (name);
 		    vendor->parent = trunk;
-		    vendor->degree = vlast->files[0]->number.c;
+		    vendor->degree = vlast->file->number.c;
 		}
 		for (vr = vendor->commit; vr; vr = vr->parent)
 		{
@@ -224,8 +224,8 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 	     */
 	    while (t && v)
 	    {
-		if (time_compare (v->files[0]->date,
-				  t->files[0]->date) >= 0)
+		if (time_compare (v->file->date,
+				  t->file->date) >= 0)
 		{
 		    *tp = v;
 		    tp = &v->parent;
@@ -293,7 +293,7 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
 	    for (cv = cvs->versions; cv; cv = cv->next) {
 		for (cb = cv->branches; cb; cb = cb->next) {
 		    if (cvs_number_compare (&cb->number,
-					    &c->files[0]->number) == 0)
+					    &c->file->number) == 0)
 		    {
 			c->parent = rev_find_cvs_commit (rl, &cv->number);
 			c->tail = 1;
@@ -390,7 +390,7 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 	c = NULL;
 	if (cvs_is_head (&s->number)) {
 	    for (h = rl->heads; h; h = h->next) {
-		if (cvs_same_branch (&h->commit->files[0]->number, &s->number))
+		if (cvs_same_branch (&h->commit->file->number, &s->number))
 		    break;
 	    }
 	    if (h) {
@@ -440,7 +440,7 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 	}
 	if (!c)
 	    continue;
-	n = c->files[0]->number;
+	n = c->file->number;
 	/* convert to branch form */
 	n.n[n.c-1] = n.n[n.c-2];
 	n.n[n.c-2] = 0;
@@ -494,8 +494,10 @@ rev_list_free_dead_files (rev_list *rl)
 	if (h->tail)
 	    continue;
 	for (c = h->commit; c; c = c->parent) {
-	    if (c->nfiles == 0)
-		rev_file_free (c->files[0]);
+	    if (c->nfiles == 0) {
+		rev_file_free (c->file);
+		c->file = 0;
+	    }
 	    if (c->tail)
 		break;
 	}

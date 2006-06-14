@@ -145,7 +145,7 @@ void
 dump_commit_graph (rev_commit *c, rev_ref *branch)
 {
     rev_file	*f;
-    int		i;
+    int		i, j;
 
     printf ("\"");
     if (branch)
@@ -183,12 +183,18 @@ dump_commit_graph (rev_commit *c, rev_ref *branch)
 	}
 	rev_diff_free (diff);
     } else {
-	for (i = 0; i < c->nfiles; i++) {
-	    f = c->files[i];
-	    dump_number (f->name, &f->number);
+	if (allfiles) {
+	    dump_number (c->file->name, &c->file->number);
 	    printf ("\\n");
-	    if (!allfiles)
-		break;
+	} else {
+	    for (i = 0; i < c->ndirs; i++) {
+		rev_dir *dir = c->dirs[i];
+		for (j = 0; j < dir->nfiles; j++) {
+		     f = dir->files[j];
+		     dump_number (f->name, &f->number);
+		     printf ("\\n");
+		}
+	    }
 	}
     }
     printf ("%08x", (int) c);
@@ -359,12 +365,16 @@ void
 dump_rev_commit (rev_commit *c)
 {
     rev_file	*f;
-    int		i;
+    int		i, j;
 
-    for (i = 0; i < c->nfiles; i++) {
-	f = c->files[i];
-	dump_number (f->name, &f->number);
-	printf (" ");
+    for (i = 0; i < c->ndirs; i++) {
+	rev_dir	*dir = c->dirs[i];
+	
+	for (j = 0; j < dir->nfiles; j++) {
+	    f = dir->files[j];
+	    dump_number (f->name, &f->number);
+	    printf (" ");
+	}
     }
     printf ("\n");
 }
@@ -410,7 +420,8 @@ rev_list_file (char *name)
     yyfilename = name;
     this_file = calloc (1, sizeof (cvs_file));
     this_file->name = name;
-    assert (fstat (fileno (yyin), &buf) == 0);
+    if (yyin)
+	assert (fstat (fileno (yyin), &buf) == 0);
     this_file->mode = buf.st_mode;
     yyparse ();
     fclose (yyin);
@@ -440,6 +451,7 @@ ctime_nonl (time_t *date)
 void
 dump_splits (rev_list *rl)
 {
+#if 0
     rev_split	*splits = NULL, *s;
     rev_ref	*head;
     rev_commit	*c, *a, *b;
@@ -531,6 +543,7 @@ dump_splits (rev_list *rl)
 	    }
 	}
     }
+#endif
 }
 
 void
@@ -539,7 +552,6 @@ dump_rev_tree (rev_list *rl)
     rev_ref	*h;
     rev_ref	*oh;
     rev_commit	*c, *p;
-    int		i;
     int		tail;
 
     printf ("rev_list {\n");
@@ -563,6 +575,7 @@ dump_rev_tree (rev_list *rl)
 	    printf (" {\n");
 	    
 	    p = c->parent;
+#if 0
 	    if (p && c->nfiles > 16) {
 		rev_file	*ef, *pf;
 		int		ei, pi;
@@ -607,6 +620,7 @@ dump_rev_tree (rev_list *rl)
 		    printf ("\n");
 		}
 	    }
+#endif
 	    printf ("\t\t}\n");
 	    tail = c->tail;
 #if 0	 
@@ -761,5 +775,8 @@ main (int argc, char **argv)
 	rev_list_free (rl, 1);
     }
     discard_atoms ();
+    rev_free_dirs ();
+    rev_commit_cleanup ();
+    git_free_author_map ();
     return err;
 }

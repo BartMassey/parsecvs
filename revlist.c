@@ -383,15 +383,13 @@ rev_commit_date_compare (const void *av, const void *bv)
     t = -time_compare (a->date, b->date);
     if (t)
 	return t;
-    if (a->nfiles && b->nfiles) {
-	/*
-	 * Ensure total order by ordering based on file address
-	 */
-	if ((uintptr_t) a->files[0] > (uintptr_t) b->files[0])
-	    return -1;
-	if ((uintptr_t) a->files[0] < (uintptr_t) b->files[0])
-	    return 1;
-    }
+    /*
+     * Ensure total order by ordering based on file address
+     */
+    if ((uintptr_t) a->file > (uintptr_t) b->file)
+	return -1;
+    if ((uintptr_t) a->file < (uintptr_t) b->file)
+	return 1;
     return 0;
 }
 
@@ -411,13 +409,16 @@ rev_commit_date_sort (rev_commit **commits, int ncommit)
 int
 rev_commit_has_file (rev_commit *c, rev_file *f)
 {
-    int	n;
+    int	i, j;
 
     if (!c)
 	return 0;
-    for (n = 0; n < c->nfiles; n++)
-	if (c->files[n] == f)
-	    return 1;
+    for (i = 0; i < c->ndirs; i++) {
+	rev_dir	*dir = c->dirs[i];
+	for (j = 0; j < dir->nfiles; j++)
+	    if (dir->files[j] == f)
+		return 1;
+    }
     return 0;
 }
 
@@ -434,24 +435,60 @@ rev_commit_find_file (rev_commit *c, char *name)
 }
 #endif
 
+static rev_file **files = NULL;
+static int	    sfiles = 0;
+
+void
+rev_commit_cleanup (void)
+{
+    if (files) {
+	free (files);
+	files = NULL;
+	sfiles = 0;
+    }
+}
+
 static rev_commit *
 rev_commit_build (rev_commit **commits, int ncommit)
 {
-    int	n, nfile;
+    int		n, nfile;
     rev_commit	*commit;
+    int		nds;
+    rev_dir	**rds;
+    rev_file	*first;
 
+    if (ncommit > sfiles) {
+	free (files);
+	files = 0;
+    }
+    if (!files)
+	files = malloc ((sfiles = ncommit) * sizeof (rev_file *));
+    
+    nfile = 0;
+    for (n = 0; n < ncommit; n++)
+	if (commits[n]->file)
+	    files[nfile++] = commits[n]->file;
+    
+    if (nfile)
+	first = files[0];
+    else
+	first = NULL;
+    
+    rds = rev_pack_files (files, nfile, &nds);
+        
     commit = calloc (1, sizeof (rev_commit) +
-		     ncommit * sizeof (rev_file *));
-
+		     nds * sizeof (rev_dir *));
+    
     commit->date = commits[0]->date;
     commit->commitid = commits[0]->commitid;
     commit->log = commits[0]->log;
     commit->author = commits[0]->author;
-    nfile = 0;
-    for (n = 0; n < ncommit; n++)
-	if (commits[n]->nfiles > 0)
-	    commit->files[nfile++] = commits[n]->files[0];
+    
+    commit->file = first;
     commit->nfiles = nfile;
+
+    memcpy (commit->dirs, rds, (commit->ndirs = nds) * sizeof (rev_dir *));
+    
     return commit;
 }
 
@@ -621,9 +658,9 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 	       time_compare (commits[0]->date,
 			     commits[n]->date) < 0)
 	{
-	    if (commits[n]->nfiles)
+	    if (commits[n]->file)
 		fprintf (stderr, "Warning: %s late addition to branch %s\n",
-			 commits[n]->files[0]->name, branch->name);
+			 commits[n]->file->name, branch->name);
 	    memmove (commits + n, commits + n + 1, 
 		     (nbranch - n - 1) * sizeof (rev_commit *));
 	    commits[nbranch-1] = NULL;
@@ -656,7 +693,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 		    nlive++;
 		}
 		commits[n] = commits[n]->parent;
-	    } else if (commits[n]->parent || commits[n]->nfiles)
+	    } else if (commits[n]->parent || commits[n]->file)
 		nlive++;
 	}
 	    
@@ -675,7 +712,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 
 //	present = 0;
 	for (present = 0; present < nbranch; present++)
-	    if (commits[present]->nfiles) {
+	    if (commits[present]->file) {
 		/*
 		 * Skip files which appear in the repository after
 		 * the first commit along the branch
@@ -684,7 +721,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 		    commits[present]->date == rev_commit_first_date (commits[present]))
 		{
 		    fprintf (stderr, "Warning: file %s appears after branch %s date\n",
-			     commits[present]->files[0]->name, branch->name);
+			     commits[present]->file->name, branch->name);
 		    continue;
 		}
 		break;
@@ -699,17 +736,17 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 			 branch->name, branch->parent->name);
 		fprintf (stderr, "\ttrunk(%3d):  %s %s", n,
 			 ctime_nonl (&commits[present]->date),
-			 commits[present]->nfiles ? " " : "D" );
-		if (commits[present]->nfiles)
+			 commits[present]->file ? " " : "D" );
+		if (commits[present]->file)
 		    dump_number_file (stderr,
-				      commits[present]->files[0]->name,
-				      &commits[present]->files[0]->number);
+				      commits[present]->file->name,
+				      &commits[present]->file->number);
 		fprintf (stderr, "\n");
 		fprintf (stderr, "\tbranch(%3d): %s  ", n,
-			 ctime_nonl (&prev->files[0]->date));
+			 ctime_nonl (&prev->file->date));
 		dump_number_file (stderr,
-				  prev->files[0]->name,
-				  &prev->files[0]->number);
+				  prev->file->name,
+				  &prev->file->number);
 		fprintf (stderr, "\n");
 	    }
 	} else if ((*tail = rev_commit_locate_date (branch->parent,
@@ -1020,11 +1057,8 @@ rev_commit_free (rev_commit *commit, int free_files)
 	commit = c->parent;
 	if (--c->seen == 0)
 	{
-	    if (free_files) {
-		int i;
-		for (i = 0; i < c->nfiles; i++)
-		    rev_file_mark_for_free (c->files[i]);
-	    }
+	    if (free_files && c->file)
+		rev_file_mark_for_free (c->file);
 	    free (c);
 	}
     }
@@ -1086,20 +1120,23 @@ rev_list_validate (rev_list *rl)
 static rev_file_list *
 rev_uniq_file (rev_commit *uniq, rev_commit *common, int *nuniqp)
 {
-    int	n;
+    int	i, j;
     int nuniq = 0;
     rev_file_list   *head = NULL, **tail = &head, *fl;
     
     if (!uniq)
 	return NULL;
-    for (n = 0; n < uniq->nfiles; n++)
-	if (!rev_commit_has_file (common, uniq->files[n])) {
-	    fl = calloc (1, sizeof (rev_file_list));
-	    fl->file = uniq->files[n];
-	    *tail = fl;
-	    tail = &fl->next;
-	    ++nuniq;
-	}
+    for (i = 0; i < uniq->ndirs; i++) {
+	rev_dir	*dir = uniq->dirs[i];
+	for (j = 0; j < dir->nfiles; j++)
+	    if (!rev_commit_has_file (common, dir->files[j])) {
+		fl = calloc (1, sizeof (rev_file_list));
+		fl->file = dir->files[j];
+		*tail = fl;
+		tail = &fl->next;
+		++nuniq;
+	    }
+    }
     *nuniqp = nuniq;
     return head;
 }
