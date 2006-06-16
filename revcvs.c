@@ -464,9 +464,11 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 	}
 	if (h->parent && !h->name) {
 	    char	name[1024];
+	    char	rev[CVS_MAX_REV_LEN];
 
-	    fprintf (stderr, "Warning: %s: unnamed branch from %s\n",
-		     cvs->name, h->parent->name);
+	    cvs_number_string (&h->number, rev);
+	    fprintf (stderr, "Warning: %s: unnamed branch %s from %s\n",
+		     cvs->name, rev, h->parent->name);
 	    sprintf (name, "%s-UNNAMED-BRANCH", h->parent->name);
 	    h->name = atom (name);
 	}

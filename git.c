@@ -297,7 +297,7 @@ git_status (void)
     fprintf (STATUS, "Save: %35.35s ", git_current_head);
     for (s = 0; s < PROGRESS_LEN + 1; s++)
 	putc (s == spot ? '*' : '.', STATUS);
-    fprintf (STATUS, " %5d of %5d\r", git_current_commit, git_total_commits);
+    fprintf (STATUS, " %5d of %5d\n", git_current_commit, git_total_commits);
     fflush (STATUS);
 }
 
@@ -566,7 +566,8 @@ git_end_pack (char *pack_file, char *pack_dir)
     free (command);
     if (!pack_name)
 	return;
-    fprintf (stderr, "\nPack pack-%s created\n", pack_name);
+    fprintf (STATUS, "Pack pack-%s created\n", pack_name);
+    fflush (STATUS);
     src_pack_pack = git_format_command (".tmp-pack-%s.pack", pack_name);
     src_pack_idx = git_format_command (".tmp-pack-%s.idx", pack_name);
     dst_pack_pack = git_format_command ("%s/pack-%s.pack", pack_dir, pack_name);

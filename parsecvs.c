@@ -674,12 +674,12 @@ static void load_status (char *name)
     if (rev_mode == ExecuteGraph)
 	return;
     l = strlen (name);
-    if (l > 41) name += l - 41;
+    if (l > 35) name += l - 35;
 
     fprintf (STATUS, "Load: %35.35s ", name);
     for (s = 0; s < PROGRESS_LEN + 1; s++)
 	putc (s == spot ? '*' : '.', STATUS);
-    fprintf (STATUS, " %5d of %5d\r", load_current_file, load_total_files);
+    fprintf (STATUS, " %5d of %5d\n", load_current_file, load_total_files);
     fflush (STATUS);
 }
 
@@ -691,7 +691,7 @@ static void load_status_next (void)
     fflush (STATUS);
 }
 
-#define OBJ_PACK_TIME	4096
+#define OBJ_PACK_TIME	1024
 
 int
 main (int argc, char **argv)
