@@ -611,13 +611,11 @@ git_pack_directory (void)
 	if (access (objects_dir, F_OK) == -1 &&
 	    mkdir (objects_dir, 0777) == -1) 
 	{
-	    free (git_dir);
 	    free (objects_dir);
 	    return NULL;
 	}
 	free (objects_dir);
 	pack_dir = git_format_command ("%s/objects/pack", git_dir);
-        free (git_dir);
 	if (!pack_dir)
 	    return NULL;
 	if (access (pack_dir, F_OK) == -1 &&
