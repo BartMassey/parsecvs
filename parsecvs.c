@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <getopt.h>
 
 #ifndef MAXPATHLEN
 #define MAXPATHLEN  10240
@@ -707,6 +708,37 @@ main (int argc, char **argv)
     int		    nfile = 0;
     rev_list	    *pack_start = NULL;
     int		    pack_objcount = 0;
+
+    while (1) {
+	static struct option options[] = {
+	    { "help",		0, 0, 'h' },
+	    { "version",	0, 0, 'V' },
+	};
+	int c = getopt_long(argc, argv, "+hV", options, NULL);
+	if (c < 0)
+	    break;
+	switch (c) {
+	case 'h':
+	    printf("Usage: parsecvs [FILE]...\n"
+		   "Parse RCS files and populate git repository.\n"
+		   "Example: find -name '*,v' | parsecvs\n");
+	    return 0;
+	case 'V':
+	    printf("parsecvs version 0.1\n"
+		   "\n"
+		   "Copyright (c) 2006 Keith Packard <keithp@keithp.com>.\n"
+		   "This is free software; see the source for copying conditions. There is NO\n"
+		   "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
+	    return 0;
+	default: /* error message already emitted */
+	    fprintf(stderr, "Try `%s --help' for more information.\n", argv[0]);
+	    return 1;
+	}
+    }
+
+    argv[optind-1] = argv[0];
+    argv += optind-1;
+    argc -= optind-1;
 
     /* force times using mktime to be interpreted in UTC */
     setenv ("TZ", "UTC", 1);
