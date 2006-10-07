@@ -4,7 +4,7 @@ GCC_WARNINGS3=-Wnested-externs -fno-strict-aliasing
 GCC_WARNINGS=$(GCC_WARNINGS1) $(GCC_WARNINGS2) $(GCC_WARNINGS3)
 CFLAGS=-O2 -g $(GCC_WARNINGS)
 GITPATH=../git
-LIBS=-L$(GITPATH) -lgit -lssl -lz
+LIBS=-L$(GITPATH) -lgit -lssl -lcrypto -lz
 YFLAGS=-d -l
 LFLAGS=-l
 
