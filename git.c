@@ -403,13 +403,13 @@ git_switch_commit (rev_commit *old, rev_commit *new, int strip)
 }
 
 static int
-git_update_ref (rev_commit *commit, char *type, char *name)
+git_update_ref (char *sha1, char *type, char *name)
 {
     char    *command;
     int	    n;
 
     command = git_format_command ("git-update-ref 'refs/%s/%s' '%s'",
-				  type, name, commit->sha1);
+				  type, name, sha1);
     if (!command)
 	return 0;
     n = git_system (command);
@@ -419,16 +419,74 @@ git_update_ref (rev_commit *commit, char *type, char *name)
     return 1;
 }
 
+static char *
+git_mktag (rev_commit *commit, char *name)
+{
+    char    *filename;
+    FILE    *f;
+    int     rv;
+    char    *command;
+    char    *tag_sha1;
+    cvs_author *author;
+
+    filename = git_cvs_file ("tag");
+    if (!filename)
+	return NULL;
+    f = fopen (filename, "w");
+    if (!f) {
+	fprintf (stderr, "%s: %s\n", filename, strerror (errno));
+	return NULL;
+    }
+    
+    author = git_fullname (commit->author);
+    rv = fprintf (f,
+		"object %s\n"
+		"type commit\n"
+		"tag %s\n"
+		"tagger %s\n"
+		"\n",
+		commit->sha1,
+		name,
+		author ? author->full : commit->author);
+    if (rv < 1) {
+	fprintf (stderr, "%s: %s\n", filename, strerror (errno));
+	fclose (f);
+	unlink (filename);
+	return NULL;
+    }
+    rv = fclose (f);
+    if (rv) {
+	fprintf (stderr, "%s: %s\n", filename, strerror (errno));
+	unlink (filename);
+	return NULL;
+    }
+
+    command = git_format_command ("git-mktag < '%s'", filename);
+    if (!command) {
+	unlink (filename);
+	return NULL;
+    }
+    tag_sha1 = git_system_to_string (command);
+    unlink (filename);
+    free (command);
+    return tag_sha1;
+}
+
 static int
 git_tag (rev_commit *commit, char *name)
 {
-    return git_update_ref (commit, "tags", name);
+    char    *tag_sha1;
+
+    tag_sha1 = git_mktag (commit, name);
+    if (!tag_sha1)
+	return 0;
+    return git_update_ref (tag_sha1, "tags", name);
 }
 
 static int
 git_head (rev_commit *commit, char *name)
 {
-    return git_update_ref (commit, "heads", name);
+    return git_update_ref (commit->sha1, "heads", name);
 }
 
 static int
