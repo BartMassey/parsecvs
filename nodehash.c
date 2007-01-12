@@ -3,6 +3,8 @@
 static Node *table[4096];
 static int entries;
 
+Node *head_node;
+
 static Node *hash_number(cvs_number *n)
 {
 	cvs_number key = *n;
@@ -35,13 +37,14 @@ static Node *hash_number(cvs_number *n)
 	return p;
 }
 
-static Node *find_number(cvs_number *n)
+static Node *find_parent(cvs_number *n, int depth)
 {
 	cvs_number key = *n;
 	Node *p;
 	int hash;
 	int i;
 
+	key.c -= depth;
 	for (i = 0, hash = 0; i < key.c - 1; i++)
 		hash += key.n[i];
 	hash = (hash * 256 + key.n[key.c - 1]) % 4096;
@@ -58,25 +61,33 @@ static Node *find_number(cvs_number *n)
 
 void hash_version(cvs_version *v)
 {
+	char name[CVS_MAX_REV_LEN];
 	v->node = hash_number(&v->number);
 	if (v->node->v) {
-		char name[CVS_MAX_REV_LEN];
 		fprintf(stderr, "more than one delta with number %s\n",
 			cvs_number_string(&v->node->number, name));
 	} else {
 		v->node->v = v;
 	}
+	if (v->node->number.c & 1) {
+		fprintf(stderr, "revision with odd depth (%s)\n",
+			cvs_number_string(&v->node->number, name));
+	}
 }
 
 void hash_patch(cvs_patch *p)
 {
+	char name[CVS_MAX_REV_LEN];
 	p->node = hash_number(&p->number);
 	if (p->node->p) {
-		char name[CVS_MAX_REV_LEN];
 		fprintf(stderr, "more than one delta with number %s\n",
 			cvs_number_string(&p->node->number, name));
 	} else {
 		p->node->p = p;
+	}
+	if (p->node->number.c & 1) {
+		fprintf(stderr, "patch with odd depth (%s)\n",
+			cvs_number_string(&p->node->number, name));
 	}
 }
 
@@ -98,6 +109,7 @@ void clean_hash(void)
 		}
 	}
 	entries = 0;
+	head_node = NULL;
 }
 
 static int compare(const void *a, const void *b)
@@ -126,6 +138,7 @@ static void try_pair(Node *a, Node *b)
 	if (n == b->number.c) {
 		if (n == 2) {
 			a->next = b;
+			b->to = a;
 			return;
 		}
 		for (i = n - 2; i >= 0; i--)
@@ -133,12 +146,16 @@ static void try_pair(Node *a, Node *b)
 				break;
 		if (i < 0) {
 			a->next = b;
+			a->to = b;
 			return;
 		}
+	} else if (n == 2) {
+		head_node = a;
 	}
 	if ((b->number.c & 1) == 0) {
-		cvs_number num = b->number;
-		Node *p = find_number(&num);
+		b->starts = 1;
+		/* can the code below ever be needed? */
+		Node *p = find_parent(&b->number, 1);
 		if (p)
 			p->next = b;
 	}
@@ -155,7 +172,24 @@ void build_branches(void)
 			*p++ = q;
 	}
 	qsort(v, entries, sizeof(Node *), compare);
+	/* only trunk? */
+	if (v[entries-1]->number.c == 2)
+		head_node = v[entries-1];
 	for (p = v + entries - 2 ; p >= v; p--)
 		try_pair(p[0], p[1]);
+	for (p = v + entries - 1 ; p >= v; p--) {
+		Node *a = *p, *b = NULL;
+		if (!a->starts)
+			continue;
+		b = find_parent(&a->number, 2);
+		if (!b) {
+			char name[CVS_MAX_REV_LEN];
+			fprintf(stderr, "no parent for %s\n",
+				cvs_number_string(&a->number, name));
+			continue;
+		}
+		a->sib = b->down;
+		b->down = a;
+	}
 	free(v);
 }

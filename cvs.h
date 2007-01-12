@@ -47,6 +47,7 @@ typedef struct _cvs_number {
 
 struct _cvs_version;
 struct _cvs_patch;
+struct _rev_file;
 
 typedef struct node {
 	struct node *hash_next;
@@ -54,6 +55,11 @@ typedef struct node {
 	struct _cvs_version *v;
 	struct _cvs_patch *p;
 	struct node *next;
+	struct node *to;
+	struct node *down;
+	struct node *sib;
+	struct _rev_file *file;
+	int starts;
 } Node;
 
 typedef struct _cvs_symbol {
@@ -395,7 +401,7 @@ git_free_author_map (void);
  * sha1_hex - a buffer of at least 41 characterrs to receive
  *           the ascii hexidecimal id of the resulting object
  */
-void rcs2git(cvs_file *cvs, cvs_number *number, char *sha1_hex);
+void generate_files(cvs_file *cvs);
 
 rev_dir **
 rev_pack_files (rev_file **files, int nfiles, int *ndr);
@@ -411,5 +417,6 @@ void hash_patch(cvs_patch *);
 void hash_branch(cvs_branch *);
 void clean_hash(void);
 void build_branches(void);
+extern Node *head_node;
 
 #endif /* _CVS_H_ */

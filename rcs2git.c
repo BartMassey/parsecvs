@@ -49,12 +49,6 @@ struct diffcmd {
 	long line1, nlines, adprev, dafter;
 };
 
-struct delta_list {
-	cvs_version *version;
-	cvs_patch *patch;
-	struct delta_list *next;
-};
-
 const int initial_out_buffer_size = 1024;
 char const ciklog[] = "checked in with -k by ";
 
@@ -71,7 +65,7 @@ char const *const Keyword[] = {
 };
 enum markers { Nomatch, Author, Date, Header, Id, Locker, Log,
 	Name, RCSfile, Revision, Source, State };
-enum stringwork {ENTER, COPY, EDIT, EXPAND};
+enum stringwork {ENTER, EDIT};
 
 enum expand_mode {EXPANDKKV, EXPANDKKVL, EXPANDKK, EXPANDKV, EXPANDKO, EXPANDKB};
 enum expand_mode Gexpand;
@@ -94,8 +88,17 @@ struct in_buffer_type *Ginbuf = &in_buffer_store;
  * Any @s in lines are duplicated.
  * Lines are terminated by \n, or (for a last partial line only) by single @.
  */
-uchar **Gline;
-size_t Ggap, Ggapsize, Glinemax;
+static int depth;
+static struct {
+	Node *next_branch;
+	Node *node;
+	uchar **line;
+	size_t gap, gapsize, linemax;
+} stack[CVS_MAX_DEPTH/2];
+#define Gline stack[depth].line
+#define Ggap stack[depth].gap
+#define Ggapsize stack[depth].gapsize
+#define Glinemax stack[depth].linemax
 
 static void fatal_system_error(char const *s)
 {
@@ -720,30 +723,22 @@ static int expandline(void)
 	return r + e;
 }
 
-static void process_delta(struct delta_list *deltas, enum stringwork func)
+static void process_delta(Node *node, enum stringwork func)
 {
 	long editline = 0, linecnt = 0, adjust = 0;
-	int editor_command, c;
+	int editor_command;
 	struct diffcmd dc;
 	uchar *ptr;
 
-	Glog = deltas->patch->log;
-	in_buffer_init((uchar *)deltas->patch->text, 1);
-	Gversion = deltas->version;
+	Glog = node->p->log;
+	in_buffer_init((uchar *)node->p->text, 1);
+	Gversion = node->v;
 	cvs_number_string(&Gversion->number, Gversion_number);
 
 	switch (func) {
 	case ENTER:
 		while( (ptr=in_get_line()) )
 			insertline(editline++, ptr);
-	case COPY:
-		while ((c = in_buffer_getc()) != EOF)
-			out_putc(c);
-		break;
-	case EXPAND:
-		while (expandline() > 1)
-			;
-		break;
 	case EDIT:
 		dc.dafter = dc.adprev = 0;
 		while ((editor_command = parse_next_delta_command(&dc)) >= 0) {
@@ -795,165 +790,72 @@ static void snapshotedit(void)
 		snapshotline(*p++);
 }
 
-/* Generate the revision based on list of patches
- *
- * Algorithm: Copy initial revision unchanged.  Then edit all revisions but
- * the last one into it.  The last revision is then edited in, performing
- * simultaneous keyword substitution (this saves one extra pass).
- */
-static void buildrevision(cvs_file *cvs, struct delta_list *deltas)
+extern int write_sha1_file(	void *buf, unsigned long len,
+				const char *type, uchar *return_sha1);
+extern char *sha1_to_hex(const uchar *sha1);
+
+static void enter_branch(Node *node)
 {
+	uchar **p = xmalloc(sizeof(uchar *) * stack[depth].linemax);
+	memcpy(p, stack[depth].line, sizeof(uchar *) * stack[depth].linemax);
+	stack[depth + 1] = stack[depth];
+	stack[depth + 1].next_branch = node->sib;
+	stack[depth + 1].line = p;
+	depth++;
+}
+
+void generate_files(cvs_file *cvs)
+{
+	int expand_override_enabled = 1;
 	int expandflag = Gexpand < EXPANDKO;
+	Node *node = head_node;
+	depth = 0;
+	Gfilename = cvs->name;
+	if (cvs->expand && expand_override_enabled)
+		Gexpand = expand_override(cvs->expand);
+	else	Gexpand = EXPANDKK;
 	Gabspath = NULL;
-	if (deltas->next == NULL) {
-		process_delta(deltas, expandflag?EXPAND:COPY);
-        } else {
-		Gline = NULL; Ggap = Ggapsize = Glinemax = 0;
-		process_delta(deltas, ENTER);
-		deltas = deltas->next;
-		while (deltas->next) {
-			process_delta(deltas, EDIT);
-			deltas = deltas->next;
-                }
-		process_delta(deltas, EDIT);
-		if (expandflag)
-			finishedit();
-		else	snapshotedit();
-		free(Gline); Gline = NULL ; Ggap = Ggapsize = Glinemax = 0;
-        }
+	Gline = NULL; Ggap = Ggapsize = Glinemax = 0;
+	stack[0].node = node;
+	process_delta(node, ENTER);
+	while (1) {
+		if (node->file) {
+			char sha1_ascii[41];
+			uchar sha1[20];
+			out_buffer_init();
+			if (expandflag)
+				finishedit();
+			else
+				snapshotedit();
+			write_sha1_file(out_buffer_text(),
+					out_buffer_count(),
+					"blob", sha1);
+			out_buffer_cleanup();
+			strncpy(sha1_ascii, sha1_to_hex(sha1), 41);
+			node->file->sha1 = atom(sha1_ascii);
+		}
+		node = node->down;
+		if (node) {
+			enter_branch(node);
+			goto Next;
+		}
+		while ((node = stack[depth].node->to) == NULL) {
+			free(stack[depth].line);
+			if (!depth)
+				goto Done;
+			node = stack[depth--].next_branch;
+			if (node) {
+				enter_branch(node);
+				break;
+			}
+		}
+Next:
+		stack[depth].node = node;
+		process_delta(node, EDIT);
+	}
+Done:
 	free(Gkeyval);
 	Gkeyval = NULL;
 	Gkvlen = 0;
 	free(Gabspath);
 }
-
-/* deltas that must be applied first are less than (<)
- *  those that can only be applied afterward */
-static int compare_deltas(cvs_number *a, cvs_number *b)
-{
-	int i;
-	int n = min (a->c, b->c);
-
-	for (i = 0; i < n; i++) {
-		if (a->n[i] > b->n[i])
-			return i < 2 ? -1 : 1;
-		if (a->n[i] < b->n[i])
-			return i < 2 ? 1 : -1;
-	}
-	if (a->c > b->c)
-		return 1;
-	if (a->c < b->c)
-		return -1;
-	return 0;
-}
-
-/* Add deltas to list in the order they must be applied */
-static struct delta_list*
-add_delta_to_list(cvs_version *deltaversion, struct delta_list *list)
-{
-	struct delta_list *p, *q;
-	cvs_number *dvn = &deltaversion->number;
-
-	p = (struct delta_list *)xmalloc(sizeof(struct delta_list));
-	p->version = deltaversion;
-
-	if(list == NULL || compare_deltas(dvn, &list->version->number) < 0) {
-		p->next = list;
-		return p;
-	} else {
-		for (q=list; q->next; q=q->next)
-			if (compare_deltas(dvn, &q->next->version->number) <= 0)
-				break;
-		p->next = q->next;
-		q->next = p;
-		return list;
-	}
-}
-
-static void free_revision_delta_list(struct delta_list *list)
-{
-	struct delta_list *p;
-
-	while(list != NULL) {
-		p = list->next;
-		free(list);
-		list = p;
-	}
-}
-
-static int delta_is_needed(cvs_number *delta, cvs_number *revision)
-{
-	int i;
-	int n = min (delta->c, revision->c) - 1;
-
-	/* Path must be shorter or equal to revision path */
-	if (delta->c > revision->c)
-		return 0;
-
-	if (delta->c == 2 && revision->c >= 2 && delta->n[0] > revision->n[0])
-		return 1;
-
-	/* All but the last dot-num of the path must match the revision exactly */
-	for (i=0; i < delta->c - 1 ; ++i)
-		if  ( delta->n[i] != revision->n[i] )
-			return 0;
-
-	/* If we're on the trunk and delta smaller than target, not needed */
-	if ( n < 2 && delta->n[n] < revision->n[n] )
-		return 0;
-
-	/* If we're on a branch and delta larger than target, not needed */
-	if ( n > 1 && delta->n[n] > revision->n[n] )
-		return 0;
-
-	return 1;
-
-}
-
-static struct delta_list *
-get_revision_delta_list(cvs_file *cvs, cvs_number *revision)
-{
-	struct delta_list *deltas = NULL, *dp;
-	cvs_version *vp;
-	cvs_patch *pp = cvs->patches;
-
-	/* Get list of all versions needed to create the target */
-	for (vp=cvs->versions; vp; vp=vp->next)
-		if (delta_is_needed(&vp->number, revision))
-			deltas = add_delta_to_list(vp, deltas);
-
-	/* Now pair up each version with its associated patch */
-	for (dp=deltas; dp ; dp->patch=pp, dp=dp->next)
-	    for( ; pp ; pp=pp->next)
-		if(cvs_number_compare(&pp->number, &dp->version->number) == 0)
-			break;
-
-	return deltas;
-}
-
-extern int write_sha1_file(	void *buf, unsigned long len,
-				const char *type, uchar *return_sha1);
-extern char *sha1_to_hex(const uchar *sha1);
-
-void rcs2git(cvs_file *cvs, cvs_number *revision, char *sha1_hex)
-{
-	int expand_override_enabled = 1;
-	struct delta_list *rdl;
-	uchar sha1[20];
-
-	Gfilename = cvs->name;
-	if (cvs->expand && expand_override_enabled)
-		Gexpand = expand_override(cvs->expand);
-	else	Gexpand = EXPANDKK;
-
-	out_buffer_init();
-	rdl = get_revision_delta_list(cvs, revision);
-	buildrevision(cvs, rdl);
-	write_sha1_file(out_buffer_text(), out_buffer_count(), "blob", sha1);
-	free_revision_delta_list(rdl);
-	out_buffer_cleanup();
-
-/*	fprintf(stderr, "%s\n", sha1_to_hex(sha1)); */
-	strncpy(sha1_hex, sha1_to_hex(sha1), 41);
-}
-
