@@ -45,6 +45,17 @@ typedef struct _cvs_number {
     short		n[CVS_MAX_DEPTH];
 } cvs_number;
 
+struct _cvs_version;
+struct _cvs_patch;
+
+typedef struct node {
+	struct node *hash_next;
+	cvs_number number;
+	struct _cvs_version *v;
+	struct _cvs_patch *p;
+	struct node *next;
+} Node;
+
 typedef struct _cvs_symbol {
     struct _cvs_symbol	*next;
     char		*name;
@@ -54,6 +65,7 @@ typedef struct _cvs_symbol {
 typedef struct _cvs_branch {
     struct _cvs_branch	*next;
     cvs_number		number;
+    Node		*node;
 } cvs_branch;
 
 typedef struct _cvs_version {
@@ -66,6 +78,7 @@ typedef struct _cvs_version {
     cvs_branch		*branches;
     cvs_number		parent;	/* next in ,v file */
     char		*commitid;
+    Node		*node;
 } cvs_version;
 
 typedef struct _cvs_patch {
@@ -73,6 +86,7 @@ typedef struct _cvs_patch {
     cvs_number		number;
     char		*log;
     char		*text;
+    Node		*node;
 } cvs_patch;
 
 
@@ -218,10 +232,7 @@ cvs_branch_head (cvs_file *f, cvs_number *branch);
 cvs_number
 cvs_branch_parent (cvs_file *f, cvs_number *branch);
 
-cvs_patch *
-cvs_find_patch (cvs_file *f, cvs_number *n);
-
-cvs_version *
+Node *
 cvs_find_version (cvs_file *cvs, cvs_number *number);
 
 int
@@ -394,5 +405,11 @@ rev_free_dirs (void);
     
 void
 rev_commit_cleanup (void);
+
+void hash_version(cvs_version *);
+void hash_patch(cvs_patch *);
+void hash_branch(cvs_branch *);
+void clean_hash(void);
+void build_branches(void);
 
 #endif /* _CVS_H_ */

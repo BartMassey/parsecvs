@@ -9,10 +9,10 @@ YFLAGS=-d -l
 LFLAGS=-l
 
 SRCS=gram.y lex.l cvs.h parsecvs.c cvsutil.c revdir.c \
-	revlist.c atom.c revcvs.c git.c gitutil.c rcs2git.c
+	revlist.c atom.c revcvs.c git.c gitutil.c rcs2git.c nodehash.c
 
 OBJS=gram.o lex.o parsecvs.o cvsutil.o revdir.o \
-	revlist.o atom.o revcvs.o git.o gitutil.o rcs2git.o
+	revlist.o atom.o revcvs.o git.o gitutil.o rcs2git.o nodehash.o
 
 parsecvs: $(OBJS)
 	cc $(CFLAGS) -o $@ $(OBJS) $(LIBS)

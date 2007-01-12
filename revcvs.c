@@ -61,15 +61,17 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 {
     cvs_number	n;
     rev_commit	*head = NULL;
-    cvs_version	*v;
-    rev_commit	*c;
-    cvs_patch	*p;
+    Node	*node;
 
     n = *branch;
     n.n[n.c-1] = -1;
-    while ((v = cvs_find_version (cvs, &n))) {
+    for (node = cvs_find_version (cvs, &n); node; node = node->next) {
+	cvs_version *v = node->v;
+	cvs_patch *p = node->p;
+	rev_commit *c;
+	if (!v)
+	     continue;
 	c = calloc (1, sizeof (rev_commit));
-	p = cvs_find_patch (cvs, &v->number);
 	c->date = v->date;
 	c->commitid = v->commitid;
 	c->author = v->author;
@@ -87,7 +89,6 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 	}
 	c->parent = head;
 	head = c;
-	n = v->number;
     }
     return head;
 }
@@ -591,6 +592,7 @@ rev_list_cvs (cvs_file *cvs)
     rev_ref	*t;
     cvs_version	*ctrunk = NULL;
 
+    build_branches();
     /*
      * Locate first revision on trunk branch
      */

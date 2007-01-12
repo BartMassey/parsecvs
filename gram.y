@@ -125,6 +125,7 @@ revision	: NUMBER date author state branches next opt_commitid
 			$$->branches = $5;
 			$$->parent = $6;
 			$$->commitid = $7;
+			hash_version($$);
 			++this_file->nversions;
 		  }
 		;
@@ -147,6 +148,7 @@ numbers		: NUMBER numbers
 			$$ = calloc (1, sizeof (cvs_branch));
 			$$->next = $2;
 			$$->number = $1;
+			hash_branch($$);
 		  }
 		|
 		  { $$ = NULL; }
@@ -180,6 +182,7 @@ patch		: NUMBER log text
 		    $$->number = $1;
 		    $$->log = $2;
 		    $$->text = $3;
+		    hash_patch($$);
 		  }
 		;
 log		: LOG DATA
