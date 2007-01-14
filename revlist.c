@@ -644,6 +644,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
      * parent branch
      */
     while (nlive > 0 && nbranch > 0) {
+	int k;
 	nbranch = rev_commit_date_sort (commits, nbranch);
 
 	/*
@@ -654,17 +655,19 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 	for (n = nbranch; n && commits[n-1]->tailed; n--)
 	    ;
 	
-	while (n < nbranch && commits[n]->tailed &&
-	       time_compare (commits[0]->date,
-			     commits[n]->date) < 0)
-	{
-	    if (commits[n]->file)
-		fprintf (stderr, "Warning: %s late addition to branch %s\n",
-			 commits[n]->file->name, branch->name);
-	    memmove (commits + n, commits + n + 1, 
-		     (nbranch - n - 1) * sizeof (rev_commit *));
-	    commits[nbranch-1] = NULL;
-	    nbranch--;
+	for (k = n; k < nbranch; k++) {
+		if (!(time_compare (commits[0]->date,
+			     commits[k]->date) < 0))
+			break;
+		if (commits[k]->file)
+			fprintf(stderr,
+				"Warning: %s late addition to branch %s\n",
+				commits[k]->file->name, branch->name);
+	}
+	if (k > n) {
+		memmove(commits + n, commits + k, 
+			(nbranch - k) * sizeof (rev_commit *));
+		nbranch -= k - n;
 	}
 	
 	/*
