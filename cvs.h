@@ -148,7 +148,6 @@ typedef struct _rev_tag {
     rev_commit		*commit;
     struct _rev_ref	*parent;	/* link into tree */
     char		*name;
-    int			shown;
 } rev_tag;
 
 typedef struct _rev_ref {

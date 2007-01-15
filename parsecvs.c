@@ -309,58 +309,61 @@ dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 
 static void dump_tags(rev_list *rl, char *title, char *shape)
 {
-    rev_tag	*r, *o;
+    rev_tag	*r;
     int		n;
+    int		i, count;
+    struct {
+	int alias;
+	rev_tag *t;
+    } *v;
 
-    for (r = rl->tags; r; r = r->next) {
-	if (!r->shown) {
-	    printf ("\t");
-	    printf ("\"");
-	    if (title)
-		printf ("%s\\n", title);
-	    n = 0;
-	    for (o = r; o; o = o->next)
-		if (!o->shown && o->commit == r->commit)
-		{
-		    o->shown = 1;
-		    if (n)
-			printf ("\\n");
-		    dump_tag_name(stdout, o);
-		    n++;
-		}
-	    printf ("\" [fontsize=6,fixedsize=false,shape=%s];\n", shape);
+    for (r = rl->tags, count = 0; r; r = r->next, count++)
+	;
+
+    v = calloc(count, sizeof(*v));
+
+    for (r = rl->tags, i = 0; r; r = r->next)
+	v[i++].t = r;
+
+    for (i = 0; i < count; i++) {
+	if (v[i].alias)
+	    continue;
+	r = v[i].t;
+	printf ("\t\"");
+	if (title)
+	    printf ("%s\\n", title);
+	dump_tag_name(stdout, r);
+	for (n = i + 1; n < count; n++) {
+	    if (v[n].t->commit == r->commit) {
+		v[n].alias = 1;
+		printf ("\\n");
+		dump_tag_name(stdout, v[n].t);
+	    }
 	}
+	printf ("\" [fontsize=6,fixedsize=false,shape=%s];\n", shape);
     }
-    for (r = rl->tags; r; r = r->next)
-	r->shown = 0;
-    for (r = rl->tags; r; r = r->next) {
-	if (!r->shown) {
-	    printf ("\t");
-	    printf ("\"");
-	    if (title)
-		printf ("%s\\n", title);
-	    n = 0;
-	    for (o = r; o; o = o->next)
-		if (!o->shown && o->commit == r->commit)
-		{
-		    o->shown = 1;
-		    if (n)
-			printf ("\\n");
-		    dump_tag_name(stdout, o);
-		    n++;
-		}
-	    printf ("\"");
-	    printf (" -> ");
-	    if (r->commit)
-		dump_commit_graph (r->commit, dump_find_branch (rl,
-								r->commit));
-	    else
-		printf ("LOST");
-	    printf (" [weight=3];\n");
+    for (i = 0; i < count; i++) {
+	if (v[i].alias)
+	    continue;
+	r = v[i].t;
+	printf ("\t\"");
+	if (title)
+	    printf ("%s\\n", title);
+	dump_tag_name(stdout, r);
+	for (n = i + 1; n < count; n++) {
+	    if (v[n].alias && v[n].t->commit == r->commit) {
+		printf ("\\n");
+		dump_tag_name(stdout, v[n].t);
+	    }
 	}
+	printf ("\" -> ");
+	if (r->commit)
+	    dump_commit_graph (r->commit, dump_find_branch (rl, r->commit));
+	else
+	    printf ("LOST");
+	printf (" [weight=3];\n");
     }
-    for (r = rl->tags; r; r = r->next)
-	r->shown = 0;
+    free(v);
 }
 
 static rev_commit *
