@@ -143,13 +143,6 @@ typedef struct _rev_commit {
     rev_dir		*dirs[0];
 } rev_commit;
 
-typedef struct _rev_tag {
-    struct _rev_tag	*next;
-    rev_commit		*commit;
-    struct _rev_ref	*parent;	/* link into tree */
-    char		*name;
-} rev_tag;
-
 typedef struct _rev_ref {
     struct _rev_ref	*next;
     rev_commit		*commit;
@@ -165,7 +158,6 @@ typedef struct _rev_ref {
 typedef struct _rev_list {
     struct _rev_list	*next;
     rev_ref	*heads;
-    rev_tag	*tags;
     int		watch;
 } rev_list;
 
@@ -214,6 +206,28 @@ rev_list_merge (rev_list *lists);
 void
 rev_list_free (rev_list *rl, int free_files);
 
+enum { Ncommits = 256 };
+
+typedef struct _chunk {
+	struct _chunk *next;
+	rev_commit *v[Ncommits];
+} Chunk;
+
+typedef struct _tag {
+	struct _tag *next;
+	struct _tag *hash_next;
+	char *name;
+	Chunk *commits;
+	int count;
+	int left;
+	rev_commit *commit;
+	rev_ref *parent;
+	char *last;
+} Tag;
+
+extern Tag *all_tags;
+void tag_commit(rev_commit *c, char *name);
+rev_commit **tagged(Tag *tag);
 void discard_tags(void);
 
 int
@@ -337,9 +351,6 @@ discard_atoms (void);
 
 rev_ref *
 rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree);
-
-rev_tag *
-rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name);
 
 int
 rev_commit_has_file (rev_commit *c, rev_file *f);

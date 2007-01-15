@@ -373,7 +373,6 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
     rev_ref	*h;
     cvs_symbol	*s;
     rev_commit	*c;
-    rev_tag	*t;
     
     /*
      * Locate a symbolic name for this head
@@ -411,7 +410,7 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 	} else {
 	    c = rev_find_cvs_commit (rl, &s->number);
 	    if (c)
-		rev_list_add_tag (rl, c, s->name);
+		tag_commit(c, s->name);
 	}
     }
     /*
@@ -462,11 +461,6 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 	    h->name = atom (name);
 	}
     }
-    /*
-     * Link tags to containing branch
-     */
-    for (t = rl->tags; t; t = t->next)
-	t->parent = rev_list_find_branch (rl, &t->commit->file->number);
 }
 
 /*

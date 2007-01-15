@@ -506,16 +506,16 @@ git_read_tree (rev_commit *commit)
 }
 
 static int
-git_commit_recurse (rev_ref *head, rev_commit *commit, rev_tag *tags, int strip)
+git_commit_recurse (rev_ref *head, rev_commit *commit, int strip)
 {
-    rev_tag *t;
+    Tag *t;
     
     if (commit->parent) {
         if (commit->tail) {
 	    if (!git_read_tree (commit->parent))
 		return 0;
 	} else {
-	    if (!git_commit_recurse (head, commit->parent, tags, strip))
+	    if (!git_commit_recurse (head, commit->parent, strip))
 		return 0;
 	}
     }
@@ -525,7 +525,7 @@ git_commit_recurse (rev_ref *head, rev_commit *commit, rev_tag *tags, int strip)
 	return 0;
     if (!git_commit (commit))
 	return 0;
-    for (t = tags; t; t = t->next)
+    for (t = all_tags; t; t = t->next)
 	if (t->commit == commit)
 	    if (!git_tag (commit, t->name))
 		return 0;
@@ -533,11 +533,11 @@ git_commit_recurse (rev_ref *head, rev_commit *commit, rev_tag *tags, int strip)
 }
 
 static int
-git_head_commit (rev_ref *head, rev_tag *tags, int strip)
+git_head_commit (rev_ref *head, int strip)
 {
     git_current_head = head->name;
     if (!head->tail)
-        if (!git_commit_recurse (head, head->commit, tags, strip))
+        if (!git_commit_recurse (head, head->commit, strip))
 	    return 0;
     if (!git_head (head->commit, head->name))
 	return 0;
@@ -572,7 +572,7 @@ git_rev_list_commit (rev_list *rl, int strip)
     git_total_commits = git_ncommit (rl);
     git_current_commit = 0;
     for (h = rl->heads; h; h = h->next)
-	if (!git_head_commit (h, rl->tags, strip))
+	if (!git_head_commit (h, strip))
 	    return 0;
     fprintf (STATUS, "\n");
 //    if (!git_checkout ("master"))

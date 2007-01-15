@@ -213,7 +213,7 @@ dump_ref_name (FILE *f, rev_ref *ref)
     fprintf (f, "%s", ref->name);
 }
 
-static void dump_tag_name(FILE *f, rev_tag *tag)
+static void dump_tag_name(FILE *f, Tag *tag)
 {
     if (tag->parent) {
 	dump_ref_name (f, tag->parent);
@@ -309,20 +309,20 @@ dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 
 static void dump_tags(rev_list *rl, char *title, char *shape)
 {
-    rev_tag	*r;
-    int		n;
-    int		i, count;
+    Tag	*r;
+    int n;
+    int i, count;
     struct {
 	int alias;
-	rev_tag *t;
+	Tag *t;
     } *v;
 
-    for (r = rl->tags, count = 0; r; r = r->next, count++)
+    for (r = all_tags, count = 0; r; r = r->next, count++)
 	;
 
     v = calloc(count, sizeof(*v));
 
-    for (r = rl->tags, i = 0; r; r = r->next)
+    for (r = all_tags, i = 0; r; r = r->next)
 	v[i++].t = r;
 
     for (i = 0; i < count; i++) {

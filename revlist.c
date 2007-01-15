@@ -19,15 +19,8 @@
 #include "cvs.h"
 
 /*
- * Add head or tag refs
+ * Add head refs
  */
-
-struct tags {
-	struct tags *next;
-	rev_tag tags[1024];
-};
-static struct tags *tags;
-static int used = 1024;
 
 rev_ref *
 rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree)
@@ -46,41 +39,6 @@ rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree)
     return r;
 }
 
-rev_tag *
-rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name)
-{
-    rev_tag	**list = &rl->tags;
-    rev_tag	*r;
-
-    if (used == 1024) {
-	struct tags *p = calloc(1, sizeof(struct tags));
-	p->next = tags;
-	tags = p;
-	used = 0;
-    }
-
-    r = &tags->tags[used++];
-
-    while (*list)
-	list = &(*list)->next;
-    r->commit = commit;
-    r->name = name;
-    r->next = *list;
-    *list = r;
-    return r;
-}
-
-void discard_tags(void)
-{
-	struct tags *p = tags;
-	tags = NULL;
-	while (p) {
-		struct tags *q = p->next;
-		free(p);
-		p = q;
-	}
-}
-
 static rev_ref *
 rev_find_head (rev_list *rl, char *name)
 {
@@ -89,17 +47,6 @@ rev_find_head (rev_list *rl, char *name)
     for (h = rl->heads; h; h = h->next)
 	if (h->name == name)
 	    return h;
-    return NULL;
-}
-
-static rev_tag *
-rev_find_tag (rev_list *rl, char *name)
-{
-    rev_tag	*t;
-
-    for (t = rl->tags; t; t = t->next)
-	if (t->name == name)
-	    return t;
     return NULL;
 }
 
@@ -207,7 +154,6 @@ void
 rev_list_set_tail (rev_list *rl)
 {
     rev_ref	*head;
-    rev_tag	*tag;
     rev_commit	*c;
     int		tail;
 
@@ -226,8 +172,6 @@ rev_list_set_tail (rev_list *rl)
 	}
 	head->commit->tagged = 1;
     }
-    for (tag = rl->tags; tag; tag = tag->next)
-	tag->commit->tagged = 1;
 }
 
 #if 0
@@ -321,15 +265,8 @@ rev_ref_is_ready (char *name, rev_list *source, rev_ref *ready)
 {
     for (; source; source = source->next) {
 	rev_ref *head = rev_find_head(source, name);
-	rev_tag *tag;
 	if (head) {
 	    if (head->parent && !rev_ref_find_name(ready, head->parent->name))
-		    return 0;
-	    continue;
-	}
-	tag = rev_find_tag(source, name);
-	if (tag) {
-	    if (tag->parent && !rev_ref_find_name(ready, tag->parent->name))
 		    return 0;
 	}
     }
@@ -813,21 +750,18 @@ rev_branch_merge (rev_ref **branches, int nbranch,
  * Locate position in tree cooresponding to specific tag
  */
 static void
-rev_tag_search (rev_tag **tags, int ntag, rev_tag *tag, rev_list *rl)
+rev_tag_search(Tag *tag, rev_commit **commits, rev_list *rl)
 {
-    rev_commit	**commits = calloc (ntag, sizeof (rev_commit *));
-    int		n;
-
-    for (n = 0; n < ntag; n++)
-	commits[n] = tags[n]->commit;
-    ntag = rev_commit_date_sort (commits, ntag);
-    
-    tag->parent = rev_branch_of_commit (rl, commits[0]);
-    if (tag->parent)
-	tag->commit = rev_commit_locate (tag->parent, commits[0]);
-    if (!tag->commit)
-	tag->commit = rev_commit_build (commits, commits[0], ntag);
-    free (commits);
+	rev_commit_date_sort(commits, tag->count);
+	tag->parent = rev_branch_of_commit(rl, commits[0]);
+	if (tag->parent)
+		tag->commit = rev_commit_locate (tag->parent, commits[0]);
+	if (!tag->commit) {
+		fprintf (stderr, "unmatched tag %s\n", tag->name);
+		/* AV: shouldn't we put it on some branch? */
+		tag->commit = rev_commit_build(commits, commits[0], tag->count);
+	}
+	tag->commit->tagged = 1;
 }
 
 static void
@@ -941,9 +875,8 @@ rev_list_merge (rev_list *head)
     rev_list	*rl = calloc (1, sizeof (rev_list));
     rev_list	*l;
     rev_ref	*lh, *h;
-    rev_tag	*lt, *t;
+    Tag		*t;
     rev_ref	**refs = calloc (count, sizeof (rev_ref *));
-    rev_tag	**tags;
     int		nref;
 
     /*
@@ -997,42 +930,20 @@ rev_list_merge (rev_list *head)
      * Compute 'tail' values
      */
     rev_list_set_tail (rl);
-    /*
-     * Compute set of tags
-     */
-    for (l = head; l; l = l->next) {
-	for (lt = l->tags; lt; lt = lt->next) {
-	    t = rev_find_tag (rl, lt->name);
-	    if (!t)
-		rev_list_add_tag(rl, NULL, lt->name);
-	}
-    }
-//    rl->tags = rev_ref_sel_sort (rl->tags);
+
+    free(refs);
     /*
      * Find tag locations
      */
-    tags = (rev_tag **)refs;	/* XXX */
-    refs = NULL;
-    for (t = rl->tags; t; t = t->next) {
-	/*
-	 * Locate branch in every tree
-	 */
-	nref = 0;
-	for (l = head; l; l = l->next) {
-	    lt = rev_find_tag (l, t->name);
-	    if (lt)
-		tags[nref++] = lt;
-	}
-	if (nref) {
-	    rev_tag_search (tags, nref, t, rl);
-	}
-	if (!t->commit)
-	    fprintf (stderr, "lost tag %s\n", t->name);
+    for (t = all_tags; t; t = t->next) {
+	rev_commit **commits = tagged(t);
+	if (commits)
+	    rev_tag_search(t, commits, rl);
 	else
-	    t->commit->tagged = 1;
+	    fprintf (stderr, "lost tag %s\n", t->name);
+	free(commits);
     }
     rev_list_validate (rl);
-    free (tags);
     return rl;
 }
 
