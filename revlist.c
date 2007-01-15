@@ -449,7 +449,7 @@ rev_commit_cleanup (void)
 }
 
 static rev_commit *
-rev_commit_build (rev_commit **commits, int ncommit)
+rev_commit_build (rev_commit **commits, rev_commit *leader, int ncommit)
 {
     int		n, nfile;
     rev_commit	*commit;
@@ -466,7 +466,7 @@ rev_commit_build (rev_commit **commits, int ncommit)
     
     nfile = 0;
     for (n = 0; n < ncommit; n++)
-	if (commits[n]->file)
+	if (commits[n] && commits[n]->file)
 	    files[nfile++] = commits[n]->file;
     
     if (nfile)
@@ -479,10 +479,10 @@ rev_commit_build (rev_commit **commits, int ncommit)
     commit = calloc (1, sizeof (rev_commit) +
 		     nds * sizeof (rev_dir *));
     
-    commit->date = commits[0]->date;
-    commit->commitid = commits[0]->commitid;
-    commit->log = commits[0]->log;
-    commit->author = commits[0]->author;
+    commit->date = leader->date;
+    commit->commitid = leader->commitid;
+    commit->log = leader->log;
+    commit->author = leader->author;
     
     commit->file = first;
     commit->nfiles = nfile;
@@ -623,6 +623,8 @@ rev_branch_merge (rev_ref **branches, int nbranch,
     rev_commit	*head = NULL, **tail = &head;
     rev_commit	**commits = calloc (nbranch, sizeof (rev_commit *));
     rev_commit	*commit;
+    rev_commit	*latest;
+    rev_commit	**p;
 
     nlive = 0;
     for (n = 0; n < nbranch; n++) {
@@ -643,67 +645,72 @@ rev_branch_merge (rev_ref **branches, int nbranch,
      * Walk down branches until each one has merged with the
      * parent branch
      */
-    while (nlive > 0 && nbranch > 0) {
-	int k;
-	nbranch = rev_commit_date_sort (commits, nbranch);
-
-	/*
-	 * Trim off files where the trunk revision
-	 * is newer than this commit
-	 */
-
-	for (n = nbranch; n && commits[n-1]->tailed; n--)
-	    ;
-	
-	for (k = n; k < nbranch; k++) {
-		if (!(time_compare (commits[0]->date,
-			     commits[k]->date) < 0))
-			break;
-		if (commits[k]->file)
-			fprintf(stderr,
-				"Warning: %s late addition to branch %s\n",
-				commits[k]->file->name, branch->name);
-	}
-	if (k > n) {
-		memmove(commits + n, commits + k, 
-			(nbranch - k) * sizeof (rev_commit *));
-		nbranch -= k - n;
-	}
-	
-	/*
-	 * Construct current commit
-	 */
-	commit = rev_commit_build (commits, nbranch);
-
-	/*
-	 * Step each branch
-	 */
-	nlive = 0;
-	for (n = nbranch - 1; n >= 0; n--) {
-	    if (commits[n]->tailed)
-		;
-	    else if (n == 0 || rev_commit_match (commits[0], commits[n])) {
-		/*
-		 * Check to see if this entry should keep advancing
-		 * Stop when we reach the revision at the
-		 * merge point or when we run out of commits on the
-		 * branch
-		 */
-		if (commits[n]->tail) {
-		    assert (commits[n]->parent);
-		    commits[n]->parent->tailed = 1;
-		} else if (commits[n]->parent) {
-		    nlive++;
+	while (nlive > 0 && nbranch > 0) {
+		for (n = 0, p = commits, latest = NULL; n < nbranch; n++) {
+			rev_commit *c = commits[n];
+			if (!c)
+				continue;
+			*p++ = c;
+			if (c->tailed)
+				continue;
+			if (!latest || time_compare(latest->date, c->date) < 0)
+				latest = c;
 		}
-		commits[n] = commits[n]->parent;
-	    } else if (commits[n]->parent || commits[n]->file)
-		nlive++;
+		nbranch = p - commits;
+
+		/*
+		 * Trim off files where the trunk revision
+		 * is newer than this commit
+		 */
+
+		for (n = 0; n < nbranch; n++) {
+			rev_commit *c = commits[n];
+			if (!c->tailed)
+				continue;
+			if (time_compare(latest->date, c->date) >= 0)
+				continue;
+			if (c->file)
+				fprintf(stderr,
+					"Warning: %s late addition to branch %s\n",
+					c->file->name, branch->name);
+			commits[n] = NULL;
+		}
+
+		/*
+		 * Construct current commit
+		 */
+		commit = rev_commit_build (commits, latest, nbranch);
+
+		/*
+		 * Step each branch
+		 */
+		nlive = 0;
+		for (n = 0; n < nbranch; n++) {
+			rev_commit *c = commits[n];
+			if (!c || c->tailed)
+				continue;
+			if (c == latest || rev_commit_match(c, latest)) {
+				/*
+				 * Check to see if this entry should keep advancing
+				 * Stop when we reach the revision at the
+				 * merge point or when we run out of commits on the
+				 * branch
+				 */
+				if (c->tail) {
+					assert(c->parent);
+					c->parent->tailed = 1;
+				} else if (c->parent) {
+					nlive++;
+				}
+				commits[n] = c->parent;
+			} else if (c->parent || c->file)
+				nlive++;
+		}
+		    
+		*tail = commit;
+		tail = &commit->parent;
+		prev = commit;
 	}
-	    
-	*tail = commit;
-	tail = &commit->parent;
-	prev = commit;
-    }
     /*
      * Connect to parent branch
      */
@@ -768,7 +775,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 	    if (prev)
 		prev->tail = 1;
 	} else 
-	    *tail = rev_commit_build (commits, nbranch);
+	    *tail = rev_commit_build (commits, commits[0], nbranch);
     }
     for (n = 0; n < nbranch; n++)
 	if (commits[n])
@@ -794,7 +801,7 @@ rev_tag_search (rev_ref **tags, int ntag, rev_ref *tag, rev_list *rl)
     if (tag->parent)
 	tag->commit = rev_commit_locate (tag->parent, commits[0]);
     if (!tag->commit)
-	tag->commit = rev_commit_build (commits, ntag);
+	tag->commit = rev_commit_build (commits, commits[0], ntag);
     free (commits);
 }
 
