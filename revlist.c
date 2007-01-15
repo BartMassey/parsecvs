@@ -22,6 +22,13 @@
  * Add head or tag refs
  */
 
+struct tags {
+	struct tags *next;
+	rev_tag tags[1024];
+};
+static struct tags *tags;
+static int used = 1024;
+
 rev_ref *
 rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree)
 {
@@ -45,14 +52,33 @@ rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name)
     rev_tag	**list = &rl->tags;
     rev_tag	*r;
 
+    if (used == 1024) {
+	struct tags *p = calloc(1, sizeof(struct tags));
+	p->next = tags;
+	tags = p;
+	used = 0;
+    }
+
+    r = &tags->tags[used++];
+
     while (*list)
 	list = &(*list)->next;
-    r = calloc (1, sizeof (rev_tag));
     r->commit = commit;
     r->name = name;
     r->next = *list;
     *list = r;
     return r;
+}
+
+void discard_tags(void)
+{
+	struct tags *p = tags;
+	tags = NULL;
+	while (p) {
+		struct tags *q = p->next;
+		free(p);
+		p = q;
+	}
 }
 
 static rev_ref *
@@ -1074,17 +1100,6 @@ rev_commit_free (rev_commit *commit, int free_files)
     }
 }
 
-static void
-rev_tag_free (rev_tag *ref)
-{
-    rev_tag	*r;
-
-    while ((r = ref)) {
-	ref = r->next;
-	free (r);
-    }
-}
-
 void
 rev_head_free (rev_ref *head, int free_files)
 {
@@ -1101,7 +1116,6 @@ void
 rev_list_free (rev_list *rl, int free_files)
 {
     rev_head_free (rl->heads, free_files);
-    rev_tag_free (rl->tags);
     if (free_files)
 	rev_file_free_marked ();
     free (rl);

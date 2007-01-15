@@ -214,6 +214,8 @@ rev_list_merge (rev_list *lists);
 void
 rev_list_free (rev_list *rl, int free_files);
 
+void discard_tags(void);
+
 int
 cvs_is_head (cvs_number *n);
 

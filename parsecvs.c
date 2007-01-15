@@ -906,6 +906,7 @@ main (int argc, char **argv)
 	rev_list_free (rl, 1);
     }
     discard_atoms ();
+    discard_tags ();
     rev_free_dirs ();
     rev_commit_cleanup ();
     git_free_author_map ();
