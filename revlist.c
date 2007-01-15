@@ -45,10 +45,22 @@ rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree)
     return rev_ref_add (&rl->heads, commit, name, degree, 1);
 }
 
-rev_ref *
+rev_tag *
 rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name, int degree)
 {
-    return rev_ref_add (&rl->tags, commit, name, degree, 0);
+    rev_tag	**list = &rl->tags;
+    rev_tag	*r;
+
+    while (*list)
+	list = &(*list)->next;
+    r = calloc (1, sizeof (rev_tag));
+    r->commit = commit;
+    r->name = name;
+    r->next = *list;
+    r->degree = degree;
+    r->head = 0;
+    *list = r;
+    return r;
 }
 
 static rev_ref *
@@ -62,10 +74,10 @@ rev_find_head (rev_list *rl, char *name)
     return NULL;
 }
 
-static rev_ref *
+static rev_tag *
 rev_find_tag (rev_list *rl, char *name)
 {
-    rev_ref	*t;
+    rev_tag	*t;
 
     for (t = rl->tags; t; t = t->next)
 	if (t->name == name)
@@ -115,17 +127,6 @@ rev_commit_later (rev_commit *a, rev_commit *b)
     if ((uintptr_t) a > (uintptr_t) b)
 	return 1;
     return 0;
-}
-
-static rev_ref *
-rev_find_ref (rev_list *rl, char *name)
-{
-    rev_ref	*r;
-
-    r = rev_find_head (rl, name);
-    if (!r)
-	r = rev_find_tag (rl, name);
-    return r;
 }
 
 /*
@@ -187,7 +188,8 @@ rev_commit_dump (FILE *f, char *title, rev_commit *c, rev_commit *m)
 void
 rev_list_set_tail (rev_list *rl)
 {
-    rev_ref	*head, *tag;
+    rev_ref	*head;
+    rev_tag	*tag;
     rev_commit	*c;
     int		tail;
 
@@ -299,14 +301,19 @@ rev_ref_find_name (rev_ref *h, char *name)
 static int
 rev_ref_is_ready (char *name, rev_list *source, rev_ref *ready)
 {
-    rev_ref	*source_ref;
-
     for (; source; source = source->next) {
-	source_ref = rev_find_ref (source, name);
-	if (source_ref && 
-	    source_ref->parent && 
-	    !rev_ref_find_name (ready, source_ref->parent->name))
-	    return 0;
+	rev_ref *head = rev_find_head(source, name);
+	rev_tag *tag;
+	if (head) {
+	    if (head->parent && !rev_ref_find_name(ready, head->parent->name))
+		    return 0;
+	    continue;
+	}
+	tag = rev_find_tag(source, name);
+	if (tag) {
+	    if (tag->parent && !rev_ref_find_name(ready, tag->parent->name))
+		    return 0;
+	}
     }
     return 1;
 }
@@ -788,7 +795,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
  * Locate position in tree cooresponding to specific tag
  */
 static void
-rev_tag_search (rev_ref **tags, int ntag, rev_ref *tag, rev_list *rl)
+rev_tag_search (rev_tag **tags, int ntag, rev_tag *tag, rev_list *rl)
 {
     rev_commit	**commits = calloc (ntag, sizeof (rev_commit *));
     int		n;
@@ -916,8 +923,9 @@ rev_list_merge (rev_list *head)
     rev_list	*rl = calloc (1, sizeof (rev_list));
     rev_list	*l;
     rev_ref	*lh, *h;
-    rev_ref	*lt, *t;
-    rev_ref	**refs = calloc (count, sizeof (rev_commit *));
+    rev_tag	*lt, *t;
+    rev_ref	**refs = calloc (count, sizeof (rev_ref *));
+    rev_tag	**tags;
     int		nref;
 
     /*
@@ -987,18 +995,20 @@ rev_list_merge (rev_list *head)
     /*
      * Find tag locations
      */
+    tags = (rev_tag **)refs;	/* XXX */
+    refs = NULL;
     for (t = rl->tags; t; t = t->next) {
 	/*
 	 * Locate branch in every tree
 	 */
 	nref = 0;
 	for (l = head; l; l = l->next) {
-	    lh = rev_find_tag (l, t->name);
-	    if (lh)
-		refs[nref++] = lh;
+	    lt = rev_find_tag (l, t->name);
+	    if (lt)
+		tags[nref++] = lt;
 	}
 	if (nref) {
-	    rev_tag_search (refs, nref, t, rl);
+	    rev_tag_search (tags, nref, t, rl);
 	}
 	if (!t->commit)
 	    fprintf (stderr, "lost tag %s\n", t->name);
@@ -1006,7 +1016,7 @@ rev_list_merge (rev_list *head)
 	    t->commit->tagged = 1;
     }
     rev_list_validate (rl);
-    free (refs);
+    free (tags);
     return rl;
 }
 
@@ -1075,9 +1085,9 @@ rev_commit_free (rev_commit *commit, int free_files)
 }
 
 static void
-rev_ref_free (rev_ref *ref)
+rev_tag_free (rev_tag *ref)
 {
-    rev_ref	*r;
+    rev_tag	*r;
 
     while ((r = ref)) {
 	ref = r->next;
@@ -1101,7 +1111,7 @@ void
 rev_list_free (rev_list *rl, int free_files)
 {
     rev_head_free (rl->heads, free_files);
-    rev_ref_free (rl->tags);
+    rev_tag_free (rl->tags);
     if (free_files)
 	rev_file_free_marked ();
     free (rl);

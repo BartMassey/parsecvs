@@ -373,7 +373,7 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
     rev_ref	*h;
     cvs_symbol	*s;
     rev_commit	*c;
-    rev_ref	*t;
+    rev_tag	*t;
     
     /*
      * Locate a symbolic name for this head

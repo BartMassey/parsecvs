@@ -213,6 +213,15 @@ dump_ref_name (FILE *f, rev_ref *ref)
     fprintf (f, "%s", ref->name);
 }
 
+static void dump_tag_name(FILE *f, rev_tag *tag)
+{
+    if (tag->parent) {
+	dump_ref_name (f, tag->parent);
+	fprintf (f, " > ");
+    }
+    fprintf (f, "%s", tag->name);
+}
+
 static
 rev_ref *
 dump_find_branch (rev_list *rl, rev_commit *commit)
@@ -298,6 +307,68 @@ dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 	r->shown = 0;
 }
 
+static void dump_tags(rev_list *rl, char *title, char *shape)
+{
+    rev_tag	*r, *o;
+    int		n;
+
+    for (r = rl->tags; r; r = r->next) {
+	if (!r->shown) {
+	    printf ("\t");
+	    printf ("\"");
+	    if (title)
+		printf ("%s\\n", title);
+	    if (r->tail)
+		printf ("TAIL\\n");
+	    n = 0;
+	    for (o = r; o; o = o->next)
+		if (!o->shown && o->commit == r->commit)
+		{
+		    o->shown = 1;
+		    if (n)
+			printf ("\\n");
+		    dump_tag_name(stdout, o);
+		    printf (" (%d)", o->degree);
+		    n++;
+		}
+	    printf ("\" [fontsize=6,fixedsize=false,shape=%s];\n", shape);
+	}
+    }
+    for (r = rl->tags; r; r = r->next)
+	r->shown = 0;
+    for (r = rl->tags; r; r = r->next) {
+	if (!r->shown) {
+	    printf ("\t");
+	    printf ("\"");
+	    if (title)
+		printf ("%s\\n", title);
+	    if (r->tail)
+		printf ("TAIL\\n");
+	    n = 0;
+	    for (o = r; o; o = o->next)
+		if (!o->shown && o->commit == r->commit)
+		{
+		    o->shown = 1;
+		    if (n)
+			printf ("\\n");
+		    dump_tag_name(stdout, o);
+		    printf (" (%d)", o->degree);
+		    n++;
+		}
+	    printf ("\"");
+	    printf (" -> ");
+	    if (r->commit)
+		dump_commit_graph (r->commit, dump_find_branch (rl,
+								r->commit));
+	    else
+		printf ("LOST");
+	    printf (" [weight=3];\n");
+	}
+    }
+    for (r = rl->tags; r; r = r->next)
+	r->shown = 0;
+}
+
 static rev_commit *
 dump_get_rev_parent (rev_commit *c)
 {
@@ -321,7 +392,7 @@ dump_rev_graph_nodes (rev_list *rl, char *title)
     printf ("edge [dir=none];\n");
     printf ("node [shape=box,fontsize=6];\n");
     dump_refs (rl, rl->heads, title, "ellipse");
-    dump_refs (rl, rl->tags, title, "diamond");
+    dump_tags (rl, title, "diamond");
     for (h = rl->heads; h; h = h->next) {
 	if (h->tail)
 	    continue;

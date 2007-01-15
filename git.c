@@ -506,9 +506,9 @@ git_read_tree (rev_commit *commit)
 }
 
 static int
-git_commit_recurse (rev_ref *head, rev_commit *commit, rev_ref *tags, int strip)
+git_commit_recurse (rev_ref *head, rev_commit *commit, rev_tag *tags, int strip)
 {
-    rev_ref *t;
+    rev_tag *t;
     
     if (commit->parent) {
         if (commit->tail) {
@@ -533,7 +533,7 @@ git_commit_recurse (rev_ref *head, rev_commit *commit, rev_ref *tags, int strip)
 }
 
 static int
-git_head_commit (rev_ref *head, rev_ref *tags, int strip)
+git_head_commit (rev_ref *head, rev_tag *tags, int strip)
 {
     git_current_head = head->name;
     if (!head->tail)

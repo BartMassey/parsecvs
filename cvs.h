@@ -143,6 +143,19 @@ typedef struct _rev_commit {
     rev_dir		*dirs[0];
 } rev_commit;
 
+typedef struct _rev_tag {
+    struct _rev_tag	*next;
+    rev_commit		*commit;
+    struct _rev_ref	*parent;	/* link into tree */
+    int			head;
+    int			tail;
+    int			degree;	/* number of digits in original CVS version */
+    int			depth;	/* depth in branching tree (1 is trunk) */
+    cvs_number		number;
+    char		*name;
+    int			shown;
+} rev_tag;
+
 typedef struct _rev_ref {
     struct _rev_ref	*next;
     rev_commit		*commit;
@@ -159,7 +172,7 @@ typedef struct _rev_ref {
 typedef struct _rev_list {
     struct _rev_list	*next;
     rev_ref	*heads;
-    rev_ref	*tags;
+    rev_tag	*tags;
     int		watch;
 } rev_list;
 
@@ -333,7 +346,7 @@ rev_ref_add (rev_ref **list, rev_commit *commit, char *name, int degree, int hea
 rev_ref *
 rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree);
 
-rev_ref *
+rev_tag *
 rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name, int degree);
 
 int
