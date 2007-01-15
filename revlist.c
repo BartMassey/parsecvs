@@ -23,9 +23,10 @@
  */
 
 rev_ref *
-rev_ref_add (rev_ref **list, rev_commit *commit, char *name, int degree, int head)
+rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree)
 {
     rev_ref	*r;
+    rev_ref	**list = &rl->heads;
 
     while (*list)
 	list = &(*list)->next;
@@ -34,19 +35,12 @@ rev_ref_add (rev_ref **list, rev_commit *commit, char *name, int degree, int hea
     r->name = name;
     r->next = *list;
     r->degree = degree;
-    r->head = head;
     *list = r;
     return r;
 }
 
-rev_ref *
-rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree)
-{
-    return rev_ref_add (&rl->heads, commit, name, degree, 1);
-}
-
 rev_tag *
-rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name, int degree)
+rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name)
 {
     rev_tag	**list = &rl->tags;
     rev_tag	*r;
@@ -57,8 +51,6 @@ rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name, int degree)
     r->commit = commit;
     r->name = name;
     r->next = *list;
-    r->degree = degree;
-    r->head = 0;
     *list = r;
     return r;
 }
@@ -986,9 +978,7 @@ rev_list_merge (rev_list *head)
 	for (lt = l->tags; lt; lt = lt->next) {
 	    t = rev_find_tag (rl, lt->name);
 	    if (!t)
-		rev_list_add_tag (rl, NULL, lt->name, lt->degree);
-	    else if (lt->degree == t->degree)
-		t->degree = lt->degree;
+		rev_list_add_tag(rl, NULL, lt->name);
 	}
     }
 //    rl->tags = rev_ref_sel_sort (rl->tags);

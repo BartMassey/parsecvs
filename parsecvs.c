@@ -300,7 +300,7 @@ dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 								r->commit));
 	    else
 		printf ("LOST");
-	    printf (" [weight=%d];\n", r->head  && !r->tail ? 100 : 3);
+	    printf (" [weight=%d];\n", !r->tail ? 100 : 3);
 	}
     }
     for (r = refs; r; r = r->next)
@@ -318,8 +318,6 @@ static void dump_tags(rev_list *rl, char *title, char *shape)
 	    printf ("\"");
 	    if (title)
 		printf ("%s\\n", title);
-	    if (r->tail)
-		printf ("TAIL\\n");
 	    n = 0;
 	    for (o = r; o; o = o->next)
 		if (!o->shown && o->commit == r->commit)
@@ -328,7 +326,6 @@ static void dump_tags(rev_list *rl, char *title, char *shape)
 		    if (n)
 			printf ("\\n");
 		    dump_tag_name(stdout, o);
-		    printf (" (%d)", o->degree);
 		    n++;
 		}
 	    printf ("\" [fontsize=6,fixedsize=false,shape=%s];\n", shape);
@@ -342,8 +339,6 @@ static void dump_tags(rev_list *rl, char *title, char *shape)
 	    printf ("\"");
 	    if (title)
 		printf ("%s\\n", title);
-	    if (r->tail)
-		printf ("TAIL\\n");
 	    n = 0;
 	    for (o = r; o; o = o->next)
 		if (!o->shown && o->commit == r->commit)
@@ -352,7 +347,6 @@ static void dump_tags(rev_list *rl, char *title, char *shape)
 		    if (n)
 			printf ("\\n");
 		    dump_tag_name(stdout, o);
-		    printf (" (%d)", o->degree);
 		    n++;
 		}
 	    printf ("\"");

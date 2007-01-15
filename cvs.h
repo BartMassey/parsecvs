@@ -147,11 +147,6 @@ typedef struct _rev_tag {
     struct _rev_tag	*next;
     rev_commit		*commit;
     struct _rev_ref	*parent;	/* link into tree */
-    int			head;
-    int			tail;
-    int			degree;	/* number of digits in original CVS version */
-    int			depth;	/* depth in branching tree (1 is trunk) */
-    cvs_number		number;
     char		*name;
     int			shown;
 } rev_tag;
@@ -160,7 +155,6 @@ typedef struct _rev_ref {
     struct _rev_ref	*next;
     rev_commit		*commit;
     struct _rev_ref	*parent;	/* link into tree */
-    int			head;
     int			tail;
     int			degree;	/* number of digits in original CVS version */
     int			depth;	/* depth in branching tree (1 is trunk) */
@@ -341,13 +335,10 @@ void
 discard_atoms (void);
 
 rev_ref *
-rev_ref_add (rev_ref **list, rev_commit *commit, char *name, int degree, int head);
-
-rev_ref *
 rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree);
 
 rev_tag *
-rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name, int degree);
+rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name);
 
 int
 rev_commit_has_file (rev_commit *c, rev_file *f);

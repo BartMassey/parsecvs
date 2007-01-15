@@ -410,11 +410,8 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 		h->number = s->number;
 	} else {
 	    c = rev_find_cvs_commit (rl, &s->number);
-	    if (c) {
-		t = rev_list_add_tag (rl, c, s->name,
-				      cvs_number_degree (&s->number));
-		t->number = s->number;
-	    }
+	    if (c)
+		rev_list_add_tag (rl, c, s->name);
 	}
     }
     /*
@@ -469,7 +466,7 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
      * Link tags to containing branch
      */
     for (t = rl->tags; t; t = t->next)
-	t->parent = rev_list_find_branch (rl, &t->number);
+	t->parent = rev_list_find_branch (rl, &t->commit->file->number);
 }
 
 /*
