@@ -419,6 +419,17 @@ rev_commit_build (rev_commit **commits, rev_commit *leader, int ncommit)
     rev_dir	**rds;
     rev_file	*first;
 
+    if (rev_mode == ExecuteGit) {
+	reset_commits(commits, ncommit);
+	commit = create_tree(leader);
+	for (n = 0; n < ncommit; n++) {
+		if (commits[n] && commits[n]->file) {
+			commit->file = commits[n]->file;
+			break;
+		}
+	}
+	return commit;
+    }
     if (ncommit > sfiles) {
 	free (files);
 	files = 0;
@@ -587,6 +598,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
     rev_commit	*commit;
     rev_commit	*latest;
     rev_commit	**p;
+    int		lazy = 0;
 
     nlive = 0;
     for (n = 0; n < nbranch; n++) {
@@ -635,13 +647,20 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 				fprintf(stderr,
 					"Warning: %s late addition to branch %s\n",
 					c->file->name, branch->name);
+			delete_commit(c);
 			commits[n] = NULL;
 		}
 
 		/*
 		 * Construct current commit
 		 */
-		commit = rev_commit_build (commits, latest, nbranch);
+		if (!lazy) {
+			commit = rev_commit_build (commits, latest, nbranch);
+			if (rev_mode == ExecuteGit)
+				lazy = 1;
+		} else {
+			commit = create_tree(latest);
+		}
 
 		/*
 		 * Step each branch
@@ -664,6 +683,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 				} else if (c->parent) {
 					nlive++;
 				}
+				parent_commit(c);
 				commits[n] = c->parent;
 			} else if (c->parent || c->file)
 				nlive++;

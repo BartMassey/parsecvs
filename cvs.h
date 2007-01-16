@@ -435,4 +435,11 @@ void clean_hash(void);
 void build_branches(void);
 extern Node *head_node;
 
+void delete_commit(rev_commit *);
+void parent_commit(rev_commit *);
+void reset_commits(rev_commit **, int);
+rev_commit *create_tree(rev_commit *);
+void init_tree(int);
+void discard_tree(void);
+
 #endif /* _CVS_H_ */

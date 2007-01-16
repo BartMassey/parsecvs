@@ -884,6 +884,7 @@ main (int argc, char **argv)
     if (rev_mode == ExecuteGit && pack_objcount && autopack)
 	git_rev_list_pack (pack_start, strip);
     load_status_next ();
+    init_tree(strip);
     rl = rev_list_merge (head);
     if (rl) {
 	switch (rev_mode) {
@@ -907,6 +908,7 @@ main (int argc, char **argv)
     }
     discard_atoms ();
     discard_tags ();
+    discard_tree ();
     rev_free_dirs ();
     rev_commit_cleanup ();
     git_free_author_map ();

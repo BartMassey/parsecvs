@@ -103,75 +103,6 @@ git_log_file (rev_commit *commit)
     return filename;
 }
 
-static FILE *git_update_data;
-static char *git_update_data_name;
-
-static int
-git_start_switch (void)
-{
-    git_update_data_name = git_cvs_file ("switch");
-    if (!git_update_data_name)
-	return 0;
-    git_update_data = fopen (git_update_data_name, "w");
-    if (!git_update_data)
-	return 0;
-    return 1;
-}
-
-static int
-git_end_switch (void)
-{
-    char    *command;
-    int	    n;
-    
-    if (fclose (git_update_data) == EOF)
-	return 0;
-    command = git_format_command ("git-update-index --index-info < %s",
-				  git_update_data_name);
-    if (!command)
-	return 0;
-    n = git_system (command);
-    unlink (git_update_data_name);
-    free (command);
-    if (n != 0)
-	return 0;
-    return 1;
-}
-
-static int
-git_del_file (rev_file *file, int strip)
-{
-    /* avoid stack allocation to avoid running out of stack */
-    static char    filename[MAXPATHLEN + 1];
-    
-    if (!git_filename (file, filename, strip))
-	return 0;
-    fprintf (git_update_data, 
-	     "0 0000000000000000000000000000000000000000\t%s\n",
-	     filename);
-    return 1;
-}
-
-static int
-git_add_file (rev_file *file, int strip)
-{
-    /* avoid stack allocation to avoid running out of stack */
-    static char    filename[MAXPATHLEN + 1];
-    
-    if (!git_filename (file, filename, strip))
-	return 0;
-    fprintf (git_update_data, 
-	     "%o %s\t%s\n",
-	     file->mode, file->sha1, filename);
-    return 1;
-}
-
-static int
-git_update_file (rev_file *file, int strip)
-{
-    return git_add_file (file, strip);
-}
-
 typedef struct _cvs_author {
     struct _cvs_author	*next;
     char		*name;
@@ -282,8 +213,6 @@ git_load_author_map (char *filename)
 static int git_total_commits;
 static int git_current_commit;
 static char *git_current_head;
-static int git_total_files;
-static int git_current_file;
 
 #define STATUS	stdout
 #define PROGRESS_LEN	20
@@ -299,13 +228,6 @@ git_status (void)
 	putc (s == spot ? '*' : '.', STATUS);
     fprintf (STATUS, " %5d of %5d\n", git_current_commit, git_total_commits);
     fflush (STATUS);
-}
-
-static void
-git_spin (void)
-{
-//    fprintf (STATUS, "%5d of %5d\r", git_current_file, git_total_files);
-//    fflush (STATUS);
 }
 
 /*
@@ -326,7 +248,7 @@ git_commit (rev_commit *commit)
     log = git_log_file (commit);
     if (!log)
 	return 0;
-    tree_sha1 = git_system_to_string ("git-write-tree --missing-ok");
+    tree_sha1 = commit->sha1;
     if (!tree_sha1) {
 	unlink (log);
 	return 0;
@@ -365,39 +287,6 @@ git_commit (rev_commit *commit)
     unlink (log);
     free (command);
     if (!commit->sha1)
-	return 0;
-    return 1;
-}
-
-static int
-git_switch_commit (rev_commit *old, rev_commit *new, int strip)
-{
-    rev_diff	    *diff = rev_commit_diff (old, new);
-    rev_file_list   *fl;
-
-    git_total_files = diff->ndel + diff->nadd;
-    git_current_file = 0;
-    git_start_switch ();
-    for (fl = diff->del; fl; fl = fl->next) {
-	++git_current_file;
-	git_spin ();
-	if (!rev_file_list_has_filename (diff->add, fl->file->name))
-	    if (!git_del_file (fl->file, strip))
-		return 0;
-    }
-    for (fl = diff->add; fl; fl = fl->next) {
-	++git_current_file;
-	git_spin ();
-	if (rev_file_list_has_filename (diff->del, fl->file->name)) {
-	    if (!git_update_file (fl->file, strip))
-		return 0;
-	} else {
-	    if (!git_add_file (fl->file, strip))
-		return 0;
-	}
-    }
-    rev_diff_free (diff);
-    if (!git_end_switch ())
 	return 0;
     return 1;
 }
@@ -521,8 +410,6 @@ git_commit_recurse (rev_ref *head, rev_commit *commit, int strip)
     }
     ++git_current_commit;
     git_status ();
-    if (!git_switch_commit (commit->parent, commit, strip))
-	return 0;
     if (!git_commit (commit))
 	return 0;
     for (t = all_tags; t; t = t->next)
