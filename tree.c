@@ -29,7 +29,7 @@ static char *convert(char *name)
 {
 	static char path[PATH_MAX + 1];
 	char *end, *p, *q;
-	const int attic_len = strlen("Attic/");
+	const int attic_len = strlen("Attic");
 	size_t len = strlen(name);
 
 	if (len >= PATH_MAX + strip)
@@ -50,7 +50,8 @@ static char *convert(char *name)
 		return path;
 
 	q = p - attic_len;
-	if (memcmp(q, "Attic/", attic_len) != 0)
+	p++;
+	if (memcmp(q, "Attic", attic_len) != 0)
 		return path;
 
 	if (q == path || q[-1] == '/') {
