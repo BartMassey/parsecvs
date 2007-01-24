@@ -590,35 +590,61 @@ static void
 rev_branch_merge (rev_ref **branches, int nbranch,
 		  rev_ref *branch, rev_list *rl)
 {
-    int		nlive;
-    int		n;
-    rev_commit	*prev = NULL;
-    rev_commit	*head = NULL, **tail = &head;
-    rev_commit	**commits = calloc (nbranch, sizeof (rev_commit *));
-    rev_commit	*commit;
-    rev_commit	*latest;
-    rev_commit	**p;
-    int		lazy = 0;
+	int nlive;
+	int n;
+	rev_commit *prev = NULL;
+	rev_commit *head = NULL, **tail = &head;
+	rev_commit **commits = calloc (nbranch, sizeof (rev_commit *));
+	rev_commit *commit;
+	rev_commit *latest;
+	rev_commit **p;
+	int lazy = 0;
+	time_t start = 0;
 
-    nlive = 0;
-    for (n = 0; n < nbranch; n++) {
+	nlive = 0;
+	for (n = 0; n < nbranch; n++) {
+		rev_commit *c;
+		/*
+		 * Initialize commits to head of each branch
+		 */
+		c = commits[n] = branches[n]->commit;
+		/*
+		* Compute number of branches with remaining entries
+		*/
+		if (!c)
+			continue;
+		if (branches[n]->tail) {
+			c->tailed = 1;
+			continue;
+		}
+		nlive++;
+		while (c && !c->tail) {
+			if (!start || time_compare(c->date, start) < 0)
+				start = c->date;
+			c = c->parent;
+		}
+		if (c && (c->file || c->date != c->parent->date)) {
+			if (!start || time_compare(c->date, start) < 0)
+				start = c->date;
+		}
+	}
+
+	for (n = 0; n < nbranch; n++) {
+		rev_commit *c = commits[n];
+		if (!c->tailed)
+			continue;
+		if (!start || time_compare(start, c->date) >= 0)
+			continue;
+		if (c->file)
+			fprintf(stderr,
+				"Warning: %s too late date through branch %s\n",
+					c->file->name, branch->name);
+		commits[n] = NULL;
+	}
 	/*
-	 * Initialize commits to head of each branch
+	 * Walk down branches until each one has merged with the
+	 * parent branch
 	 */
-	commits[n] = branches[n]->commit;
-	/*
-	 * Compute number of branches with remaining entries
-	 */
-	if (branches[n]->tail) {
-	    if (commits[n])
-		commits[n]->tailed = 1;
-	} else
-	    nlive++;
-    }
-    /*
-     * Walk down branches until each one has merged with the
-     * parent branch
-     */
 	while (nlive > 0 && nbranch > 0) {
 		for (n = 0, p = commits, latest = NULL; n < nbranch; n++) {
 			rev_commit *c = commits[n];
@@ -631,25 +657,6 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 				latest = c;
 		}
 		nbranch = p - commits;
-
-		/*
-		 * Trim off files where the trunk revision
-		 * is newer than this commit
-		 */
-
-		for (n = 0; n < nbranch; n++) {
-			rev_commit *c = commits[n];
-			if (!c->tailed)
-				continue;
-			if (time_compare(latest->date, c->date) >= 0)
-				continue;
-			if (c->file)
-				fprintf(stderr,
-					"Warning: %s late addition to branch %s\n",
-					c->file->name, branch->name);
-			delete_commit(c);
-			commits[n] = NULL;
-		}
 
 		/*
 		 * Construct current commit
@@ -668,27 +675,68 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 		nlive = 0;
 		for (n = 0; n < nbranch; n++) {
 			rev_commit *c = commits[n];
-			if (!c || c->tailed)
+			rev_commit *to;
+			/* already got to parent branch? */
+			if (c->tailed)
 				continue;
-			if (c == latest || rev_commit_match(c, latest)) {
-				/*
-				 * Check to see if this entry should keep advancing
-				 * Stop when we reach the revision at the
-				 * merge point or when we run out of commits on the
-				 * branch
-				 */
-				if (c->tail) {
-					assert(c->parent);
-					c->parent->tailed = 1;
-				} else if (c->parent) {
+			/* not affected? */
+			if (c != latest && !rev_commit_match(c, latest)) {
+				if (c->parent || c->file)
 					nlive++;
-				}
-				parent_commit(c);
-				commits[n] = c->parent;
-			} else if (c->parent || c->file)
+				continue;
+			}
+			to = c->parent;
+			/* starts here? */
+			if (!to)
+				goto Kill;
+
+			if (c->tail) {
+				/*
+				 * Adding file independently added on another
+				 * non-trunk branch.
+				 */
+				if (!to->parent && !to->file)
+					goto Kill;
+				/*
+				 * If the parent is at the beginning of trunk
+				 * and it is younger than some events on our
+				 * branch, we have old CVS adding file
+				 * independently
+				 * added on another branch.
+				 */
+				if (start && time_compare(start, to->date) < 0)
+					goto Kill;
+				/*
+				 * XXX: we still can't be sure that it's
+				 * not a file added on trunk after parent
+				 * branch had forked off it but before
+				 * our branch's creation.
+				 */
+				to->tailed = 1;
+			} else if (to->file) {
 				nlive++;
+			} else {
+				/*
+				 * See if it's recent CVS adding a file
+				 * independently added on another branch.
+				 */
+				if (!to->parent)
+					goto Kill;
+				if (to->tail && to->date == to->parent->date)
+					goto Kill;
+				nlive++;
+			}
+			if (to->file)
+				set_commit(to);
+			else
+				delete_commit(c);
+			commits[n] = to;
+			continue;
+Kill:
+			delete_commit(c);
+			commits[n] = NULL;
 		}
-		    
+
 		*tail = commit;
 		tail = &commit->parent;
 		prev = commit;

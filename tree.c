@@ -130,14 +130,12 @@ void delete_commit(rev_commit *c)
 		delete_file(entry);
 }
 
-void parent_commit(rev_commit *c)
+void set_commit(rev_commit *c)
 {
-	if (!c->parent || !c->parent->file) {
-		delete_commit(c);
-	} else if (!cache_broken) {
-		Hash_entry *entry = find_node(c->parent);
+	if (!cache_broken) {
+		Hash_entry *entry = find_node(c);
 		if (entry)
-			cache_broken = set_file(entry, c->parent->file);
+			cache_broken = set_file(entry, c->file);
 	}
 }
 
