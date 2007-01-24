@@ -41,6 +41,7 @@ void yyerror (char *msg);
 %token		BRANCHES NEXT COMMITID EXPAND
 %token		DESC LOG TEXT STRICT AUTHOR STATE
 %token		SEMI COLON
+%token		BRAINDAMAGED_NUMBER
 %token <s>	HEX NAME DATA TEXT_DATA
 %token <number>	NUMBER
 
@@ -91,6 +92,8 @@ symbollist	: SYMBOLS symbols SEMI
 		;
 symbols		: symbols symbol
 		  { $2->next = $1; $$ = $2; }
+		| symbols fscked_symbol
+		  { $$ = $1; }
 		|
 		  { $$ = NULL; }
 		;
@@ -99,6 +102,11 @@ symbol		: name COLON NUMBER
 			$$ = calloc (1, sizeof (cvs_symbol));
 			$$->name = $1;
 			$$->number = $3;
+		  }
+		;
+fscked_symbol	: name COLON BRAINDAMAGED_NUMBER
+		  {
+			fprintf(stderr, "ignoring symbol %s (FreeBSD RELENG_2_1_0 braindamage?)\n", $1);
 		  }
 		;
 name		: NAME

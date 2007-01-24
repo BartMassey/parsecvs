@@ -73,6 +73,7 @@ parse_data (int strip);
 " " 				;
 \t				;
 \n				;
+1				return BRAINDAMAGED_NUMBER;
 .				{ 
 				    fprintf (stderr, "%s: (%d) ignoring %c\n", 
 					     yyfilename, yylineno,
