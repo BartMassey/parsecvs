@@ -104,6 +104,8 @@ typedef struct _rev_dir {
 
 extern time_t	time_now;
 
+extern int commit_time_window;
+
 typedef struct _rev_commit {
     struct _rev_commit	*parent;
     char		tail;

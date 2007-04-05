@@ -694,6 +694,8 @@ static void load_status_next (void)
 
 #define OBJ_PACK_TIME	1024
 
+int commit_time_window = 60;
+
 int
 main (int argc, char **argv)
 {
@@ -711,10 +713,11 @@ main (int argc, char **argv)
 
     while (1) {
 	static struct option options[] = {
-	    { "help",		0, 0, 'h' },
-	    { "version",	0, 0, 'V' },
+	    { "help",		    0, 0, 'h' },
+	    { "version",	    0, 0, 'V' },
+	    { "commit-time-window", 1, 0, 'w' },
 	};
-	int c = getopt_long(argc, argv, "+hV", options, NULL);
+	int c = getopt_long(argc, argv, "+hVw:", options, NULL);
 	if (c < 0)
 	    break;
 	switch (c) {
@@ -730,6 +733,9 @@ main (int argc, char **argv)
 		   "This is free software; see the source for copying conditions. There is NO\n"
 		   "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
 	    return 0;
+	case 'w':
+	    commit_time_window = atoi (optarg);
+	    break;
 	default: /* error message already emitted */
 	    fprintf(stderr, "Try `%s --help' for more information.\n", argv[0]);
 	    return 1;

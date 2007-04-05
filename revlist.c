@@ -136,7 +136,7 @@ commit_time_close (time_t a, time_t b)
 {
     long	diff = a - b;
     if (diff < 0) diff = -diff;
-    if (diff < 60 * 60)
+    if (diff < commit_time_window * 60)
 	return 1;
     return 0;
 }
@@ -159,6 +159,8 @@ rev_commit_match (rev_commit *a, rev_commit *b)
     if (!commit_time_close (a->date, b->date))
 	return 0;
     if (a->log != b->log)
+	return 0;
+    if (a->author != b->author)
 	return 0;
     return 1;
 }
