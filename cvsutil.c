@@ -207,18 +207,7 @@ cvs_branch_parent (cvs_file *f, cvs_number *branch)
     return n;
 }
 
-cvs_patch *
-cvs_find_patch (cvs_file *f, cvs_number *n)
-{
-    cvs_patch	*p;
-
-    for (p = f->patches; p; p = p->next)
-	if (cvs_number_compare (&p->number, n) == 0)
-	    return p;
-    return NULL;
-}
-
-cvs_version *
+Node *
 cvs_find_version (cvs_file *cvs, cvs_number *number)
 {
     cvs_version *cv;
@@ -230,7 +219,7 @@ cvs_find_version (cvs_file *cvs, cvs_number *number)
 	    (!nv || cvs_number_compare (&nv->number, &cv->number) > 0))
 	    nv = cv;
     }
-    return nv;
+    return nv ? nv->node : NULL;
 }
 
 int
@@ -308,6 +297,7 @@ cvs_file_free (cvs_file *cvs)
     cvs_version_free (cvs->versions);
     cvs_patch_free (cvs->patches);
     free (cvs);
+    clean_hash();
 }
 
 char *

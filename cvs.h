@@ -45,6 +45,23 @@ typedef struct _cvs_number {
     short		n[CVS_MAX_DEPTH];
 } cvs_number;
 
+struct _cvs_version;
+struct _cvs_patch;
+struct _rev_file;
+
+typedef struct node {
+	struct node *hash_next;
+	cvs_number number;
+	struct _cvs_version *v;
+	struct _cvs_patch *p;
+	struct node *next;
+	struct node *to;
+	struct node *down;
+	struct node *sib;
+	struct _rev_file *file;
+	int starts;
+} Node;
+
 typedef struct _cvs_symbol {
     struct _cvs_symbol	*next;
     char		*name;
@@ -54,6 +71,7 @@ typedef struct _cvs_symbol {
 typedef struct _cvs_branch {
     struct _cvs_branch	*next;
     cvs_number		number;
+    Node		*node;
 } cvs_branch;
 
 typedef struct _cvs_version {
@@ -66,6 +84,7 @@ typedef struct _cvs_version {
     cvs_branch		*branches;
     cvs_number		parent;	/* next in ,v file */
     char		*commitid;
+    Node		*node;
 } cvs_version;
 
 typedef struct _cvs_patch {
@@ -73,6 +92,7 @@ typedef struct _cvs_patch {
     cvs_number		number;
     char		*log;
     char		*text;
+    Node		*node;
 } cvs_patch;
 
 
@@ -129,7 +149,6 @@ typedef struct _rev_ref {
     struct _rev_ref	*next;
     rev_commit		*commit;
     struct _rev_ref	*parent;	/* link into tree */
-    int			head;
     int			tail;
     int			degree;	/* number of digits in original CVS version */
     int			depth;	/* depth in branching tree (1 is trunk) */
@@ -141,7 +160,6 @@ typedef struct _rev_ref {
 typedef struct _rev_list {
     struct _rev_list	*next;
     rev_ref	*heads;
-    rev_ref	*tags;
     int		watch;
 } rev_list;
 
@@ -190,6 +208,30 @@ rev_list_merge (rev_list *lists);
 void
 rev_list_free (rev_list *rl, int free_files);
 
+enum { Ncommits = 256 };
+
+typedef struct _chunk {
+	struct _chunk *next;
+	rev_commit *v[Ncommits];
+} Chunk;
+
+typedef struct _tag {
+	struct _tag *next;
+	struct _tag *hash_next;
+	char *name;
+	Chunk *commits;
+	int count;
+	int left;
+	rev_commit *commit;
+	rev_ref *parent;
+	char *last;
+} Tag;
+
+extern Tag *all_tags;
+void tag_commit(rev_commit *c, char *name);
+rev_commit **tagged(Tag *tag);
+void discard_tags(void);
+
 int
 cvs_is_head (cvs_number *n);
 
@@ -220,10 +262,7 @@ cvs_branch_head (cvs_file *f, cvs_number *branch);
 cvs_number
 cvs_branch_parent (cvs_file *f, cvs_number *branch);
 
-cvs_patch *
-cvs_find_patch (cvs_file *f, cvs_number *n);
-
-cvs_version *
+Node *
 cvs_find_version (cvs_file *cvs, cvs_number *number);
 
 int
@@ -313,13 +352,7 @@ void
 discard_atoms (void);
 
 rev_ref *
-rev_ref_add (rev_ref **list, rev_commit *commit, char *name, int degree, int head);
-
-rev_ref *
 rev_list_add_head (rev_list *rl, rev_commit *commit, char *name, int degree);
-
-rev_ref *
-rev_list_add_tag (rev_list *rl, rev_commit *commit, char *name, int degree);
 
 int
 rev_commit_has_file (rev_commit *c, rev_file *f);
@@ -386,7 +419,7 @@ git_free_author_map (void);
  * sha1_hex - a buffer of at least 41 characterrs to receive
  *           the ascii hexidecimal id of the resulting object
  */
-void rcs2git(cvs_file *cvs, cvs_number *number, char *sha1_hex);
+void generate_files(cvs_file *cvs);
 
 rev_dir **
 rev_pack_files (rev_file **files, int nfiles, int *ndr);
@@ -396,5 +429,19 @@ rev_free_dirs (void);
     
 void
 rev_commit_cleanup (void);
+
+void hash_version(cvs_version *);
+void hash_patch(cvs_patch *);
+void hash_branch(cvs_branch *);
+void clean_hash(void);
+void build_branches(void);
+extern Node *head_node;
+
+void delete_commit(rev_commit *);
+void set_commit(rev_commit *);
+void reset_commits(rev_commit **, int);
+rev_commit *create_tree(rev_commit *);
+void init_tree(int);
+void discard_tree(void);
 
 #endif /* _CVS_H_ */

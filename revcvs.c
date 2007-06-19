@@ -44,15 +44,6 @@ rev_find_cvs_commit (rev_list *rl, cvs_number *number)
     return NULL;
 }
 
-static char *
-rev_cvs_to_blob (cvs_file *cvs, cvs_number *number)
-{
-    char    sha1_ascii[41];
-    
-    rcs2git(cvs, number, sha1_ascii);
-    return atom(sha1_ascii);
-}
-
 /*
  * Construct a branch using CVS revision numbers
  */
@@ -61,15 +52,17 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 {
     cvs_number	n;
     rev_commit	*head = NULL;
-    cvs_version	*v;
-    rev_commit	*c;
-    cvs_patch	*p;
+    Node	*node;
 
     n = *branch;
     n.n[n.c-1] = -1;
-    while ((v = cvs_find_version (cvs, &n))) {
+    for (node = cvs_find_version (cvs, &n); node; node = node->next) {
+	cvs_version *v = node->v;
+	cvs_patch *p = node->p;
+	rev_commit *c;
+	if (!v)
+	     continue;
 	c = calloc (1, sizeof (rev_commit));
-	p = cvs_find_patch (cvs, &v->number);
 	c->date = v->date;
 	c->commitid = v->commitid;
 	c->author = v->author;
@@ -82,12 +75,11 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 	/* leave this around so the branch merging stuff can find numbers */
 	c->file = rev_file_rev (cvs->name, &v->number, v->date);
 	if (!v->dead) {
-	    c->file->sha1 = rev_cvs_to_blob (cvs, &v->number);
+	    node->file = c->file;
 	    c->file->mode = cvs->mode;
 	}
 	c->parent = head;
 	head = c;
-	n = v->number;
     }
     return head;
 }
@@ -381,7 +373,6 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
     rev_ref	*h;
     cvs_symbol	*s;
     rev_commit	*c;
-    rev_ref	*t;
     
     /*
      * Locate a symbolic name for this head
@@ -418,11 +409,8 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 		h->number = s->number;
 	} else {
 	    c = rev_find_cvs_commit (rl, &s->number);
-	    if (c) {
-		t = rev_list_add_tag (rl, c, s->name,
-				      cvs_number_degree (&s->number));
-		t->number = s->number;
-	    }
+	    if (c)
+		tag_commit(c, s->name);
 	}
     }
     /*
@@ -473,11 +461,6 @@ rev_list_set_refs (rev_list *rl, cvs_file *cvs)
 	    h->name = atom (name);
 	}
     }
-    /*
-     * Link tags to containing branch
-     */
-    for (t = rl->tags; t; t = t->next)
-	t->parent = rev_list_find_branch (rl, &t->number);
 }
 
 /*
@@ -591,6 +574,7 @@ rev_list_cvs (cvs_file *cvs)
     rev_ref	*t;
     cvs_version	*ctrunk = NULL;
 
+    build_branches();
     /*
      * Locate first revision on trunk branch
      */
@@ -626,6 +610,7 @@ rev_list_cvs (cvs_file *cvs)
 	    rev_list_add_head (rl, branch, NULL, 0);
 	}
     }
+    generate_files(cvs);
     rev_list_patch_vendor_branch (rl, cvs);
     rev_list_graft_branches (rl, cvs);
     rev_list_set_refs (rl, cvs);

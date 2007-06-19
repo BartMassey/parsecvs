@@ -213,6 +213,15 @@ dump_ref_name (FILE *f, rev_ref *ref)
     fprintf (f, "%s", ref->name);
 }
 
+static void dump_tag_name(FILE *f, Tag *tag)
+{
+    if (tag->parent) {
+	dump_ref_name (f, tag->parent);
+	fprintf (f, " > ");
+    }
+    fprintf (f, "%s", tag->name);
+}
+
 static
 rev_ref *
 dump_find_branch (rev_list *rl, rev_commit *commit)
@@ -291,11 +300,70 @@ dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 								r->commit));
 	    else
 		printf ("LOST");
-	    printf (" [weight=%d];\n", r->head  && !r->tail ? 100 : 3);
+	    printf (" [weight=%d];\n", !r->tail ? 100 : 3);
 	}
     }
     for (r = refs; r; r = r->next)
 	r->shown = 0;
+}
+
+static void dump_tags(rev_list *rl, char *title, char *shape)
+{
+    Tag	*r;
+    int n;
+    int i, count;
+    struct {
+	int alias;
+	Tag *t;
+    } *v;
+
+    for (r = all_tags, count = 0; r; r = r->next, count++)
+	;
+
+    v = calloc(count, sizeof(*v));
+
+    for (r = all_tags, i = 0; r; r = r->next)
+	v[i++].t = r;
+
+    for (i = 0; i < count; i++) {
+	if (v[i].alias)
+	    continue;
+	r = v[i].t;
+	printf ("\t\"");
+	if (title)
+	    printf ("%s\\n", title);
+	dump_tag_name(stdout, r);
+	for (n = i + 1; n < count; n++) {
+	    if (v[n].t->commit == r->commit) {
+		v[n].alias = 1;
+		printf ("\\n");
+		dump_tag_name(stdout, v[n].t);
+	    }
+	}
+	printf ("\" [fontsize=6,fixedsize=false,shape=%s];\n", shape);
+    }
+    for (i = 0; i < count; i++) {
+	if (v[i].alias)
+	    continue;
+	r = v[i].t;
+	printf ("\t\"");
+	if (title)
+	    printf ("%s\\n", title);
+	dump_tag_name(stdout, r);
+	for (n = i + 1; n < count; n++) {
+	    if (v[n].alias && v[n].t->commit == r->commit) {
+		printf ("\\n");
+		dump_tag_name(stdout, v[n].t);
+	    }
+	}
+	printf ("\" -> ");
+	if (r->commit)
+	    dump_commit_graph (r->commit, dump_find_branch (rl, r->commit));
+	else
+	    printf ("LOST");
+	printf (" [weight=3];\n");
+    }
+    free(v);
 }
 
 static rev_commit *
@@ -321,7 +389,7 @@ dump_rev_graph_nodes (rev_list *rl, char *title)
     printf ("edge [dir=none];\n");
     printf ("node [shape=box,fontsize=6];\n");
     dump_refs (rl, rl->heads, title, "ellipse");
-    dump_refs (rl, rl->tags, title, "diamond");
+    dump_tags (rl, title, "diamond");
     for (h = rl->heads; h; h = h->next) {
 	if (h->tail)
 	    continue;
@@ -822,6 +890,7 @@ main (int argc, char **argv)
     if (rev_mode == ExecuteGit && pack_objcount && autopack)
 	git_rev_list_pack (pack_start, strip);
     load_status_next ();
+    init_tree(strip);
     rl = rev_list_merge (head);
     if (rl) {
 	switch (rev_mode) {
@@ -844,6 +913,8 @@ main (int argc, char **argv)
 	rev_list_free (rl, 1);
     }
     discard_atoms ();
+    discard_tags ();
+    discard_tree ();
     rev_free_dirs ();
     rev_commit_cleanup ();
     git_free_author_map ();

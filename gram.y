@@ -30,7 +30,9 @@ void yyerror (char *msg);
     cvs_number	number;
     cvs_symbol	*symbol;
     cvs_version	*version;
+    cvs_version	**vlist;
     cvs_patch	*patch;
+    cvs_patch	**patches;
     cvs_branch	*branch;
     cvs_file	*file;
 }
@@ -39,26 +41,27 @@ void yyerror (char *msg);
 %token		BRANCHES NEXT COMMITID EXPAND
 %token		DESC LOG TEXT STRICT AUTHOR STATE
 %token		SEMI COLON
+%token		BRAINDAMAGED_NUMBER
 %token <s>	HEX NAME DATA TEXT_DATA
 %token <number>	NUMBER
 
 %type <s>	text log
 %type <symbol>	symbollist symbol symbols
-%type <version>	revisions revision
+%type <version>	revision
+%type <vlist>	revisions
 %type <date>	date
 %type <branch>	branches numbers
 %type <s>	opt_commitid commitid
 %type <s>	desc name
 %type <s>	author state
 %type <number>	next opt_number
-%type <patch>	patches patch
+%type <patch>	patch
+%type <patches>	patches
 
 
 %%
 file		: headers revisions desc patches
 		  {
-			this_file->versions = $2;
-			this_file->patches = $4;
 		  }
 		;
 headers		: header headers
@@ -89,6 +92,8 @@ symbollist	: SYMBOLS symbols SEMI
 		;
 symbols		: symbols symbol
 		  { $2->next = $1; $$ = $2; }
+		| symbols fscked_symbol
+		  { $$ = $1; }
 		|
 		  { $$ = NULL; }
 		;
@@ -99,6 +104,11 @@ symbol		: name COLON NUMBER
 			$$->number = $3;
 		  }
 		;
+fscked_symbol	: name COLON BRAINDAMAGED_NUMBER
+		  {
+			fprintf(stderr, "ignoring symbol %s (FreeBSD RELENG_2_1_0 braindamage?)\n", $1);
+		  }
+		;
 name		: NAME
 		| NUMBER
 		  {
@@ -107,10 +117,10 @@ name		: NAME
 		    $$ = atom (name);
 		  }
 		;
-revisions	: revision revisions
-		  { $1->next = $2; $$ = $1; }
+revisions	: revisions revision
+		  { *$1 = $2; $$ = &$2->next; }
 		|
-		  { $$ = NULL; }
+		  { $$ = &this_file->versions; }
 		;
 revision	: NUMBER date author state branches next opt_commitid
 		  {
@@ -123,6 +133,7 @@ revision	: NUMBER date author state branches next opt_commitid
 			$$->branches = $5;
 			$$->parent = $6;
 			$$->commitid = $7;
+			hash_version($$);
 			++this_file->nversions;
 		  }
 		;
@@ -145,6 +156,7 @@ numbers		: NUMBER numbers
 			$$ = calloc (1, sizeof (cvs_branch));
 			$$->next = $2;
 			$$->number = $1;
+			hash_branch($$);
 		  }
 		|
 		  { $$ = NULL; }
@@ -168,16 +180,17 @@ commitid	: COMMITID NAME SEMI
 desc		: DESC DATA
 		  { $$ = $2; }
 		;
-patches		: patch patches
-		  { $1->next = $2; $$ = $1; }
+patches		: patches patch
+		  { *$1 = $2; $$ = &$2->next; }
 		|
-		  { $$ = NULL; }
+		  { $$ = &this_file->patches; }
 		;
 patch		: NUMBER log text
 		  { $$ = calloc (1, sizeof (cvs_patch));
 		    $$->number = $1;
 		    $$->log = $2;
 		    $$->text = $3;
+		    hash_patch($$);
 		  }
 		;
 log		: LOG DATA
