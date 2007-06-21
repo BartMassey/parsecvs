@@ -270,7 +270,7 @@ static void out_awrite(char const *s, size_t len)
 		out_putc(*s++);
 }
 
-static int latin1_alpha(uchar c)
+static int latin1_alpha(int c)
 {
 	if (c >= 192 && c != 215 && c != 247 ) return 1;
 	if ((c >= 97 && c < 123) || (c >= 65 && c < 91)) return 1;
