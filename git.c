@@ -90,7 +90,7 @@ git_log(rev_commit *commit)
 	filename = git_cvs_file ("log");
 	if (!filename)
 		return NULL;
-	f = fopen (filename, "w");
+	f = fopen (filename, "w+");
 	if (!f) {
 		fprintf (stderr, "%s: %s\n", filename, strerror (errno));
 		return NULL;
@@ -100,6 +100,7 @@ git_log(rev_commit *commit)
 		fclose (f);
 		return NULL;
 	}
+	fflush (f);
 
 	command = git_format_command ("%s '%s'", LOG_COMMAND, filename);
 	if (!command)
@@ -108,6 +109,7 @@ git_log(rev_commit *commit)
 	free (command);
 	if (n != 0)
 		return NULL;
+	fflush (f);
 	rewind(f);
 	size = 0;
 	while (1) {
@@ -508,6 +510,8 @@ git_file_pack (rev_file *file, int strip)
     fprintf (packf, "%s %s\n", file->sha1, filename);
 }
 
+extern void reprepare_packed_git (void);
+
 static void
 git_end_pack (char *pack_file, char *pack_dir)
 {
@@ -553,6 +557,7 @@ git_end_pack (char *pack_file, char *pack_dir)
     free (dst_pack_idx);
     
     (void) git_system ("git-prune-packed");
+    reprepare_packed_git ();
 }
 
 static char *
