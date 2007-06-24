@@ -18,6 +18,8 @@
 
 #include "cvs.h"
 
+#define DEBUG 0
+
 /*
  * Given a single-file tree, locate the specific version number
  */
@@ -52,6 +54,7 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 {
     cvs_number	n;
     rev_commit	*head = NULL;
+    rev_commit	*c, *p;
     Node	*node;
 
     n = *branch;
@@ -80,6 +83,21 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 	}
 	c->parent = head;
 	head = c;
+    }
+    /*
+     * Make sure the dates along the branch are well ordered. As we
+     * want to preserve current data, push previous versions back to
+     * align with newer revisions.
+     */
+    for (c = head; (p = c->parent); c = p) {
+	if (time_compare (p->file->date, c->file->date) > 0)
+	{
+	    fprintf (stderr, "Warning: %s:", cvs->name);
+	    dump_number_file (stderr, " ", &p->file->number);
+	    dump_number_file (stderr, " is newer than", &c->file->number);
+	    fprintf (stderr, ", adjusting\n");
+	    p->file->date = c->file->date;
+	}
     }
     return head;
 }
@@ -242,11 +260,13 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 	    h_p = &(h->next);
 	}
     }
-//    fprintf (stderr, "%s spliced:\n", cvs->name);
-//    for (t = trunk->commit; t; t = t->parent) {
-//	dump_number_file (stderr, "\t", &t->files[0]->number);
-//	fprintf (stderr, "\n");
-//    }
+#if DEBUG
+    fprintf (stderr, "%s spliced:\n", cvs->name);
+    for (t = trunk->commit; t; t = t->parent) {
+	dump_number_file (stderr, "\t", &t->file->number);
+	fprintf (stderr, "\n");
+    }
+#endif
 }
 
 /*
@@ -266,6 +286,14 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
      * Glue branches together
      */
     for (h = rl->heads; h; h = h->next) {
+	/*
+	 * skip master branch; it "can't" join
+	 * any other branches and it may well end with a vendor
+	 * branch revision of the file, which will then create
+	 * a loop back to the recorded branch point
+	 */
+        if (h == rl->heads)
+	    continue;
 	if (h->tail)
 	    continue;
 	/*
@@ -323,9 +351,9 @@ rev_list_graft_branches (rev_list *rl, cvs_file *cvs)
 			    {
 				fprintf (stderr, "%s: rewrite branch", cvs->name);
 				dump_number_file (stderr, " branch point",
-						  &v_c->files[0]->number);
+						  &v_c->file->number);
 				dump_number_file (stderr, " branch version",
-						  &c->files[0]->number);
+						  &c->file->number);
 				fprintf (stderr, "\n");
 				c->parent = v_c;
 			    }
@@ -551,7 +579,7 @@ rev_list_sort_heads (rev_list *rl, cvs_file *cvs)
 	    hp = &h->next;
 	}
     }
-    return;
+#if DEBUG
     fprintf (stderr, "Sorted heads for %s\n", cvs->name);
     for (h = rl->heads; h;) {
 	fprintf (stderr, "\t");
@@ -560,6 +588,7 @@ rev_list_sort_heads (rev_list *rl, cvs_file *cvs)
 	fprintf (stderr, "\n");
 	h = h->next;
     }
+#endif
 }
 
 rev_list *
@@ -601,7 +630,9 @@ rev_list_cvs (cvs_file *cvs)
     /*
      * Search for other branches
      */
-//    printf ("building branches for %s\n", cvs->name);
+#if DEBUG
+    printf ("building branches for %s\n", cvs->name);
+#endif
     
     for (cv = cvs->versions; cv; cv = cv->next) {
 	for (cb = cv->branches; cb; cb = cb->next)
