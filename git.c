@@ -125,6 +125,7 @@ git_log(rev_commit *commit)
 			break;
 		size += n;
 	}
+	fclose(f);
 	log_buf[size] = '\0';
 	return log_buf;
 #endif
