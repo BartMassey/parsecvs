@@ -101,8 +101,8 @@ dump_patches (char *name, cvs_patch *patches)
     printf ("%s\n", name);
     while (patches) {
 	dump_number ("\tnumber: ", &patches->number); printf ("\n");
-	printf ("\t\tlog: %d bytes\n", strlen (patches->log));
-	printf ("\t\ttext: %d bytes\n", strlen (patches->text));
+	printf ("\t\tlog: %d bytes\n", (int)strlen (patches->log));
+	printf ("\t\ttext: %d bytes\n", (int)strlen (patches->text));
 	patches = patches->next;
     }
 }
@@ -200,7 +200,7 @@ dump_commit_graph (rev_commit *c, rev_ref *branch)
 	    }
 	}
     }
-    printf ("%08x", (int) c);
+    printf ("%p", c);
     printf ("\"");
 }
 
@@ -640,7 +640,7 @@ dump_rev_tree (rev_list *rl)
 	printf ("\t{\n");
 	tail = h->tail;
 	for (c = h->commit; c; c = p) {
-	    printf ("\t\t0x%x ", (int) c);
+	    printf ("\t\t%p ", c);
 	    dump_log (stdout, c->log);
 	    if (tail) {
 		printf ("\n\t\t...\n");
