@@ -33,7 +33,8 @@ rev_execution_mode rev_mode = ExecuteGit;
 int elide = 0;
 int difffiles = 0;
 int allfiles = 1;
-int autopack = 1;
+
+const char *log_command;
     
 void
 dump_number_file (FILE *f, char *name, cvs_number *number)
@@ -760,9 +761,8 @@ static void load_status_next (void)
     fflush (STATUS);
 }
 
-#define OBJ_PACK_TIME	1024
-
 int commit_time_window = 60;
+static int obj_pack_time = 0;
 
 int
 main (int argc, char **argv)
@@ -784,16 +784,31 @@ main (int argc, char **argv)
 	    { "help",		    0, 0, 'h' },
 	    { "version",	    0, 0, 'V' },
 	    { "commit-time-window", 1, 0, 'w' },
+            { "log-command",        1, 0, 'l' },
+            { "autopack",           1, 0, 'p' },
 	};
-	int c = getopt_long(argc, argv, "+hVw:", options, NULL);
+	int c = getopt_long(argc, argv, "+hVw:l:p:", options, NULL);
 	if (c < 0)
 	    break;
 	switch (c) {
 	case 'h':
-	    printf("Usage: parsecvs [FILE]...\n"
-		   "Parse RCS files and populate git repository.\n"
-		   "Example: find -name '*,v' | parsecvs\n");
+	    printf("Usage: parsecvs [OPTIONS] [FILE]...\n"
+		   "Parse RCS files and populate git repository.\n\n"
+                   "Mandatory arguments to long options are mandatory for short options too.\n"
+                   " -h --help                       This help\n"
+                   " -l --log-command=COMMAND        Call COMMAND to handle changelogs\n"
+                   " -p --autopack=NUM               Auto-pack for every NUM objects. 0 disables.\n"
+
+                   " -v --version                    Print version\n"
+                   " -w --commit-time-window=WINDOW  Time window for commits\n\n"
+		   "Example: find -name '*,v' | parsecvs -l edit-change-log -p 1024\n");
 	    return 0;
+        case 'l':
+            log_command = strdup (optarg);
+            break;
+        case 'p':
+            obj_pack_time = atoi (optarg);
+            break;
 	case 'V':
 	    printf("parsecvs version 0.1\n"
 		   "\n"
@@ -868,7 +883,7 @@ main (int argc, char **argv)
 	*tail = rl;
 	tail = &rl->next;
 
-	if (rev_mode == ExecuteGit && autopack)
+	if (rev_mode == ExecuteGit && obj_pack_time)
 	{
 	    /*
 	     * Pack objects on occasion to reduce .git directory
@@ -877,7 +892,7 @@ main (int argc, char **argv)
 	    if (!pack_start)
 		pack_start = rl;
 	    pack_objcount += nversions;
-	    if (pack_objcount > OBJ_PACK_TIME) 
+	    if (pack_objcount > obj_pack_time)
 	    {
 		git_rev_list_pack (pack_start, strip);
 		pack_start = NULL;
@@ -887,7 +902,7 @@ main (int argc, char **argv)
 
 	free(fn);
     }
-    if (rev_mode == ExecuteGit && pack_objcount && autopack)
+    if (rev_mode == ExecuteGit && pack_objcount && obj_pack_time)
 	git_rev_list_pack (pack_start, strip);
     load_status_next ();
     init_tree(strip);

@@ -68,19 +68,16 @@ git_cvs_file (char *base)
     return filename;
 }
 
-#define LOG_COMMAND "edit-change-log"
-
-#ifdef LOG_COMMAND
+extern const char *log_command;
 static char *log_buf;
 static size_t log_size;
-#endif
 
 static char *
 git_log(rev_commit *commit)
 {
-#ifndef LOG_COMMAND
-	return commit->log;
-#else
+        if (!log_command)
+                return commit->log;
+
 	char    *filename;
 	char	*command;
 	FILE    *f;
@@ -102,7 +99,7 @@ git_log(rev_commit *commit)
 	}
 	fflush (f);
 
-	command = git_format_command ("%s '%s'", LOG_COMMAND, filename);
+	command = git_format_command ("%s '%s'", log_command, filename);
 	if (!command)
 	    return NULL;
 	n = git_system (command);
@@ -128,7 +125,6 @@ git_log(rev_commit *commit)
 	fclose(f);
 	log_buf[size] = '\0';
 	return log_buf;
-#endif
 }
 
 typedef struct _cvs_author {
