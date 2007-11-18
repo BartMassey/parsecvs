@@ -555,6 +555,7 @@ static void keyreplace(enum markers marker)
 			return;
 
 		/* Back up to the start of the current input line */
+                int num_kdelims = 0;
 		for (;;) {
 			c = in_buffer_ungetc();
 			if (c == EOF)
@@ -563,8 +564,17 @@ static void keyreplace(enum markers marker)
 				in_buffer_getc();
 				break;
 			}
-			if (c == KDELIM)
+			if (c == KDELIM) {
+                                num_kdelims++;
+                                /* It is possible to have multiple keywords
+                                   on one line. Make sure we don't backtrack
+                                   into some other keyword! */
+                                if (num_kdelims > 2) {
+                                        in_buffer_getc();
+                                        break;
+                                }
 				kdelim_ptr = in_buffer_loc();
+                        }
 		}
 
 		/* Copy characters before `$Log' into LEADER.  */
