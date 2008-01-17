@@ -544,10 +544,19 @@ static void keyreplace(enum markers marker)
 			out_putc(' ');
 	}
 
+#if 0
+/* Closing delimiter is processed again in expandline */
 	if (exp != EXPANDKV)
 	    out_putc(KDELIM);
+#endif
 
 	if (marker == Log) {
+		/*
+		 * "Closing delimiter is processed again in explandline"
+		 * does not apply here, since we consume the input.
+		 */
+		if (exp != EXPANDKV)
+			out_putc(KDELIM);
 
 		sp = Glog;
 		ls = strlen(Glog);
@@ -717,6 +726,17 @@ static int expandline(void)
 				    continue;   /* last c handled properly */
 			      }
 			}
+			/*
+			 * CVS will expand keywords that have
+			 * overlapping delimiters, eg "$Name$Id$".  To
+			 * support that (mis)feature, push the closing
+			 * delimiter back on the input so that the
+			 * loop will resume processing starting with
+			 * it.
+			 */
+			if (c == KDELIM)
+				in_buffer_ungetc();
+
 			/* now put out the new keyword value */
 			keyreplace(matchresult);
 			e = 1;
