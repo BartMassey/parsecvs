@@ -367,16 +367,20 @@ git_mktag (rev_commit *commit, char *name)
     }
     
     author = git_fullname (commit->author);
+    if (author == NULL) {
+      fprintf (stderr, "No author info for tagger %s\n", commit->author);
+      return NULL;
+    }
+
     rv = fprintf (f,
 		"object %s\n"
 		"type commit\n"
 		"tag %s\n"
-		"tagger %s <%s>\n"
+		"tagger %s <%s> %lu +0000\n"
 		"\n",
 		commit->sha1,
 		name,
-		author ? author->full : commit->author,
-		author ? author->email : commit->author);
+		author->full, author->email, commit->date);
     if (rv < 1) {
 	fprintf (stderr, "%s: %s\n", filename, strerror (errno));
 	fclose (f);
