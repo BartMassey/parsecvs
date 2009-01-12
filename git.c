@@ -371,11 +371,12 @@ git_mktag (rev_commit *commit, char *name)
 		"object %s\n"
 		"type commit\n"
 		"tag %s\n"
-		"tagger %s\n"
+		"tagger %s <%s>\n"
 		"\n",
 		commit->sha1,
 		name,
-		author ? author->full : commit->author);
+		author ? author->full : commit->author,
+		author ? author->email : commit->author);
     if (rv < 1) {
 	fprintf (stderr, "%s: %s\n", filename, strerror (errno));
 	fclose (f);
