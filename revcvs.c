@@ -54,7 +54,7 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 {
     cvs_number	n;
     rev_commit	*head = NULL;
-    rev_commit	*c, *p;
+    rev_commit	*c, *p, *gc;
     Node	*node;
 
     n = *branch;
@@ -84,21 +84,37 @@ rev_branch_cvs (cvs_file *cvs, cvs_number *branch)
 	c->parent = head;
 	head = c;
     }
+
     /*
      * Make sure the dates along the branch are well ordered. As we
      * want to preserve current data, push previous versions back to
      * align with newer revisions.
      */
-    for (c = head; (p = c->parent); c = p) {
+    for (c = head, gc = NULL; (p = c->parent); gc = c, c = p) {
 	if (time_compare (p->file->date, c->file->date) > 0)
 	{
 	    fprintf (stderr, "Warning: %s:", cvs->name);
 	    dump_number_file (stderr, " ", &p->file->number);
 	    dump_number_file (stderr, " is newer than", &c->file->number);
-	    fprintf (stderr, ", adjusting\n");
-	    p->file->date = c->file->date;
+
+	    /* Try to catch an odd one out, such as a commit with the
+	     * clock set wrong.  Dont push back all commits for that,
+	     * just fix up the current commit instead of the
+	     * parent. */
+	    if (gc && time_compare (p->file->date, gc->file->date) <= 0)
+	    {
+	      dump_number_file (stderr, ", adjusting", &c->file->number);
+	      c->file->date = p->file->date;
+	      c->date = p->date;
+	    } else {
+	      dump_number_file (stderr, ", adjusting", &c->file->number);
+	      p->file->date = c->file->date;
+	      p->date = c->date;
+	    }
+	    fprintf (stderr, "\n");
 	}
     }
+
     return head;
 }
 
