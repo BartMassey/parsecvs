@@ -177,7 +177,7 @@ rev_commit *create_tree(rev_commit *leader)
 
 void init_tree(int n)
 {
-	git_config(git_default_config);
+	git_config(git_default_config, NULL);
 	strip = n;
 }
 
