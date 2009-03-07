@@ -194,8 +194,10 @@ git_load_author_map (char *filename)
 	    fclose (f);
 	    return 0;
 	}
-	*equal = '\0';
 	full = equal + 1;
+	while (equal > line && equal[-1] == ' ')
+	    equal--;
+	*equal = '\0';
 	name = atom (line);
 	if (git_fullname (name)) {
 	    fprintf (stderr, "%s: (%d) duplicate name '%s' ignored\n",
@@ -213,6 +215,8 @@ git_load_author_map (char *filename)
 	    return 0;
 	}
 	email = angle + 1;
+	while (full < angle && full[0] == ' ')
+	    full++;
         while (angle > full && angle[-1] == ' ')
 	    angle--;
 	*angle = '\0';
