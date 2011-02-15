@@ -37,7 +37,7 @@ Working features:
 	emitting git commands and sending them to a shell, or by linking
 	against a git library and doing everything internally.
 
-	Author translation. Just as git-cvsimport does.
+	Author translation. Just as git cvsimport does.
 	
 
 Missing features:

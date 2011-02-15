@@ -194,8 +194,10 @@ git_load_author_map (char *filename)
 	    fclose (f);
 	    return 0;
 	}
-	*equal = '\0';
 	full = equal + 1;
+	while (equal > line && equal[-1] == ' ')
+	    equal--;
+	*equal = '\0';
 	name = atom (line);
 	if (git_fullname (name)) {
 	    fprintf (stderr, "%s: (%d) duplicate name '%s' ignored\n",
@@ -213,6 +215,8 @@ git_load_author_map (char *filename)
 	    return 0;
 	}
 	email = angle + 1;
+	while (full < angle && full[0] == ' ')
+	    full++;
         while (angle > full && angle[-1] == ' ')
 	    angle--;
 	*angle = '\0';
@@ -336,7 +340,7 @@ git_update_ref (char *sha1, char *type, char *name)
     char    *command;
     int	    n;
 
-    command = git_format_command ("git-update-ref 'refs/%s/%s' '%s'",
+    command = git_format_command ("git update-ref 'refs/%s/%s' '%s'",
 				  type, name, sha1);
     if (!command)
 	return 0;
@@ -376,11 +380,13 @@ git_mktag (rev_commit *commit, char *name)
 		"object %s\n"
 		"type commit\n"
 		"tag %s\n"
-		"tagger %s <%s> %lu +0000\n"
+                "tagger %s <%s> %ld +0000\n"
 		"\n",
 		commit->sha1,
 		name,
-		author->full, author->email, commit->date);
+		author ? author->full : commit->author,
+		author ? author->email : "",
+		commit->date);
     if (rv < 1) {
 	fprintf (stderr, "%s: %s\n", filename, strerror (errno));
 	fclose (f);
@@ -394,7 +400,7 @@ git_mktag (rev_commit *commit, char *name)
 	return NULL;
     }
 
-    command = git_format_command ("git-mktag < '%s'", filename);
+    command = git_format_command ("git mktag < '%s'", filename);
     if (!command) {
 	unlink (filename);
 	return NULL;
@@ -524,7 +530,7 @@ git_end_pack (char *pack_file, char *pack_dir)
 
     if (fclose (packf) == EOF)
 	return;
-    command = git_format_command ("git-pack-objects -q --non-empty .tmp-pack < '%s'", 
+    command = git_format_command ("git pack-objects -q --non-empty .tmp-pack < '%s'", 
 				  pack_file);
     if (!command) {
 	unlink (pack_file);
@@ -558,7 +564,7 @@ git_end_pack (char *pack_file, char *pack_dir)
     free (dst_pack_pack);
     free (dst_pack_idx);
     
-    (void) git_system ("git-prune-packed");
+    (void) git_system ("git prune-packed");
     reprepare_packed_git ();
 }
 
@@ -572,7 +578,7 @@ git_pack_directory (void)
 	char    *git_dir;
 	char	*objects_dir;
 	
-	git_dir = git_system_to_string ("git-rev-parse --git-dir");
+	git_dir = git_system_to_string ("git rev-parse --git-dir");
 	if (!git_dir)
 	    return NULL;
 	objects_dir = git_format_command ("%s/objects", git_dir);
