@@ -1,3 +1,28 @@
+This is my current canonical repo for parsecvs. It merges three
+different Git repos:
+
+  * The latest copy I could find of Keith Packard's original repo.
+  * Kristian Hogsberg's repo from freedesktop.org. This was
+    a fast-forward merge.
+  * Ivan Zakharyaschev's repo from gitorious.org. This had two
+    merge conflicts, which I hope I resolved in sensible ways.
+
+I will commit (no pun intended) to maintaining this version
+as the "one true branch" on github going forward. I will not
+actively look for patches, but if people send them to me I
+will look at getting them in. Further, if it breaks for me,
+I will fix it and push my patches here.
+
+I was in on the original design of parsecvs, and have gotten
+a lot of use out of it over the years. Hopefully it will
+remain useful for years to come.
+
+    Bart Massey
+    bart@cs.pdx.edu
+    2011-02-15
+
+---
+
 	    			Parsecvs
 			   keithp@keithp.com
 	  		      April, 2006
