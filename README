@@ -1,3 +1,11 @@
+Note: Building parsecvs requires a copy of libgit and its
+header files to be on your system. For my Debian system,
+this means pulling the Git source and building it. The
+Makefile variable GITDIR should be aimed at an appropriate
+location.
+
+---
+
 This is my current canonical repo for parsecvs. It merges three
 different Git repos:
 
