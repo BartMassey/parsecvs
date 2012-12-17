@@ -92,7 +92,7 @@ static Hash_entry *find_node(rev_commit *c)
 
 	entry->ce = xcalloc(1, cache_entry_size(len));
 	memcpy(entry->ce->name, real_name, len);
-	entry->ce->ce_flags = create_ce_flags(len, 0);
+	entry->ce->ce_flags = create_ce_flags(len);
 
 	entry->next = table[hash];
 	table[hash] = entry;
@@ -165,7 +165,7 @@ rev_commit *create_tree(rev_commit *leader)
 
 	if (!cache_broken) {
 		if (cache_tree_update(active_cache_tree, active_cache,
-				      active_nr, 0, 0))
+				      0, 0))
 			cache_broken = error("writing tree");
 	}
 
