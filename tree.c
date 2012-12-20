@@ -189,7 +189,6 @@ void discard_tree(void)
 		Hash_entry *entry = table[i];
 		while (entry) {
 			Hash_entry *next = entry->next;
-			free(entry->ce);
 			free(entry->name);
 			free(entry);
 			entry = next;
