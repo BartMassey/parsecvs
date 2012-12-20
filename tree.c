@@ -165,7 +165,7 @@ rev_commit *create_tree(rev_commit *leader)
 
 	if (!cache_broken) {
 		if (cache_tree_update(active_cache_tree, active_cache,
-				      active_nr, 0, 0))
+				      active_nr, 0))
 			cache_broken = error("writing tree");
 	}
 
