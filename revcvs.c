@@ -133,11 +133,10 @@ static void
 rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 {
     rev_ref	*trunk = NULL;
-    rev_ref	*vendor = NULL, **vendor_p = NULL;
+    rev_ref	*vendor = NULL;
     rev_ref	*h;
     rev_commit	*t, **tp, *v, **vp;
     rev_commit	*vlast;
-    rev_commit	*tc;
     rev_ref	**h_p;
     int		delete_head;
 
@@ -154,13 +153,11 @@ rev_list_patch_vendor_branch (rev_list *rl, cvs_file *cvs)
 	     * branch, and should be on their own branch
 	     */
 	    vendor = h;
-	    vendor_p = h_p;
 	    t = trunk->commit;
 	    v = vendor->commit;
 	    for (vlast = vendor->commit; vlast; vlast = vlast->parent)
 		if (!vlast->parent)
 		    break;
-	    tc = NULL;
 	    tp = &trunk->commit;
 	    /*
 	     * Find the latest trunk revision older than
@@ -564,15 +561,6 @@ cvs_symbol_compare (cvs_symbol *a, cvs_symbol *b)
     if (!b)
 	return 1;
     return cvs_number_compare (&a->number, &b->number);
-}
-
-static void
-rev_list_dump_ref_parents (FILE *f, rev_ref *h)
-{
-    if (h) {
-	rev_list_dump_ref_parents (f, h->parent);
-	fprintf (f, "%s > ", h->name);
-    }
 }
 
 static void
