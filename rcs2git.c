@@ -834,6 +834,16 @@ static void enter_branch(Node *node)
 	depth++;
 }
 
+static void git_generation_hook(Node *node, void *buf, unsigned long len)
+{
+    char sha1_ascii[41];
+    uchar sha1[20];
+
+    write_sha1_file(buf, len, "blob", sha1);
+    strncpy(sha1_ascii, sha1_to_hex(sha1), 41);
+    node->file->sha1 = atom(sha1_ascii);
+}
+
 void generate_files(cvs_file *cvs)
 {
 	int expand_override_enabled = 1;
@@ -850,19 +860,14 @@ void generate_files(cvs_file *cvs)
 	process_delta(node, ENTER);
 	while (1) {
 		if (node->file) {
-			char sha1_ascii[41];
-			uchar sha1[20];
 			out_buffer_init();
 			if (expandflag)
 				finishedit();
 			else
 				snapshotedit();
-			write_sha1_file(out_buffer_text(),
-					out_buffer_count(),
-					"blob", sha1);
+			git_generation_hook(node, out_buffer_text(),
+					    out_buffer_count());
 			out_buffer_cleanup();
-			strncpy(sha1_ascii, sha1_to_hex(sha1), 41);
-			node->file->sha1 = atom(sha1_ascii);
 		}
 		node = node->down;
 		if (node) {
