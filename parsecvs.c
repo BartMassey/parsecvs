@@ -916,6 +916,7 @@ main (int argc, char **argv)
 	    dump_splits (rl);
 	    break;
 	case ExecuteGit:
+	    load_author_map ("Authors");
 	    git_rev_list_commit (rl, strip);
 	    break;
 	}
@@ -932,6 +933,6 @@ main (int argc, char **argv)
     discard_tree ();
     rev_free_dirs ();
     rev_commit_cleanup ();
-    git_free_author_map ();
+    free_author_map ();
     return err;
 }

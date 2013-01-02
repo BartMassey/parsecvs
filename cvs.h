@@ -179,6 +179,17 @@ typedef enum _rev_execution_mode {
     ExecuteGit, ExecuteGraph, ExecuteSplits
 } rev_execution_mode;
 
+typedef struct _cvs_author {
+    struct _cvs_author	*next;
+    char		*name;
+    char		*full;
+    char		*email;
+} cvs_author;
+
+cvs_author * fullname (char *);
+
+int load_author_map (char *);
+
 extern rev_execution_mode	rev_mode;
 
 extern cvs_file     *this_file;
@@ -411,7 +422,7 @@ char *
 git_format_command (const char *fmt, ...);
 
 void
-git_free_author_map (void);
+free_author_map (void);
 
 /*
  * rev - string representation of the rcs revision number eg. 1.1

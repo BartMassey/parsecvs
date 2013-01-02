@@ -11,7 +11,7 @@ LFLAGS=-l
 
 OBJS=gram.o lex.o parsecvs.o cvsutil.o revdir.o \
 	revlist.o atom.o revcvs.o git.o gitutil.o rcs2git.o \
-	nodehash.o tags.o tree.o
+	nodehash.o tags.o tree.o authormap.o
 
 parsecvs: $(OBJS)
 	cc $(CFLAGS) -o $@ $(OBJS) $(LIBS)
