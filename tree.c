@@ -165,8 +165,8 @@ rev_commit *create_tree(rev_commit *leader)
 
 	if (!cache_broken) {
 		if (cache_tree_update(active_cache_tree, active_cache,
-				      0, 0))
-			cache_broken = error("writing tree");
+				      active_nr, 0))
+		    cache_broken = error("writing tree");
 	}
 
 	if (!cache_broken)
@@ -189,7 +189,6 @@ void discard_tree(void)
 		Hash_entry *entry = table[i];
 		while (entry) {
 			Hash_entry *next = entry->next;
-			free(entry->ce);
 			free(entry->name);
 			free(entry);
 			entry = next;
