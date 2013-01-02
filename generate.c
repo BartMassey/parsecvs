@@ -552,7 +552,7 @@ static void keyreplace(enum markers marker)
 
 	if (marker == Log) {
 		/*
-		 * "Closing delimiter is processed again in explandline"
+		 * "Closing delimiter is processed again in expandline"
 		 * does not apply here, since we consume the input.
 		 */
 		if (exp != EXPANDKV)
@@ -834,17 +834,7 @@ static void enter_branch(Node *node)
 	depth++;
 }
 
-static void git_generation_hook(Node *node, void *buf, unsigned long len)
-{
-    char sha1_ascii[41];
-    uchar sha1[20];
-
-    write_sha1_file(buf, len, "blob", sha1);
-    strncpy(sha1_ascii, sha1_to_hex(sha1), 41);
-    node->file->sha1 = atom(sha1_ascii);
-}
-
-void generate_files(cvs_file *cvs)
+void generate_files(cvs_file *cvs, void (*hook)(Node *node, void *buf, unsigned long len))
 {
 	int expand_override_enabled = 1;
 	int expandflag = Gexpand < EXPANDKO;
@@ -865,8 +855,7 @@ void generate_files(cvs_file *cvs)
 				finishedit();
 			else
 				snapshotedit();
-			git_generation_hook(node, out_buffer_text(),
-					    out_buffer_count());
+			hook(node, out_buffer_text(), out_buffer_count());
 			out_buffer_cleanup();
 		}
 		node = node->down;

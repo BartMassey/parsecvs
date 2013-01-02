@@ -403,6 +403,9 @@ rev_list_validate (rev_list *rl);
 
 #define time_compare(a,b) ((long) (a) - (long) (b))
 
+void 
+git_generation_hook(Node *node, void *buf, unsigned long len);
+
 int
 git_rev_list_commit (rev_list *rl, int strip);
 
@@ -430,7 +433,7 @@ free_author_map (void);
  * sha1_hex - a buffer of at least 41 characterrs to receive
  *           the ascii hexidecimal id of the resulting object
  */
-void generate_files(cvs_file *cvs);
+void generate_files(cvs_file *cvs, void (*hook)(Node *node, void *buf, unsigned long len));
 
 rev_dir **
 rev_pack_files (rev_file **files, int nfiles, int *ndr);
