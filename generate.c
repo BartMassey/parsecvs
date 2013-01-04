@@ -820,10 +820,6 @@ static void snapshotedit(void)
 		snapshotline(*p++);
 }
 
-extern int write_sha1_file(	void *buf, unsigned long len,
-				const char *type, uchar *return_sha1);
-extern char *sha1_to_hex(const uchar *sha1);
-
 static void enter_branch(Node *node)
 {
 	uchar **p = xmalloc(sizeof(uchar *) * stack[depth].linemax);
