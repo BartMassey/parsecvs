@@ -631,6 +631,8 @@ rev_list_cvs (cvs_file *cvs)
 	t = rev_list_add_head (rl, trunk, atom ("master"), 2);
 	t->number = trunk_number;
     }
+    else
+	fprintf(stderr, "warning - no master branch generated\n");
     /*
      * Search for other branches
      */
