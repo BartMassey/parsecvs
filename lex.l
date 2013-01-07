@@ -22,6 +22,8 @@
 static char *
 parse_data (int strip);
 
+static void fast_export_sanitize(void);
+
 #define YY_INPUT(buf,result,max_size) { \
     int c = getc (yyin); \
     result = (c == EOF) ? YY_NULL : (buf[0] = c, 1); \
@@ -52,7 +54,8 @@ parse_data (int strip);
 					BEGIN(INITIAL);
 					return TEXT_DATA;
 				}
-<CONTENT>[-a-zA-Z_+%][-a-zA-Z_0-9+/%.]* {
+<CONTENT>[-a-zA-Z_+%][-a-zA-Z_0-9+/%.~^\\*?]* {
+					fast_export_sanitize();
 					yylval.s = atom (yytext);
 					return NAME;
 				}
@@ -176,6 +179,32 @@ lex_date (cvs_number *n)
 	    fprintf (stderr, "\n");
 	}
 	return d;
+}
+
+void static fast_export_sanitize(void)
+{
+    char *sp, *tp;
+
+#define SUFFIX(a, s)	(strcmp(a + strlen(a) - strlen(s), s) == 0) 
+#define BADCHARS	"~^\\*?"
+    for (sp = tp = yytext; *sp; sp++) {
+	if (isgraph(*sp) && strchr(BADCHARS, *sp) == NULL) {
+	    *tp++ = *sp;
+	    if (SUFFIX(yytext, "@{") || SUFFIX(yytext, "..")) {
+		fprintf(stderr,
+			"%s: (%d) tag or branch name %s is ill-formed.\n", 
+			yyfilename, yylineno, yytext);
+		exit(1);
+	    }
+	}
+    }
+    *tp = '\0';
+    if (strlen(yytext) == 0) {
+	fprintf(stderr,
+		"%s: (%d) ag or branch name was empty after sanitization.\n", 
+		yyfilename, yylineno);
+	exit(1);
+    }
 }
 
 char *
