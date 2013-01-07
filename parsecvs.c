@@ -792,10 +792,11 @@ main (int argc, char **argv)
 	    { "help",		    0, 0, 'h' },
 	    { "version",	    0, 0, 'V' },
 	    { "commit-time-window", 1, 0, 'w' },
+            { "graph",              0, 0, 'g' },
             { "log-command",        1, 0, 'l' },
             { "autopack",           1, 0, 'p' },
 	};
-	int c = getopt_long(argc, argv, "+hVw:l:p:", options, NULL);
+	int c = getopt_long(argc, argv, "+hVw:l:p:g", options, NULL);
 	if (c < 0)
 	    break;
 	switch (c) {
@@ -804,6 +805,7 @@ main (int argc, char **argv)
 		   "Parse RCS files and populate git repository.\n\n"
                    "Mandatory arguments to long options are mandatory for short options too.\n"
                    " -h --help                       This help\n"
+		   " -g --graph                      Dump the commit graph\n"
                    " -l --log-command=COMMAND        Call COMMAND to handle changelogs\n"
                    " -p --autopack=NUM               Auto-pack for every NUM objects. 0 disables.\n"
 
@@ -811,6 +813,9 @@ main (int argc, char **argv)
                    " -w --commit-time-window=WINDOW  Time window for commits\n\n"
 		   "Example: find -name '*,v' | parsecvs -l edit-change-log -p 1024\n");
 	    return 0;
+	case 'g':
+	    rev_mode = ExecuteGraph;
+	    break;
         case 'l':
             log_command = strdup (optarg);
             break;
