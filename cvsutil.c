@@ -24,6 +24,7 @@
 
 int
 cvs_is_head (cvs_number *n)
+/* is a specified CVS revision a branch head? */
 {
     assert (n->c <= CVS_MAX_DEPTH); 
     return (n->c > 2 && (n->c & 1) == 0 && n->n[n->c-2] == 0);
@@ -31,6 +32,7 @@ cvs_is_head (cvs_number *n)
 
 int
 cvs_same_branch (cvs_number *a, cvs_number *b)
+/* are two specified CVS revisions on the same branch? */
 {
     cvs_number	t;
     int		i;
@@ -73,6 +75,7 @@ cvs_same_branch (cvs_number *a, cvs_number *b)
 
 int
 cvs_number_compare (cvs_number *a, cvs_number *b)
+/* total ordering for CVS revision numbers */
 {
     int n = min (a->c, b->c);
     int i;
@@ -92,6 +95,7 @@ cvs_number_compare (cvs_number *a, cvs_number *b)
 
 int
 cvs_number_compare_n (cvs_number *a, cvs_number *b, int l)
+/* total ordering for CVS revision number prefixes */
 {
     int n = min (l, min (a->c, b->c));
     int i;
@@ -111,6 +115,7 @@ cvs_number_compare_n (cvs_number *a, cvs_number *b, int l)
 
 int
 cvs_is_branch_of (cvs_number *trunk, cvs_number *branch)
+/* is the specified branch rooted at the specified trunk revision */
 {
     cvs_number	n;
 
@@ -124,6 +129,7 @@ cvs_is_branch_of (cvs_number *trunk, cvs_number *branch)
 
 int
 cvs_number_degree (cvs_number *n)
+/* what is the degree of branchiness of the specified revision? */
 {
     cvs_number	four;
 
@@ -141,6 +147,7 @@ cvs_number_degree (cvs_number *n)
 
 cvs_number
 cvs_previous_rev (cvs_number *n)
+/* return the revision previous to a specified one */
 {
     cvs_number	p;
     int		i;
@@ -158,6 +165,7 @@ cvs_previous_rev (cvs_number *n)
 
 cvs_number
 cvs_master_rev (cvs_number *n)
+/* what is the master branch revision from which the specified one derives? */
 {
     cvs_number p;
 
@@ -166,12 +174,10 @@ cvs_master_rev (cvs_number *n)
     return p;
 }
 
-/*
- * Find the newest revision along a specific branch
- */
 
 cvs_number
 cvs_branch_head (cvs_file *f, cvs_number *branch)
+/* find the newest revision along a specified branch */
 {
     cvs_number	n;
     cvs_version	*v;
@@ -192,6 +198,7 @@ cvs_branch_head (cvs_file *f, cvs_number *branch)
 
 cvs_number
 cvs_branch_parent (cvs_file *f, cvs_number *branch)
+/* return the parent branch of a specified branch */
 {
     cvs_number	n;
     cvs_version	*v;
@@ -209,6 +216,7 @@ cvs_branch_parent (cvs_file *f, cvs_number *branch)
 
 Node *
 cvs_find_version (cvs_file *cvs, cvs_number *number)
+/* find the file version associated with the specified CVS release number */
 {
     cvs_version *cv;
     cvs_version	*nv = NULL;
@@ -224,6 +232,7 @@ cvs_find_version (cvs_file *cvs, cvs_number *number)
 
 int
 cvs_is_trunk (cvs_number *number)
+/* does the specified CVS release number describe a trunk revision? */
 {
     return number->c == 2;
 }
@@ -233,6 +242,7 @@ cvs_is_trunk (cvs_number *number)
  */
 int
 cvs_is_vendor (cvs_number *number)
+/* is the specified CVS release number on a vendor branch? */
 {
     if (number->c != 4) return 0;
     if (number->n[0] != 1)
@@ -246,6 +256,7 @@ cvs_is_vendor (cvs_number *number)
 
 static void
 cvs_symbol_free (cvs_symbol *symbol)
+/* discard a symbol and its storage */
 {
     cvs_symbol	*s;
 
@@ -257,6 +268,7 @@ cvs_symbol_free (cvs_symbol *symbol)
 
 static void
 cvs_branch_free (cvs_branch *branch)
+/* discard a branch and its storage */
 {
     cvs_branch	*b;
 
@@ -268,6 +280,7 @@ cvs_branch_free (cvs_branch *branch)
 
 static void
 cvs_version_free (cvs_version *version)
+/* discard a version and its storage */
 {
     cvs_version	*v;
 
@@ -280,6 +293,7 @@ cvs_version_free (cvs_version *version)
 
 static void
 cvs_patch_free (cvs_patch *patch)
+/* discard a patch and its storage */
 {
     cvs_patch	*v;
 
@@ -292,6 +306,7 @@ cvs_patch_free (cvs_patch *patch)
 
 void
 cvs_file_free (cvs_file *cvs)
+/* discard a file object and its storage */
 {
     cvs_symbol_free (cvs->symbols);
     cvs_version_free (cvs->versions);
@@ -302,6 +317,7 @@ cvs_file_free (cvs_file *cvs)
 
 char *
 cvs_number_string (cvs_number *n, char *str)
+/* return the human-readable representation of a CVS release number */
 {
     char    r[11];
     int	    i;
@@ -315,3 +331,5 @@ cvs_number_string (cvs_number *n, char *str)
     }
     return str;
 }
+
+/* end */

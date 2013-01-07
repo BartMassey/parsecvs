@@ -1,3 +1,7 @@
+/*
+ * Manage a map from short CVS-syle names to DVCS-style name/email pairs.
+ */
+
 #include "cvs.h"
 
 #define AUTHOR_HASH 1021
@@ -6,6 +10,7 @@ static cvs_author	*author_buckets[AUTHOR_HASH];
 
 cvs_author *
 fullname (char *name)
+/* return the fullname structure corresponding to a specified shortname */
 {
     cvs_author	**bucket = &author_buckets[((unsigned long) name) % AUTHOR_HASH];
     cvs_author	*a;
@@ -18,6 +23,7 @@ fullname (char *name)
 
 void
 free_author_map (void)
+/* discard author-map information */
 {
     int	h;
 
@@ -34,6 +40,7 @@ free_author_map (void)
 
 int
 load_author_map (char *filename)
+/* load author-map information from a file */
 {
     char    line[10240];
     char    *equal;
@@ -104,3 +111,4 @@ load_author_map (char *filename)
     return 1;
 }
 
+/* end */

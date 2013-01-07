@@ -8,6 +8,7 @@ static Tag *table[4096];
 Tag *all_tags;
 
 static int tag_hash(char *name)
+/* return the hash code for a specified tag */ 
 {
 	uintptr_t l = (uintptr_t)name;
 	int res = 0;
@@ -19,6 +20,7 @@ static int tag_hash(char *name)
 }
 
 static Tag *find_tag(char *name)
+/* look up a tag by name */
 {
 	int hash = tag_hash(name);
 	Tag *tag;
@@ -34,8 +36,8 @@ static Tag *find_tag(char *name)
 	return tag;
 }
 
-/* the last argument is a sham */
 void tag_commit(rev_commit *c, char *name)
+/* add a commit to the list associated with a named tag (this_file implicit) */
 {
 	Tag *tag = find_tag(name);
 	if (tag->last == this_file->name) {
@@ -55,6 +57,7 @@ void tag_commit(rev_commit *c, char *name)
 }
 
 rev_commit **tagged(Tag *tag)
+/* return an allocated list of of pointers to commits with the specified tag */
 {
 	rev_commit **v = NULL;
 
@@ -73,6 +76,7 @@ rev_commit **tagged(Tag *tag)
 }
 
 void discard_tags(void)
+/* discard all tag storage */
 {
 	Tag *tag = all_tags;
 	all_tags = NULL;
@@ -88,3 +92,5 @@ void discard_tags(void)
 		tag = p;
 	}
 }
+
+/* end */

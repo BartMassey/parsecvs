@@ -26,6 +26,7 @@ static int name_hash(char *name)
 }
 
 static char *convert(char *name)
+/* convert the name of a CVS master to a corresponding "plain" name */
 {
 	static char path[PATH_MAX + 1];
 	char *end, *p, *q;
@@ -195,3 +196,5 @@ void discard_tree(void)
 		}
 	}
 }
+
+/* end */

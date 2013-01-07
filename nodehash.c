@@ -6,6 +6,7 @@ static int entries;
 Node *head_node;
 
 static Node *hash_number(cvs_number *n)
+/* look up the node associated with a specifued CVS release number */
 {
 	cvs_number key = *n;
 	Node *p;
@@ -38,6 +39,7 @@ static Node *hash_number(cvs_number *n)
 }
 
 static Node *find_parent(cvs_number *n, int depth)
+/* find the parent node of the specified prefix of a release number */
 {
 	cvs_number key = *n;
 	Node *p;
@@ -60,6 +62,7 @@ static Node *find_parent(cvs_number *n, int depth)
 }
 
 void hash_version(cvs_version *v)
+/* intern a version onto the node list */
 {
 	char name[CVS_MAX_REV_LEN];
 	v->node = hash_number(&v->number);
@@ -76,6 +79,7 @@ void hash_version(cvs_version *v)
 }
 
 void hash_patch(cvs_patch *p)
+/* intern a patch onto the node list */
 {
 	char name[CVS_MAX_REV_LEN];
 	p->node = hash_number(&p->number);
@@ -92,11 +96,13 @@ void hash_patch(cvs_patch *p)
 }
 
 void hash_branch(cvs_branch *b)
+/* intern a branch onto the node list */
 {
 	b->node = hash_number(&b->number);
 }
 
 void clean_hash(void)
+/* discard the node list */
 {
 	int i;
 	for (i = 0; i < 4096; i++) {
@@ -113,6 +119,7 @@ void clean_hash(void)
 }
 
 static int compare(const void *a, const void *b)
+/* total ordering of nodes by associated CVS revision number */
 {
 	Node *x = *(Node * const *)a, *y = *(Node * const *)b;
 	int n, i;
@@ -162,6 +169,7 @@ static void try_pair(Node *a, Node *b)
 }
 
 void build_branches(void)
+/* set head_node global and build branch links in the node list */ 
 {
 	Node **v = malloc(sizeof(Node *) * entries), **p = v;
 	int i;
@@ -193,3 +201,5 @@ void build_branches(void)
 	}
 	free(v);
 }
+
+/* end */

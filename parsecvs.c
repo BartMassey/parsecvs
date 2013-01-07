@@ -38,6 +38,7 @@ const char *log_command;
     
 void
 dump_number_file (FILE *f, char *name, cvs_number *number)
+/* dump a filename/CVS-version pair to a specified file pointer */
 {
     int i;
     fprintf (f, "%s ", name);
@@ -51,12 +52,14 @@ dump_number_file (FILE *f, char *name, cvs_number *number)
 
 void
 dump_number (char *name, cvs_number *number)
+/* dump a filename/CVS-version pair to standard output */
 {
     dump_number_file (stdout, name, number);
 }
 
 void
 dump_symbols (char *name, cvs_symbol *symbols)
+/* dump a list of symbols and their CVS-version values to standard output */
 {
     printf ("%s\n", name);
     while (symbols) {
@@ -69,6 +72,7 @@ dump_symbols (char *name, cvs_symbol *symbols)
 
 void
 dump_branches (char *name, cvs_branch *branches)
+/* dump a list of branches and their CVS-version roots to standard output */
 {
     printf ("%s", name);
     while (branches) {
@@ -80,6 +84,7 @@ dump_branches (char *name, cvs_branch *branches)
 
 void
 dump_versions (char *name, cvs_version *versions)
+/* dump metadata of a list of versions to standard output */
 {
     printf ("%s\n", name);
     while (versions) {
@@ -97,6 +102,7 @@ dump_versions (char *name, cvs_version *versions)
 
 void
 dump_patches (char *name, cvs_patch *patches)
+/* dump metadata of a list of patches to standard output */
 {
     printf ("%s\n", name);
     while (patches) {
@@ -109,6 +115,7 @@ dump_patches (char *name, cvs_patch *patches)
 
 void
 dump_file (cvs_file *file)
+/* dump the patch list of a given file to standard output */
 {
     dump_number ("head", &file->head);  printf ("\n");
     dump_number ("branch", &file->branch); printf ("\n");
@@ -713,6 +720,7 @@ time_t	time_now;
 
 static int
 strcommon (char *a, char *b)
+/* return the length of the common prefix of strings a and b */
 {
     int	c = 0;
     

@@ -51,7 +51,7 @@ crc32 (char *string)
     return ~crc32;
 }
 
-#define HASH_SIZE	9013
+#define HASH_SIZE	9013	/* prime for netterr hash performance */
 
 typedef struct _hash_bucket {
     struct _hash_bucket	*next;
@@ -63,6 +63,7 @@ static hash_bucket_t	*buckets[HASH_SIZE];
 
 char *
 atom (char *string)
+/* intern a string, avoiding having separate storage for duplicate copies */
 {
     crc32_t		crc = crc32 (string);
     hash_bucket_t	**head = &buckets[crc % HASH_SIZE];
@@ -84,6 +85,7 @@ atom (char *string)
 
 void
 discard_atoms (void)
+/* empty all string buckets */
 {
     hash_bucket_t	**head, *b;
     int			i;
@@ -94,3 +96,5 @@ discard_atoms (void)
 	    free (b);
 	}
 }
+
+/* end */
