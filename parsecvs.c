@@ -879,8 +879,9 @@ main (int argc, char **argv)
 	last = fn->file;
 	nfile++;
     }
-    if (git_system ("git init --shared") != 0)
-	exit (1);
+    if (rev_mode == ExecuteGit)
+	if (git_system ("git init --shared") != 0)
+	    exit (1);
     load_total_files = nfile;
     load_current_file = 0;
     while (fn_head) {
