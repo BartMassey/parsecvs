@@ -204,4 +204,5 @@ text		: TEXT TEXT_DATA
 void yyerror (char *msg)
 {
 	fprintf (stderr, "parse error %s at %s\n", msg, lex_text ());
+	exit(1);
 }
