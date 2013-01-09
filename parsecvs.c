@@ -33,6 +33,7 @@ rev_execution_mode rev_mode = ExecuteGit;
 int elide = 0;
 int difffiles = 0;
 int allfiles = 1;
+int verbose = 0;
 
 const char *log_command;
     
@@ -791,12 +792,13 @@ main (int argc, char **argv)
 	static struct option options[] = {
 	    { "help",		    0, 0, 'h' },
 	    { "version",	    0, 0, 'V' },
+	    { "verbose",	    0, 0, 'v' },
 	    { "commit-time-window", 1, 0, 'w' },
             { "graph",              0, 0, 'g' },
             { "log-command",        1, 0, 'l' },
             { "autopack",           1, 0, 'p' },
 	};
-	int c = getopt_long(argc, argv, "+hVw:l:p:g", options, NULL);
+	int c = getopt_long(argc, argv, "+hVw:l:p:gv", options, NULL);
 	if (c < 0)
 	    break;
 	switch (c) {
@@ -822,6 +824,11 @@ main (int argc, char **argv)
         case 'p':
             obj_pack_time = atoi (optarg);
             break;
+	case 'v':
+	    verbose++;
+	    extern int yydebug;
+	    yydebug = 1;
+	    break;
 	case 'V':
 	    printf("parsecvs version 0.1\n"
 		   "\n"
@@ -890,6 +897,8 @@ main (int argc, char **argv)
 	fn = fn_head;
 	fn_head = fn_head->next;
 	++load_current_file;
+	if (verbose)
+	    fprintf(stderr, "parsecvs: processing %s\n", fn->file);
 	load_status (fn->file + strip);
 	rl = rev_list_file (fn->file, &nversions);
 	if (rl->watch)

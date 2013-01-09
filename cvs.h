@@ -126,6 +126,8 @@ extern time_t	time_now;
 
 extern int commit_time_window;
 
+extern int verbose;
+
 typedef struct _rev_commit {
     struct _rev_commit	*parent;
     char		tail;
