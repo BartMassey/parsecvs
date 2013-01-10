@@ -21,11 +21,10 @@
 
 static int mark;
 
-int
+void
 export_init(void)
 {
     mark = 0;
-    return 0;
 }
 
 static char *sha1_to_hex(const unsigned char *sha1)
@@ -47,7 +46,7 @@ static char *sha1_to_hex(const unsigned char *sha1)
 }
 
 void 
-export_generation_hook(Node *node, void *buf, unsigned long len)
+export_blob(Node *node, void *buf, unsigned long len)
 {
     char sha1_ascii[41];
     unsigned char sha1[20];
@@ -68,7 +67,7 @@ export_generation_hook(Node *node, void *buf, unsigned long len)
 }
 
 static int
-git_filename (rev_file *file, char *name, int strip)
+export_filename (rev_file *file, char *name, int strip)
 {
     char    *attic;
     int	    l;
@@ -92,7 +91,7 @@ git_filename (rev_file *file, char *name, int strip)
 #define GIT_CVS_DIR ".git-cvs"
 
 static char *
-git_cvs_file (char *base)
+export_cvs_file (char *base)
 {
     char    *filename_buf = NULL;
     char    *filename;
@@ -114,28 +113,28 @@ git_cvs_file (char *base)
     return filename;
 }
 
-static int git_total_commits;
-static int git_current_commit;
-static char *git_current_head;
+static int export_total_commits;
+static int export_current_commit;
+static char *export_current_head;
 
 #define STATUS	stderr
 #define PROGRESS_LEN	20
 
 static void
-git_status (void)
+export_status (void)
 {
-    int	spot = git_current_commit * PROGRESS_LEN / git_total_commits;
+    int	spot = export_current_commit * PROGRESS_LEN / export_total_commits;
     int	s;
 
-    fprintf (STATUS, "Save: %35.35s ", git_current_head);
+    fprintf (STATUS, "Save: %35.35s ", export_current_head);
     for (s = 0; s < PROGRESS_LEN + 1; s++)
 	putc (s == spot ? '*' : '.', STATUS);
-    fprintf (STATUS, " %5d of %5d\n", git_current_commit, git_total_commits);
+    fprintf (STATUS, " %5d of %5d\n", export_current_commit, export_total_commits);
     fflush (STATUS);
 }
 
 static void
-git_commit(rev_commit *commit, char *branch)
+export_commit(rev_commit *commit, char *branch)
 {
     cvs_author *author;
     char *full;
@@ -163,17 +162,17 @@ git_commit(rev_commit *commit, char *branch)
 }
 
 static int
-git_update_ref (char *sha1, char *type, char *name)
+export_update_ref (char *sha1, char *type, char *name)
 {
 #if 0
     char    *command;
     int	    n;
 
-    command = git_format_command ("git update-ref 'refs/%s/%s' '%s'",
+    command = export_format_command ("git update-ref 'refs/%s/%s' '%s'",
 				  type, name, sha1);
     if (!command)
 	return 0;
-    n = git_system (command);
+    n = export_system (command);
     free (command);
     if (n != 0)
 	return 0;
@@ -182,7 +181,7 @@ git_update_ref (char *sha1, char *type, char *name)
 }
 
 static void
-git_tag (rev_commit *commit, char *name)
+export_tag (rev_commit *commit, char *name)
 {
     cvs_author *author;
 
@@ -205,24 +204,24 @@ git_tag (rev_commit *commit, char *name)
 }
 
 static int
-git_commit_recurse (rev_ref *head, rev_commit *commit, int strip)
+export_commit_recurse (rev_ref *head, rev_commit *commit, int strip)
 {
     Tag *t;
     
     if (commit->parent && !commit->tail)
-	    if (!git_commit_recurse (head, commit->parent, strip))
+	    if (!export_commit_recurse (head, commit->parent, strip))
 		return 0;
-    ++git_current_commit;
-    git_status ();
-    git_commit (commit, head->name);
+    ++export_current_commit;
+    export_status ();
+    export_commit (commit, head->name);
     for (t = all_tags; t; t = t->next)
 	if (t->commit == commit)
-	    git_tag (commit, t->name);
+	    export_tag (commit, t->name);
     return 1;
 }
 
 static int
-git_ncommit (rev_list *rl)
+export_ncommit (rev_list *rl)
 {
     rev_ref	*h;
     rev_commit	*c;
@@ -241,17 +240,17 @@ git_ncommit (rev_list *rl)
 }
 
 int
-git_rev_list_commit (rev_list *rl, int strip)
+export_commits (rev_list *rl, int strip)
 {
     rev_ref *h;
 
-    git_total_commits = git_ncommit (rl);
-    git_current_commit = 0;
+    export_total_commits = export_ncommit (rl);
+    export_current_commit = 0;
     for (h = rl->heads; h; h = h->next) 
     {
-	git_current_head = h->name;
+	export_current_head = h->name;
 	if (!h->tail)
-	    if (!git_commit_recurse (h, h->commit, strip))
+	    if (!export_commit_recurse (h, h->commit, strip))
 		return 0;
 	printf("reset refs/heads %s\nmark :%d\n\n", h->name, h->commit->mark);
     }

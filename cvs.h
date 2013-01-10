@@ -410,25 +410,13 @@ rev_list_validate (rev_list *rl);
 #define time_compare(a,b) ((long) (a) - (long) (b))
 
 void 
-export_generation_hook(Node *node, void *buf, unsigned long len);
+export_blob(Node *node, void *buf, unsigned long len);
 
-int
+void
 export_init(void);
 
 int
-git_rev_list_commit (rev_list *rl, int strip);
-
-int
-git_system (char *command);
-
-char *
-git_system_to_string (char *command);
-
-int
-git_string_to_system (char *command, char *string);
-
-char *
-git_format_command (const char *fmt, ...);
+export_commits (rev_list *rl, int strip);
 
 void
 free_author_map (void);

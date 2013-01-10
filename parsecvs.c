@@ -852,8 +852,7 @@ main (int argc, char **argv)
 	nfile++;
     }
     if (rev_mode == ExecuteExport)
-	if (export_init() != 0)
-	    exit (1);
+	export_init();
     load_total_files = nfile;
     load_current_file = 0;
     while (fn_head) {
@@ -885,7 +884,7 @@ main (int argc, char **argv)
 	    break;
 	case ExecuteExport:
 	    load_author_map ("Authors");
-	    git_rev_list_commit (rl, strip);
+	    export_commits (rl, strip);
 	    break;
 	}
     }
