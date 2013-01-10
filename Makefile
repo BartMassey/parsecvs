@@ -1,4 +1,8 @@
 # Makefile for parsecvs
+#
+# Build requirements: A C compiler, yacc, lex, and asciidoc.
+
+VERSION=0.2
 
 GCC_WARNINGS1=-Wall -Wpointer-arith -Wstrict-prototypes
 GCC_WARNINGS2=-Wmissing-prototypes -Wmissing-declarations
@@ -27,7 +31,26 @@ lex.o: lex.c
 
 y.tab.h: gram.c
 
+.SUFFIXES: .html .asc .txt .1
+
+# Requires asciidoc
+.asc.1:
+	a2x --doctype manpage --format manpage $*.asc
+.asc.html:
+	a2x --doctype manpage --format xhtml $*.asc
+
 clean:
-	rm -f $(OBJS) y.tab.h gram.c lex.c parsecvs
+	rm -f $(OBJS) y.tab.h gram.c lex.c parsecvs docbook-xsl.css
 install:
 	cp parsecvs ${HOME}/bin
+
+SOURCES = Makefile *.[ch]
+DOCS = README COPYING NEWS parsecvs.asc
+ALL =  $(SOURCES) $(DOCS)
+parsecvs-$(VERSION).tar.gz: $(ALL)
+	tar --transform='s:^:parsecvs-$(VERSION)/:' --show-transformed-names -cvzf parsecvs-$(VERSION).tar.gz $(ALL)
+
+dist: parsecvs-$(VERSION).tar.gz
+
+release: parsecvs-$(VERSION).tar.gz parsecvs.html
+	shipper -u -m -t; make clean; rm SHIPPER.FREECODE

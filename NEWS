@@ -1,0 +1,7 @@
+		parsecvs project news
+
+0.1 @ 2006-03-09
+    Original code by Keith Packard.
+
+0.2 @
+    Code revamped to emit a fast-export stream. Manual page added.
