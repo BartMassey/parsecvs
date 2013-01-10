@@ -21,8 +21,14 @@
 #include "commit.h"
 #include "utf8.h"
 
+int
+export_init(void)
+{
+    return git_system("git init --shared");
+}
+
 void 
-git_generation_hook(Node *node, void *buf, unsigned long len)
+export_generation_hook(Node *node, void *buf, unsigned long len)
 {
     char sha1_ascii[41];
     unsigned char sha1[20];

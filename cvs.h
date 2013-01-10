@@ -178,7 +178,7 @@ typedef struct _rev_diff {
 } rev_diff;
 
 typedef enum _rev_execution_mode {
-    ExecuteGit, ExecuteGraph, ExecuteSplits
+    ExecuteExport, ExecuteGraph, ExecuteSplits
 } rev_execution_mode;
 
 typedef struct _cvs_author {
@@ -406,7 +406,10 @@ rev_list_validate (rev_list *rl);
 #define time_compare(a,b) ((long) (a) - (long) (b))
 
 void 
-git_generation_hook(Node *node, void *buf, unsigned long len);
+export_generation_hook(Node *node, void *buf, unsigned long len);
+
+int
+export_init(void);
 
 int
 git_rev_list_commit (rev_list *rl, int strip);

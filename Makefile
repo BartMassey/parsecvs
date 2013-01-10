@@ -15,7 +15,7 @@ YFLAGS=-d -l
 LFLAGS=-l
 
 OBJS=gram.o lex.o parsecvs.o cvsutil.o revdir.o \
-	revlist.o atom.o revcvs.o generate.o git.o gitutil.o \
+	revlist.o atom.o revcvs.o generate.o export.o gitutil.o \
 	nodehash.o tags.o tree.o authormap.o
 
 parsecvs: $(OBJS)

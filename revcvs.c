@@ -647,7 +647,7 @@ rev_list_cvs (cvs_file *cvs)
 	    rev_list_add_head (rl, branch, NULL, 0);
 	}
     }
-    generate_files(cvs, git_generation_hook);
+    generate_files(cvs, export_generation_hook);
     rev_list_patch_vendor_branch (rl, cvs);
     rev_list_graft_branches (rl, cvs);
     rev_list_set_refs (rl, cvs);

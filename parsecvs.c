@@ -28,7 +28,7 @@
 
 cvs_file	*this_file;
 
-rev_execution_mode rev_mode = ExecuteGit;
+rev_execution_mode rev_mode = ExecuteExport;
 
 int elide = 0;
 int difffiles = 0;
@@ -896,8 +896,8 @@ main (int argc, char **argv)
 	last = fn->file;
 	nfile++;
     }
-    if (rev_mode == ExecuteGit)
-	if (git_system ("git init --shared") != 0)
+    if (rev_mode == ExecuteExport)
+	if (export_init() != 0)
 	    exit (1);
     load_total_files = nfile;
     load_current_file = 0;
@@ -916,7 +916,7 @@ main (int argc, char **argv)
 	*tail = rl;
 	tail = &rl->next;
 
-	if (rev_mode == ExecuteGit && obj_pack_time)
+	if (rev_mode == ExecuteExport && obj_pack_time)
 	{
 	    /*
 	     * Pack objects on occasion to reduce .git directory
@@ -935,7 +935,7 @@ main (int argc, char **argv)
 
 	free(fn);
     }
-    if (rev_mode == ExecuteGit && pack_objcount && obj_pack_time)
+    if (rev_mode == ExecuteExport && pack_objcount && obj_pack_time)
 	git_rev_list_pack (pack_start, strip);
     load_status_next ();
     init_tree(strip);
@@ -948,7 +948,7 @@ main (int argc, char **argv)
 	case ExecuteSplits:
 	    dump_splits (rl);
 	    break;
-	case ExecuteGit:
+	case ExecuteExport:
 	    load_author_map ("Authors");
 	    git_rev_list_commit (rl, strip);
 	    break;

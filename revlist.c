@@ -421,7 +421,7 @@ rev_commit_build (rev_commit **commits, rev_commit *leader, int ncommit)
     rev_dir	**rds;
     rev_file	*first;
 
-    if (rev_mode == ExecuteGit) {
+    if (rev_mode == ExecuteExport) {
 	reset_commits(commits, ncommit);
 	commit = create_tree(leader);
 	for (n = 0; n < ncommit; n++) {
@@ -665,7 +665,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 		 */
 		if (!lazy) {
 			commit = rev_commit_build (commits, latest, nbranch);
-			if (rev_mode == ExecuteGit)
+			if (rev_mode == ExecuteExport)
 				lazy = 1;
 		} else {
 			commit = create_tree(latest);
