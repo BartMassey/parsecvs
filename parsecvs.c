@@ -854,6 +854,8 @@ main (int argc, char **argv)
     time_now = time (NULL);
     for (;;)
     {
+	struct stat stb;
+
 	if (argc < 2) {
 	    int l;
 	    if (fgets (name, sizeof (name) - 1, stdin) == NULL)
@@ -867,6 +869,12 @@ main (int argc, char **argv)
 	    if (!file)
 		break;
 	}
+
+	if (stat(file, &stb) != 0)
+	    continue;
+	else if (S_ISDIR(stb.st_mode) != 0)
+	    continue;
+
 	fn = calloc (1, sizeof (rev_filename));
 	fn->file = atom (file);
 	*fn_tail = fn;
