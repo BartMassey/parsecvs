@@ -19,8 +19,6 @@
 
 #include "cvs.h"
 
-#define YYDEBUG	1
-    
 void yyerror (char *msg);
 
 %}

@@ -1,10 +1,15 @@
+# Makefile for parsecvs
+
 GCC_WARNINGS1=-Wall -Wpointer-arith -Wstrict-prototypes
 GCC_WARNINGS2=-Wmissing-prototypes -Wmissing-declarations
-GCC_WARNINGS3=-fno-strict-aliasing
-GCC_WARNINGS4=-Wno-unused-function -Wno-unused-label
-GCC_WARNINGS=$(GCC_WARNINGS1) $(GCC_WARNINGS2) $(GCC_WARNINGS3)  $(GCC_WARNINGS4)
+GCC_WARNINGS3=-fno-strict-aliasing -Wno-unused-function -Wno-unused-label
+GCC_WARNINGS=$(GCC_WARNINGS1) $(GCC_WARNINGS2) $(GCC_WARNINGS3)
 GITPATH=/usr/local/src/git
 CFLAGS=-O2 -g $(GCC_WARNINGS) -I$(GITPATH) -DSHA1_HEADER='<openssl/sha.h>'
+
+# To enable debugging of the Yacc grammar, uncomment the following line
+#CFLAGS += -DYYDEBUG=1
+
 LIBS=-L$(GITPATH) -lgit $(GITPATH)/xdiff/lib.a -lssl -lcrypto -lz -lpthread
 YFLAGS=-d -l
 LFLAGS=-l

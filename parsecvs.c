@@ -826,8 +826,10 @@ main (int argc, char **argv)
             break;
 	case 'v':
 	    verbose++;
+#ifdef YYDEBUG
 	    extern int yydebug;
 	    yydebug = 1;
+#endif /* YYDEBUG */
 	    break;
 	case 'V':
 	    printf("parsecvs version 0.1\n"
