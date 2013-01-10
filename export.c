@@ -58,7 +58,6 @@ export_blob(Node *node, void *buf, unsigned long len)
 
     if (rev_mode == ExecuteExport)
     {
-	printf("# %s\n", node->file->sha1);
 	printf("blob\nmark :%d\ndata %zd\n", 
 	       node->file->mark, len);
 	fwrite(buf, len, sizeof(char), stdout);
@@ -180,29 +179,6 @@ export_update_ref (char *sha1, char *type, char *name)
     return 1;
 }
 
-static void
-export_tag (rev_commit *commit, char *name)
-{
-    cvs_author *author;
-
-    author = fullname (commit->author);
-    if (author == NULL) {
-	fprintf (stderr, "No author info for tagger %s\n", commit->author);
-	return;
-    }
-
-    printf ("#%s\n"
-	    "type commit\n"
-	    "tag %s\n"
-	    "tagger %s <%s> %ld +0000\n"
-	    "\n",
-	    commit->sha1,
-	    name,
-	    author ? author->full : commit->author,
-	    author ? author->email : "",
-	    commit->date);
-}
-
 static int
 export_commit_recurse (rev_ref *head, rev_commit *commit, int strip)
 {
@@ -216,7 +192,7 @@ export_commit_recurse (rev_ref *head, rev_commit *commit, int strip)
     export_commit (commit, head->name);
     for (t = all_tags; t; t = t->next)
 	if (t->commit == commit)
-	    export_tag (commit, t->name);
+	    printf("reset refs/tags/%s\nmark :%d\n\n", t->name, commit->mark);
     return 1;
 }
 
