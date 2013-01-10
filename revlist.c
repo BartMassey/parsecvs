@@ -421,6 +421,7 @@ rev_commit_build (rev_commit **commits, rev_commit *leader, int ncommit)
     rev_dir	**rds;
     rev_file	*first;
 
+#if 0
     if (rev_mode == ExecuteExport) {
 	reset_commits(commits, ncommit);
 	commit = create_tree(leader);
@@ -432,6 +433,7 @@ rev_commit_build (rev_commit **commits, rev_commit *leader, int ncommit)
 	}
 	return commit;
     }
+#endif
     if (ncommit > sfiles) {
 	free (files);
 	files = 0;
@@ -600,7 +602,6 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 	rev_commit *commit;
 	rev_commit *latest;
 	rev_commit **p;
-	int lazy = 0;
 	time_t start = 0;
 
 	nlive = 0;
@@ -663,13 +664,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 		/*
 		 * Construct current commit
 		 */
-		if (!lazy) {
-			commit = rev_commit_build (commits, latest, nbranch);
-			if (rev_mode == ExecuteExport)
-				lazy = 1;
-		} else {
-			commit = create_tree(latest);
-		}
+		commit = rev_commit_build (commits, latest, nbranch);
 
 		/*
 		 * Step each branch

@@ -104,24 +104,24 @@ static int cache_broken;
 
 static void delete_file(Hash_entry *entry)
 {
-	remove_file_from_cache(entry->name);
-	cache_tree_invalidate_path(active_cache_tree, entry->name);
+    //remove_file_from_cache(entry->name);
+    //cache_tree_invalidate_path(active_cache_tree, entry->name);
 }
 
 static int set_file(Hash_entry *entry, rev_file *file)
 {
-	int options = ADD_CACHE_OK_TO_ADD | ADD_CACHE_OK_TO_REPLACE;
+    //int options = ADD_CACHE_OK_TO_ADD | ADD_CACHE_OK_TO_REPLACE;
 
-	if (get_sha1_hex(file->sha1, entry->ce->sha1))
-		die("corrupt sha1: %s\n", file->sha1);
+    if (get_sha1_hex(file->sha1, entry->ce->sha1))
+	die("corrupt sha1: %s\n", file->sha1);
 
-	entry->ce->ce_mode = create_ce_mode(file->mode);
-	if (add_cache_entry(entry->ce, options))
-		return error("can't add %s\n", entry->name);
+    entry->ce->ce_mode = create_ce_mode(file->mode);
+    //if (add_cache_entry(entry->ce, options))
+    //	return error("can't add %s\n", entry->name);
 
-	cache_tree_invalidate_path(active_cache_tree, entry->name);
+    //cache_tree_invalidate_path(active_cache_tree, entry->name);
 
-	return 0;
+    return 0;
 }
 
 void delete_commit(rev_commit *c)
@@ -142,19 +142,20 @@ void set_commit(rev_commit *c)
 
 void reset_commits(rev_commit **commits, int ncommits)
 {
-	discard_cache();
-	active_cache_tree = cache_tree();
-	cache_broken = 0;
-	while (ncommits-- && !cache_broken) {
-		rev_commit *c = *commits++;
-		if (c) {
-			Hash_entry *entry = find_node(c);
-			if (entry)
-				cache_broken = set_file(entry, c->file);
-		}
+    //discard_cache();
+    //active_cache_tree = cache_tree();
+    cache_broken = 0;
+    while (ncommits-- && !cache_broken) {
+	rev_commit *c = *commits++;
+	if (c) {
+	    Hash_entry *entry = find_node(c);
+	    if (entry)
+		cache_broken = set_file(entry, c->file);
 	}
+    }
 }
 
+#if 0
 rev_commit *create_tree(rev_commit *leader)
 {
 	rev_commit *commit = xcalloc(1, sizeof (rev_commit));
@@ -175,17 +176,20 @@ rev_commit *create_tree(rev_commit *leader)
 
 	return commit;
 }
+#endif
 
 void init_tree(int n)
 {
+#if 0
 	git_config(git_default_config, NULL);
 	strip = n;
+#endif
 }
 
 void discard_tree(void)
 {
 	int i;
-	discard_cache();
+	//discard_cache();
 	for (i = 0; i < 4096; i++) {
 		Hash_entry *entry = table[i];
 		while (entry) {

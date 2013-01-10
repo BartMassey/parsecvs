@@ -198,7 +198,7 @@ git_commit(rev_commit *commit)
 	char *log;
 	unsigned char commit_sha1[20];
 	size_t size = 0;
-	int encoding_is_utf8;
+	//int encoding_is_utf8;
 
 	if (!commit->sha1)
 		return 0;
@@ -218,7 +218,7 @@ git_commit(rev_commit *commit)
 	}
 
 	/* Not having i18n.commitencoding is the same as having utf-8 */
-	encoding_is_utf8 = is_encoding_utf8(git_commit_encoding);
+	//encoding_is_utf8 = is_encoding_utf8(git_commit_encoding);
 
 	add_buffer(&size, "tree %s\n", commit->sha1);
 	if (commit->parent)
@@ -227,12 +227,12 @@ git_commit(rev_commit *commit)
 		   full, email, commit->date);
 	add_buffer(&size, "committer %s <%s> %lu +0000\n",
 		   full, email, commit->date);
-	if (!encoding_is_utf8)
-		add_buffer(&size, "encoding %s\n", git_commit_encoding);
+	//if (!encoding_is_utf8)
+	//	add_buffer(&size, "encoding %s\n", git_commit_encoding);
 	add_buffer(&size, "\n%s", log);
 
-	if (write_sha1_file(commit_text, size, commit_type, commit_sha1))
-		return 0;
+	//if (write_sha1_file(commit_text, size, commit_type, commit_sha1))
+	//	return 0;
 
 	commit->sha1 = atom(sha1_to_hex(commit_sha1));
 	if (!commit->sha1)
@@ -398,147 +398,6 @@ git_rev_list_commit (rev_list *rl, int strip)
 //    if (!git_checkout ("master"))
 //	return 0;
     return 1;
-}
-
-static FILE *packf;
-
-static char *
-git_start_pack (void)
-{
-    char    *pack_file = git_cvs_file ("pack");
-
-    packf = fopen (pack_file, "w");
-    if (!packf)
-	return NULL;
-    return pack_file;
-}
-
-static void
-git_file_pack (rev_file *file, int strip)
-{
-    char    filename[MAXPATHLEN + 1];
-
-    if (!git_filename (file, filename, strip))
-	return;
-    fprintf (packf, "%s %s\n", file->sha1, filename);
-}
-
-extern void reprepare_packed_git (void);
-
-static void
-git_end_pack (char *pack_file, char *pack_dir)
-{
-    char    *command;
-    char    *pack_name;
-    char    *src_pack_pack, *src_pack_idx;
-    char    *dst_pack_pack, *dst_pack_idx;
-
-    if (fclose (packf) == EOF)
-	return;
-    command = git_format_command ("git pack-objects -q --non-empty .tmp-pack < '%s'", 
-				  pack_file);
-    if (!command) {
-	unlink (pack_file);
-	return;
-    }
-    pack_name = git_system_to_string (command);
-    unlink (pack_file);
-    free (command);
-    if (!pack_name)
-	return;
-    fprintf (STATUS, "Pack pack-%s created\n", pack_name);
-    fflush (STATUS);
-    src_pack_pack = git_format_command (".tmp-pack-%s.pack", pack_name);
-    src_pack_idx = git_format_command (".tmp-pack-%s.idx", pack_name);
-    dst_pack_pack = git_format_command ("%s/pack-%s.pack", pack_dir, pack_name);
-    dst_pack_idx = git_format_command ("%s/pack-%s.idx", pack_dir, pack_name);
-    if (!src_pack_pack || !src_pack_idx ||
-	!dst_pack_pack || !dst_pack_idx)
-    {
-	if (src_pack_pack) free (src_pack_pack);
-	if (src_pack_idx) free (src_pack_idx);
-	if (dst_pack_pack) free (dst_pack_pack);
-	if (dst_pack_idx) free (dst_pack_idx);
-	return;
-    }
-    if (rename (src_pack_pack, dst_pack_pack) == -1 ||
-	rename (src_pack_idx, dst_pack_idx) == -1)
-	return;
-    free (src_pack_pack);
-    free (src_pack_idx);
-    free (dst_pack_pack);
-    free (dst_pack_idx);
-    
-    (void) git_system ("git prune-packed");
-    reprepare_packed_git ();
-}
-
-static char *
-git_pack_directory (void)
-{
-    static char    *pack_dir;
-
-    if (!pack_dir)
-    {
-	char    *git_dir;
-	char	*objects_dir;
-	
-	git_dir = git_system_to_string ("git rev-parse --git-dir");
-	if (!git_dir)
-	    return NULL;
-	objects_dir = git_format_command ("%s/objects", git_dir);
-	if (!objects_dir)
-	    return NULL;
-	if (access (objects_dir, F_OK) == -1 &&
-	    mkdir (objects_dir, 0777) == -1) 
-	{
-	    free (objects_dir);
-	    return NULL;
-	}
-	free (objects_dir);
-	pack_dir = git_format_command ("%s/objects/pack", git_dir);
-	if (!pack_dir)
-	    return NULL;
-	if (access (pack_dir, F_OK) == -1 &&
-	    mkdir (pack_dir, 0777) == -1) 
-	{
-	    free (pack_dir);
-	    pack_dir = NULL;
-	}
-    }
-    return pack_dir;
-}
-
-void
-git_rev_list_pack (rev_list *rl, int strip)
-{
-    char    *pack_file;
-    char    *pack_dir;
-    
-    pack_dir = git_pack_directory ();
-    if (!pack_dir)
-	return;
-    pack_file = git_start_pack ();
-    if (!pack_file)
-	return;
-    
-    while (rl) {
-	rev_ref	*h;
-	rev_commit	*c;
-
-	for (h = rl->heads; h; h = h->next) {
-	    if (h->tail)
-		continue;
-	    for (c = h->commit; c; c = c->parent) {
-		if (c->file)
-		    git_file_pack (c->file, strip);
-		if (c->tail)
-		    break;
-	    }
-	}
-	rl = rl->next;
-    }
-    git_end_pack (pack_file, pack_dir);
 }
 
 #define PROGRESS_LEN	20
