@@ -126,6 +126,8 @@ extern time_t	time_now;
 
 extern int commit_time_window;
 
+extern int load_current_file, load_total_files;
+
 extern int verbose;
 
 typedef struct _rev_commit {
@@ -448,6 +450,12 @@ rev_free_dirs (void);
     
 void
 rev_commit_cleanup (void);
+
+void 
+load_status (char *name);
+
+void 
+load_status_next (void);
 
 void hash_version(cvs_version *);
 void hash_patch(cvs_patch *);

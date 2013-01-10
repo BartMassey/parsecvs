@@ -148,7 +148,7 @@ static int git_total_commits;
 static int git_current_commit;
 static char *git_current_head;
 
-#define STATUS	stdout
+#define STATUS	stderr
 #define PROGRESS_LEN	20
 
 static void
@@ -539,5 +539,33 @@ git_rev_list_pack (rev_list *rl, int strip)
 	rl = rl->next;
     }
     git_end_pack (pack_file, pack_dir);
+}
+
+#define PROGRESS_LEN	20
+
+void load_status (char *name)
+{
+    int	spot = load_current_file * PROGRESS_LEN / load_total_files;
+    int	    s;
+    int	    l;
+
+    if (rev_mode == ExecuteGraph)
+	return;
+    l = strlen (name);
+    if (l > 35) name += l - 35;
+
+    fprintf (STATUS, "Load: %35.35s ", name);
+    for (s = 0; s < PROGRESS_LEN + 1; s++)
+	putc (s == spot ? '*' : '.', STATUS);
+    fprintf (STATUS, " %5d of %5d\n", load_current_file, load_total_files);
+    fflush (STATUS);
+}
+
+void load_status_next (void)
+{
+    if (rev_mode == ExecuteGraph)
+	return;
+    fprintf (STATUS, "\n");
+    fflush (STATUS);
 }
 

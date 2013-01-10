@@ -740,36 +740,7 @@ typedef struct _rev_filename {
     char		*file;
 } rev_filename;
 
-#define STATUS	stdout
-#define PROGRESS_LEN	20
-static int load_current_file, load_total_files;
-
-static void load_status (char *name)
-{
-    int	spot = load_current_file * PROGRESS_LEN / load_total_files;
-    int	    s;
-    int	    l;
-
-    if (rev_mode == ExecuteGraph)
-	return;
-    l = strlen (name);
-    if (l > 35) name += l - 35;
-
-    fprintf (STATUS, "Load: %35.35s ", name);
-    for (s = 0; s < PROGRESS_LEN + 1; s++)
-	putc (s == spot ? '*' : '.', STATUS);
-    fprintf (STATUS, " %5d of %5d\n", load_current_file, load_total_files);
-    fflush (STATUS);
-}
-
-static void load_status_next (void)
-{
-    if (rev_mode == ExecuteGraph)
-	return;
-    fprintf (STATUS, "\n");
-    fflush (STATUS);
-}
-
+int load_current_file, load_total_files;
 int commit_time_window = 60;
 static int obj_pack_time = 0;
 
