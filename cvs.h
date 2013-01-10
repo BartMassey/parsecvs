@@ -471,4 +471,8 @@ rev_commit *create_tree(rev_commit *);
 void init_tree(int);
 void discard_tree(void);
 
+extern void *xrealloc(void *ptr, size_t size);
+extern void *xcalloc(size_t nmemb, size_t size);
+extern void *xmalloc(size_t size);
+
 #endif /* _CVS_H_ */

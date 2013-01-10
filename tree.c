@@ -1,6 +1,6 @@
+#include <limits.h>
+
 #include "cvs.h"
-#include "cache.h"
-#include "cache-tree.h"
 
 typedef struct _entry {
 	char *cvs_name;
@@ -82,7 +82,12 @@ static Hash_entry *find_node(rev_commit *c)
 	if (!real_name)
 		return NULL;
 
-	entry = xcalloc(1, sizeof(Hash_entry));
+	entry = calloc(1, sizeof(Hash_entry));
+	if (entry == NULL)
+	{
+	    fprintf(stderr, "parsecvs: memory allocation failure\n");
+	    exit(1);
+	}
 	entry->cvs_name = name;
 
 	len = strlen(real_name);
@@ -91,9 +96,9 @@ static Hash_entry *find_node(rev_commit *c)
 	entry->name = xmalloc(len + 1);
 	memcpy(entry->name, real_name, len + 1);
 
-	entry->ce = xcalloc(1, cache_entry_size(len));
-	memcpy(entry->ce->name, real_name, len);
-	entry->ce->ce_flags = create_ce_flags(len);
+	//entry->ce = xcalloc(1, cache_entry_size(len));
+	//memcpy(entry->ce->name, real_name, len);
+	//entry->ce->ce_flags = create_ce_flags(len);
 
 	entry->next = table[hash];
 	table[hash] = entry;
@@ -112,10 +117,10 @@ static int set_file(Hash_entry *entry, rev_file *file)
 {
     //int options = ADD_CACHE_OK_TO_ADD | ADD_CACHE_OK_TO_REPLACE;
 
-    if (get_sha1_hex(file->sha1, entry->ce->sha1))
-	die("corrupt sha1: %s\n", file->sha1);
+    //if (get_sha1_hex(file->sha1, entry->ce->sha1))
+    //die("corrupt sha1: %s\n", file->sha1);
 
-    entry->ce->ce_mode = create_ce_mode(file->mode);
+    //entry->ce->ce_mode = create_ce_mode(file->mode);
     //if (add_cache_entry(entry->ce, options))
     //	return error("can't add %s\n", entry->name);
 

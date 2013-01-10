@@ -16,15 +16,32 @@
  *  59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
  */
 
+#include <openssl/sha.h>
 #include "cvs.h"
-#include "cache.h"
-#include "commit.h"
-#include "utf8.h"
 
 int
 export_init(void)
 {
-    return git_system("git init --shared");
+    //return git_system("git init --shared");
+    return 0;
+}
+
+static char *sha1_to_hex(const unsigned char *sha1)
+{
+	static int bufno;
+	static char hexbuffer[4][50];
+	static const char hex[] = "0123456789abcdef";
+	char *buffer = hexbuffer[3 & ++bufno], *buf = buffer;
+	int i;
+
+	for (i = 0; i < 20; i++) {
+		unsigned int val = *sha1++;
+		*buf++ = hex[val >> 4];
+		*buf++ = hex[val & 0xf];
+	}
+	*buf = '\0';
+
+	return buffer;
 }
 
 void 
@@ -33,7 +50,7 @@ export_generation_hook(Node *node, void *buf, unsigned long len)
     char sha1_ascii[41];
     unsigned char sha1[20];
 
-    write_sha1_file(buf, len, "blob", sha1);
+    SHA1(buf, len, sha1);
     strncpy(sha1_ascii, sha1_to_hex(sha1), 41);
     node->file->sha1 = atom(sha1_ascii);
 }
