@@ -222,17 +222,6 @@ git_commit_recurse (rev_ref *head, rev_commit *commit, int strip)
 }
 
 static int
-git_head_commit (rev_ref *head, int strip)
-{
-    git_current_head = head->name;
-    if (!head->tail)
-        if (!git_commit_recurse (head, head->commit, strip))
-	    return 0;
-    printf("reset refs/heads %s\nmark :%d\n\n", head->name, head->commit->mark);
-    return 1;
-}
-
-static int
 git_ncommit (rev_list *rl)
 {
     rev_ref	*h;
@@ -257,11 +246,15 @@ git_rev_list_commit (rev_list *rl, int strip)
     rev_ref *h;
 
     git_total_commits = git_ncommit (rl);
-    printf("# %d commits\n", git_total_commits);
     git_current_commit = 0;
-    for (h = rl->heads; h; h = h->next)
-	if (!git_head_commit (h, strip))
-	    return 0;
+    for (h = rl->heads; h; h = h->next) 
+    {
+	git_current_head = h->name;
+	if (!h->tail)
+	    if (!git_commit_recurse (h, h->commit, strip))
+		return 0;
+	printf("reset refs/heads %s\nmark :%d\n\n", h->name, h->commit->mark);
+    }
     fprintf (STATUS, "\n");
     return 1;
 }
