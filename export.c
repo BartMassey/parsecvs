@@ -19,9 +19,12 @@
 #include <openssl/sha.h>
 #include "cvs.h"
 
+static int mark;
+
 int
 export_init(void)
 {
+    mark = 0;
     return 0;
 }
 
@@ -52,6 +55,16 @@ export_generation_hook(Node *node, void *buf, unsigned long len)
     SHA1(buf, len, sha1);
     strncpy(sha1_ascii, sha1_to_hex(sha1), 41);
     node->file->sha1 = atom(sha1_ascii);
+    node->file->mark = ++mark;
+
+    if (rev_mode == ExecuteExport)
+    {
+	printf("# %s\n", node->file->sha1);
+	printf("blob\nmark :%d\ndata %zd\n", 
+	       node->file->mark, len);
+	fwrite(buf, len, sizeof(char), stdout);
+	putchar('\n');
+    }
 }
 
 static int
@@ -181,80 +194,52 @@ git_status (void)
     fflush (STATUS);
 }
 
-static char *commit_text;
-static size_t commit_size;
-static void add_buffer(size_t *offset, const char *fmt, ...)
-{
-	va_list args;
-	size_t n;
-	while (1) {
-		va_start(args, fmt);
-		n = vsnprintf(commit_text + *offset, commit_size - *offset,
-			      fmt, args);
-		va_end(args);
-		if (n < commit_size - *offset)
-			break;
-		if (!commit_size)
-			commit_size = 1024;
-		else
-			commit_size *= 2;
-		commit_text = xrealloc(commit_text, commit_size);
-	}
-	*offset += n;
-}
-/*
- * Create a commit object in the repository using the current
- * index and the information from the provided rev_commit
- */
 static int
 git_commit(rev_commit *commit)
 {
-	cvs_author *author;
-	char *full;
-	char *email;
-	char *log;
-	unsigned char commit_sha1[20];
-	size_t size = 0;
-	//int encoding_is_utf8;
+    cvs_author *author;
+    char *full;
+    char *email;
+    char *log;
+    unsigned char commit_sha1[20];
 
-	if (!commit->sha1)
-		return 0;
+    if (!commit->sha1)
+	return 0;
 
-	log = git_log(commit);
-	if (!log)
-		return 0;
+    log = git_log(commit);
+    if (!log)
+	return 0;
 
-	author = fullname(commit->author);
-	if (!author) {
-//		fprintf (stderr, "%s: not in author map\n", commit->author);
-		full = commit->author;
-		email = commit->author;
-	} else {
-		full = author->full;
-		email = author->email;
-	}
+    author = fullname(commit->author);
+    if (!author) {
+//	fprintf (stderr, "%s: not in author map\n", commit->author);
+	full = commit->author;
+	email = commit->author;
+    } else {
+	full = author->full;
+	email = author->email;
+    }
 
-	/* Not having i18n.commitencoding is the same as having utf-8 */
-	//encoding_is_utf8 = is_encoding_utf8(git_commit_encoding);
+    /* Not having i18n.commitencoding is the same as having utf-8 */
+    //encoding_is_utf8 = is_encoding_utf8(git_commit_encoding);
 
-	add_buffer(&size, "tree %s\n", commit->sha1);
-	if (commit->parent)
-		add_buffer(&size, "parent %s\n", commit->parent->sha1);
-	add_buffer(&size, "author %s <%s> %lu +0000\n",
-		   full, email, commit->date);
-	add_buffer(&size, "committer %s <%s> %lu +0000\n",
-		   full, email, commit->date);
-	//if (!encoding_is_utf8)
-	//	add_buffer(&size, "encoding %s\n", git_commit_encoding);
-	add_buffer(&size, "\n%s", log);
+    printf("commit\n");
+    printf("# tree %s\n", commit->sha1);
+    if (commit->parent)
+	printf("parent %s\n", commit->parent->sha1);
+    printf("author %s <%s> %lu +0000\n",
+	       full, email, commit->date);
+    printf("committer %s <%s> %lu +0000\n",
+	       full, email, commit->date);
+    printf("\n%s", log);
 
-	//if (write_sha1_file(commit_text, size, commit_type, commit_sha1))
-	//	return 0;
+    //if (write_sha1_file(commit_text, size, commit_type, commit_sha1))
+    //	return 0;
 
-	commit->sha1 = atom(sha1_to_hex(commit_sha1));
-	if (!commit->sha1)
-		return 0;
-	return 1;
+    commit->sha1 = atom(sha1_to_hex(commit_sha1));
+    if (!commit->sha1)
+	return 0;
+    return 1;
 }
 
 static int

@@ -113,6 +113,7 @@ typedef struct _rev_file {
     cvs_number		number;
     time_t		date;
     char		*sha1;
+    int                 mark;
     mode_t		mode;
     struct _rev_file	*link;
 } rev_file;
