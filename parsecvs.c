@@ -881,7 +881,6 @@ main (int argc, char **argv)
 	free(fn);
     }
     load_status_next ();
-    init_tree(strip);
     rl = rev_list_merge (head);
     if (rl) {
 	switch (rev_mode) {

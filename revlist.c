@@ -723,14 +723,9 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 					goto Kill;
 				nlive++;
 			}
-			if (to->file)
-				set_commit(to);
-			else
-				delete_commit(c);
 			commits[n] = to;
 			continue;
 Kill:
-			delete_commit(c);
 			commits[n] = NULL;
 		}
 

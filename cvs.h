@@ -416,9 +416,6 @@ export_init(void);
 int
 git_rev_list_commit (rev_list *rl, int strip);
 
-void
-git_rev_list_pack (rev_list *rl, int strip);
-    
 int
 git_system (char *command);
 
@@ -464,11 +461,7 @@ void clean_hash(void);
 void build_branches(void);
 extern Node *head_node;
 
-void delete_commit(rev_commit *);
-void set_commit(rev_commit *);
 void reset_commits(rev_commit **, int);
-rev_commit *create_tree(rev_commit *);
-void init_tree(int);
 void discard_tree(void);
 
 extern void *xrealloc(void *ptr, size_t size);

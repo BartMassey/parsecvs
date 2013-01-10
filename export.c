@@ -22,7 +22,6 @@
 int
 export_init(void)
 {
-    //return git_system("git init --shared");
     return 0;
 }
 
@@ -82,7 +81,7 @@ git_filename (rev_file *file, char *name, int strip)
 static char *
 git_cvs_file (char *base)
 {
-    char    *filename_buf;
+    char    *filename_buf = NULL;
     char    *filename;
     static int	id;
     
@@ -93,8 +92,8 @@ git_cvs_file (char *base)
 	    return NULL;
 	}
     }
-    filename_buf = git_format_command ("%s/%s-%d",
-				       GIT_CVS_DIR, base, id++);
+    //filename_buf = git_format_command ("%s/%s-%d",
+    //				       GIT_CVS_DIR, base, id++);
     if (!filename_buf)
 	return NULL;
     filename = atom (filename_buf);
@@ -109,9 +108,9 @@ static size_t log_size;
 static char *
 git_log(rev_commit *commit)
 {
-        if (!log_command)
-                return commit->log;
+    return commit->log;
 
+#if 0
 	char    *filename;
 	char	*command;
 	FILE    *f;
@@ -159,6 +158,7 @@ git_log(rev_commit *commit)
 	fclose(f);
 	log_buf[size] = '\0';
 	return log_buf;
+#endif
 }
 
 static int git_total_commits;
@@ -260,6 +260,7 @@ git_commit(rev_commit *commit)
 static int
 git_update_ref (char *sha1, char *type, char *name)
 {
+#if 0
     char    *command;
     int	    n;
 
@@ -271,6 +272,7 @@ git_update_ref (char *sha1, char *type, char *name)
     free (command);
     if (n != 0)
 	return 0;
+#endif
     return 1;
 }
 
