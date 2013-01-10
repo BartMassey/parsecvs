@@ -134,17 +134,15 @@ git_status (void)
     fflush (STATUS);
 }
 
-static int
-git_commit(rev_commit *commit)
+static void
+git_commit(rev_commit *commit, char *branch)
 {
     cvs_author *author;
     char *full;
     char *email;
-    unsigned char commit_sha1[20];
 
     author = fullname(commit->author);
     if (!author) {
-//	fprintf (stderr, "%s: not in author map\n", commit->author);
 	full = commit->author;
 	email = commit->author;
     } else {
@@ -152,25 +150,16 @@ git_commit(rev_commit *commit)
 	email = author->email;
     }
 
-    /* Not having i18n.commitencoding is the same as having utf-8 */
-    //encoding_is_utf8 = is_encoding_utf8(git_commit_encoding);
-
-    printf("commit\n");
+    printf("commit refs/heads/%s\n", branch);
+    printf("mark :%d\n", ++mark);
+    commit->mark = mark;
     if (commit->parent)
-	printf("parent %s\n", commit->parent->sha1);
+	printf("from :%d\n", commit->parent->mark);
     printf("author %s <%s> %lu +0000\n",
 	       full, email, commit->date);
     printf("committer %s <%s> %lu +0000\n",
 	       full, email, commit->date);
-    printf("data %zd\n%s\n", sizeof(commit->log), commit->log);
-
-    //if (write_sha1_file(commit_text, size, commit_type, commit_sha1))
-    //	return 0;
-
-    commit->sha1 = atom(sha1_to_hex(commit_sha1));
-    if (!commit->sha1)
-	return 0;
-    return 1;
+    printf("data %zd\n%s\n", strlen(commit->log), commit->log);
 }
 
 static int
@@ -192,7 +181,7 @@ git_update_ref (char *sha1, char *type, char *name)
     return 1;
 }
 
-static int
+static void
 git_tag (rev_commit *commit, char *name)
 {
     cvs_author *author;
@@ -200,7 +189,7 @@ git_tag (rev_commit *commit, char *name)
     author = fullname (commit->author);
     if (author == NULL) {
 	fprintf (stderr, "No author info for tagger %s\n", commit->author);
-	return 0;
+	return;
     }
 
     printf ("#%s\n"
@@ -213,7 +202,6 @@ git_tag (rev_commit *commit, char *name)
 	    author ? author->full : commit->author,
 	    author ? author->email : "",
 	    commit->date);
-    return 1;
 }
 
 static int
@@ -225,14 +213,11 @@ git_commit_recurse (rev_ref *head, rev_commit *commit, int strip)
 	    if (!git_commit_recurse (head, commit->parent, strip))
 		return 0;
     ++git_current_commit;
-    printf("# Current commit: %d\n", git_current_commit);
     git_status ();
-    if (!git_commit (commit))
-	return 0;
+    git_commit (commit, head->name);
     for (t = all_tags; t; t = t->next)
 	if (t->commit == commit)
-	    if (!git_tag (commit, t->name))
-		return 0;
+	    git_tag (commit, t->name);
     return 1;
 }
 
@@ -240,11 +225,10 @@ static int
 git_head_commit (rev_ref *head, int strip)
 {
     git_current_head = head->name;
-    printf("# Head name: %s\n", head->name);
     if (!head->tail)
         if (!git_commit_recurse (head, head->commit, strip))
 	    return 0;
-    printf("reset refs/heads %s\nmark :%d\n", head->name, head->commit->mark);
+    printf("reset refs/heads %s\nmark :%d\n\n", head->name, head->commit->mark);
     return 1;
 }
 
