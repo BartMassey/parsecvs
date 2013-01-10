@@ -114,66 +114,6 @@ git_cvs_file (char *base)
     return filename;
 }
 
-extern const char *log_command;
-static char *log_buf;
-static size_t log_size;
-
-static char *
-git_log(rev_commit *commit)
-{
-    return commit->log;
-
-#if 0
-	char    *filename;
-	char	*command;
-	FILE    *f;
-	int	n;
-	size_t  size;
-    
-	filename = git_cvs_file ("log");
-	if (!filename)
-		return NULL;
-	f = fopen (filename, "w+");
-	if (!f) {
-		fprintf (stderr, "%s: %s\n", filename, strerror (errno));
-		return NULL;
-	}
-	if (fputs (commit->log, f) == EOF) {
-		fprintf (stderr, "%s: %s\n", filename, strerror (errno));
-		fclose (f);
-		return NULL;
-	}
-	fflush (f);
-
-	command = git_format_command ("%s '%s'", log_command, filename);
-	if (!command)
-	    return NULL;
-	n = git_system (command);
-	free (command);
-	if (n != 0)
-		return NULL;
-	fflush (f);
-	rewind(f);
-	size = 0;
-	while (1) {
-		if (size + 1 >= log_size) {
-			if (!log_size)
-				log_size = 1024;
-			else
-				log_size *= 2;
-			log_buf = xrealloc(log_buf, log_size);
-		}
-		n = fread(log_buf + size, 1, log_size - size - 1, f);
-		if (!n)
-			break;
-		size += n;
-	}
-	fclose(f);
-	log_buf[size] = '\0';
-	return log_buf;
-#endif
-}
-
 static int git_total_commits;
 static int git_current_commit;
 static char *git_current_head;
@@ -200,15 +140,7 @@ git_commit(rev_commit *commit)
     cvs_author *author;
     char *full;
     char *email;
-    char *log;
     unsigned char commit_sha1[20];
-
-    if (!commit->sha1)
-	return 0;
-
-    log = git_log(commit);
-    if (!log)
-	return 0;
 
     author = fullname(commit->author);
     if (!author) {
@@ -224,14 +156,13 @@ git_commit(rev_commit *commit)
     //encoding_is_utf8 = is_encoding_utf8(git_commit_encoding);
 
     printf("commit\n");
-    printf("# tree %s\n", commit->sha1);
     if (commit->parent)
 	printf("parent %s\n", commit->parent->sha1);
     printf("author %s <%s> %lu +0000\n",
 	       full, email, commit->date);
     printf("committer %s <%s> %lu +0000\n",
 	       full, email, commit->date);
-    printf("\n%s", log);
+    printf("data %zd\n%s\n", sizeof(commit->log), commit->log);
 
     //if (write_sha1_file(commit_text, size, commit_type, commit_sha1))
     //	return 0;
@@ -294,6 +225,7 @@ git_commit_recurse (rev_ref *head, rev_commit *commit, int strip)
 	    if (!git_commit_recurse (head, commit->parent, strip))
 		return 0;
     ++git_current_commit;
+    printf("# Current commit: %d\n", git_current_commit);
     git_status ();
     if (!git_commit (commit))
 	return 0;
@@ -308,6 +240,7 @@ static int
 git_head_commit (rev_ref *head, int strip)
 {
     git_current_head = head->name;
+    printf("# Head name: %s\n", head->name);
     if (!head->tail)
         if (!git_commit_recurse (head, head->commit, strip))
 	    return 0;
@@ -340,6 +273,7 @@ git_rev_list_commit (rev_list *rl, int strip)
     rev_ref *h;
 
     git_total_commits = git_ncommit (rl);
+    printf("# %d commits\n", git_total_commits);
     git_current_commit = 0;
     for (h = rl->heads; h; h = h->next)
 	if (!git_head_commit (h, strip))

@@ -35,8 +35,6 @@ int difffiles = 0;
 int allfiles = 1;
 int verbose = 0;
 
-const char *log_command;
-    
 void
 dump_number_file (FILE *f, char *name, cvs_number *number)
 /* dump a filename/CVS-version pair to a specified file pointer */
@@ -763,9 +761,8 @@ main (int argc, char **argv)
 	    { "verbose",	    0, 0, 'v' },
 	    { "commit-time-window", 1, 0, 'w' },
             { "graph",              0, 0, 'g' },
-            { "log-command",        1, 0, 'l' },
 	};
-	int c = getopt_long(argc, argv, "+hVw:l:gv", options, NULL);
+	int c = getopt_long(argc, argv, "+hVw:gv", options, NULL);
 	if (c < 0)
 	    break;
 	switch (c) {
@@ -775,17 +772,13 @@ main (int argc, char **argv)
                    "Mandatory arguments to long options are mandatory for short options too.\n"
                    " -h --help                       This help\n"
 		   " -g --graph                      Dump the commit graph\n"
-                   " -l --log-command=COMMAND        Call COMMAND to handle changelogs\n"
                    " -v --version                    Print version\n"
                    " -w --commit-time-window=WINDOW  Time window for commits\n\n"
-		   "Example: find -name '*,v' | parsecvs -l edit-change-log -p 1024\n");
+		   "Example: find -name '*,v' | parsecvs\n");
 	    return 0;
 	case 'g':
 	    rev_mode = ExecuteGraph;
 	    break;
-        case 'l':
-            log_command = strdup (optarg);
-            break;
 	case 'v':
 	    verbose++;
 #ifdef YYDEBUG

@@ -143,6 +143,7 @@ typedef struct _rev_commit {
     char		*author;
     char		*commitid;
     char		*sha1;
+    int                 mark;
     struct _rev_commit	*user;
     rev_file		*file;		/* first file */
     int			nfiles;
@@ -435,7 +436,7 @@ free_author_map (void);
 /*
  * rev - string representation of the rcs revision number eg. 1.1
  * path - RCS filename path eg. ./cfb16/Makefile,v
- * sha1_hex - a buffer of at least 41 characterrs to receive
+ * sha1_hex - a buffer of at least 41 characters to receive
  *           the ascii hexidecimal id of the resulting object
  */
 void generate_files(cvs_file *cvs, void (*hook)(Node *node, void *buf, unsigned long len));
