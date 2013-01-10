@@ -87,31 +87,6 @@ export_filename (rev_file *file, char *name, int strip)
     return 1;
 }
 
-#define GIT_CVS_DIR ".git-cvs"
-
-static char *
-export_cvs_file (char *base)
-{
-    char    *filename_buf = NULL;
-    char    *filename;
-    static int	id;
-    
-    if (id == 0)
-    {
-	if (mkdir (GIT_CVS_DIR, 0777) < 0 && errno != EEXIST) {
-	    fprintf (stderr, "%s: %s\n", GIT_CVS_DIR, strerror (errno));
-	    return NULL;
-	}
-    }
-    //filename_buf = git_format_command ("%s/%s-%d",
-    //				       GIT_CVS_DIR, base, id++);
-    if (!filename_buf)
-	return NULL;
-    filename = atom (filename_buf);
-    free (filename_buf);
-    return filename;
-}
-
 static int export_total_commits;
 static int export_current_commit;
 static char *export_current_head;
@@ -158,25 +133,6 @@ export_commit(rev_commit *commit, char *branch)
     printf("committer %s <%s> %lu +0000\n",
 	       full, email, commit->date);
     printf("data %zd\n%s\n", strlen(commit->log), commit->log);
-}
-
-static int
-export_update_ref (char *sha1, char *type, char *name)
-{
-#if 0
-    char    *command;
-    int	    n;
-
-    command = export_format_command ("git update-ref 'refs/%s/%s' '%s'",
-				  type, name, sha1);
-    if (!command)
-	return 0;
-    n = export_system (command);
-    free (command);
-    if (n != 0)
-	return 0;
-#endif
-    return 1;
 }
 
 static int
