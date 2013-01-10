@@ -30,20 +30,20 @@ export_init(void)
 
 static char *sha1_to_hex(const unsigned char *sha1)
 {
-	static int bufno;
-	static char hexbuffer[4][50];
-	static const char hex[] = "0123456789abcdef";
-	char *buffer = hexbuffer[3 & ++bufno], *buf = buffer;
-	int i;
+    static int bufno;
+    static char hexbuffer[4][50];
+    static const char hex[] = "0123456789abcdef";
+    char *buffer = hexbuffer[3 & ++bufno], *buf = buffer;
+    int i;
 
-	for (i = 0; i < 20; i++) {
-		unsigned int val = *sha1++;
-		*buf++ = hex[val >> 4];
-		*buf++ = hex[val & 0xf];
-	}
-	*buf = '\0';
+    for (i = 0; i < 20; i++) {
+	unsigned int val = *sha1++;
+	*buf++ = hex[val >> 4];
+	*buf++ = hex[val & 0xf];
+    }
+    *buf = '\0';
 
-	return buffer;
+    return buffer;
 }
 
 void 
@@ -261,81 +261,28 @@ git_update_ref (char *sha1, char *type, char *name)
     return 1;
 }
 
-static char *
-git_mktag (rev_commit *commit, char *name)
-{
-    char    *filename;
-    FILE    *f;
-    int     rv;
-    char    *command;
-    char    *tag_sha1;
-    cvs_author *author;
-
-    filename = git_cvs_file ("tag");
-    if (!filename)
-	return NULL;
-    f = fopen (filename, "w");
-    if (!f) {
-	fprintf (stderr, "%s: %s\n", filename, strerror (errno));
-	return NULL;
-    }
-    
-    author = fullname (commit->author);
-    if (author == NULL) {
-      fprintf (stderr, "No author info for tagger %s\n", commit->author);
-      return NULL;
-    }
-
-    rv = fprintf (f,
-		"object %s\n"
-		"type commit\n"
-		"tag %s\n"
-                "tagger %s <%s> %ld +0000\n"
-		"\n",
-		commit->sha1,
-		name,
-		author ? author->full : commit->author,
-		author ? author->email : "",
-		commit->date);
-    if (rv < 1) {
-	fprintf (stderr, "%s: %s\n", filename, strerror (errno));
-	fclose (f);
-	unlink (filename);
-	return NULL;
-    }
-    rv = fclose (f);
-    if (rv) {
-	fprintf (stderr, "%s: %s\n", filename, strerror (errno));
-	unlink (filename);
-	return NULL;
-    }
-
-    command = git_format_command ("git mktag < '%s'", filename);
-    if (!command) {
-	unlink (filename);
-	return NULL;
-    }
-    tag_sha1 = git_system_to_string (command);
-    unlink (filename);
-    free (command);
-    return tag_sha1;
-}
-
 static int
 git_tag (rev_commit *commit, char *name)
 {
-    char    *tag_sha1;
+    cvs_author *author;
 
-    tag_sha1 = git_mktag (commit, name);
-    if (!tag_sha1)
+    author = fullname (commit->author);
+    if (author == NULL) {
+	fprintf (stderr, "No author info for tagger %s\n", commit->author);
 	return 0;
-    return git_update_ref (tag_sha1, "tags", name);
-}
+    }
 
-static int
-git_head (rev_commit *commit, char *name)
-{
-    return git_update_ref (commit->sha1, "heads", name);
+    printf ("#%s\n"
+	    "type commit\n"
+	    "tag %s\n"
+	    "tagger %s <%s> %ld +0000\n"
+	    "\n",
+	    commit->sha1,
+	    name,
+	    author ? author->full : commit->author,
+	    author ? author->email : "",
+	    commit->date);
+    return 1;
 }
 
 static int
@@ -364,8 +311,7 @@ git_head_commit (rev_ref *head, int strip)
     if (!head->tail)
         if (!git_commit_recurse (head, head->commit, strip))
 	    return 0;
-    if (!git_head (head->commit, head->name))
-	return 0;
+    printf("reset refs/heads %s\nmark :%d\n", head->name, head->commit->mark);
     return 1;
 }
 
@@ -399,8 +345,6 @@ git_rev_list_commit (rev_list *rl, int strip)
 	if (!git_head_commit (h, strip))
 	    return 0;
     fprintf (STATUS, "\n");
-//    if (!git_checkout ("master"))
-//	return 0;
     return 1;
 }
 
