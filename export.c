@@ -66,15 +66,19 @@ export_blob(Node *node, void *buf, unsigned long len)
     }
 }
 
-static int
-export_filename (rev_file *file, char *name, int strip)
+static char *
+export_filename (rev_file *file, int strip)
 {
+    static char name[PATH_MAX];
     char    *attic;
     int	    l;
     int	    len;
     
     if (strlen (file->name) - strip >= MAXPATHLEN)
-	return 0;
+    {
+	fprintf(stderr, "parsecvs: file name %s\n too long\n", file->name);
+	exit(1);
+    }
     strcpy (name, file->name + strip);
     while ((attic = strstr (name, "Attic/")) &&
 	   (attic == name || attic[-1] == '/'))
@@ -85,7 +89,15 @@ export_filename (rev_file *file, char *name, int strip)
     len = strlen (name);
     if (len > 2 && !strcmp (name + len - 2, ",v"))
 	name[len-2] = '\0';
-    return 1;
+
+    if (strcmp(name, ".cvsignore") == 0)
+    {
+	name[1] = 'g';
+	name[2] = 'i';
+	name[3] = 't';
+    }
+
+    return name;
 }
 
 static int export_total_commits;
@@ -141,18 +153,9 @@ export_commit(rev_commit *commit, char *branch, int strip)
 	rev_dir	*dir = commit->dirs[i];
 	
 	for (j = 0; j < dir->nfiles; j++) {
-	    char stem[PATH_MAX], *end;
+	    char *stripped;
 	    f = dir->files[j];
-	    strcpy(stem, f->name + strip);
-	    end = stem + strlen(stem);
-	    if (end > stem + 2 && end[-1] == 'v' && end[-2] == ',')
-		end[-2] = '\0';
-	    if (strcmp(stem, ".cvsignore") == 0)
-	    {
-		stem[1] = 'g';
-		stem[2] = 'i';
-		stem[3] = 't';
-	    }
+	    stripped = export_filename(f, strip);
 	    f->status = changed;
 	    if (commit->parent) {
 		f->status = deleted;
@@ -170,11 +173,11 @@ export_commit(rev_commit *commit, char *branch, int strip)
 		}
 	    }
 	    if (f->status == deleted)
-		printf("D %s\n", stem);
+		printf("D %s\n", stripped);
 	    else if (f->status == changed)
 		printf("M 10%o %s :%d\n", 
 		       (f->mode & 0777) | 0200, 
-		       stem, f->mark);
+		       stripped, f->mark);
 	}
     }
     printf ("\n");
