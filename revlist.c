@@ -791,7 +791,7 @@ Kill:
 }
 
 /*
- * Locate position in tree cooresponding to specific tag
+ * Locate position in tree corresponding to specific tag
  */
 static void
 rev_tag_search(Tag *tag, rev_commit **commits, rev_list *rl)
@@ -801,7 +801,7 @@ rev_tag_search(Tag *tag, rev_commit **commits, rev_list *rl)
 	if (tag->parent)
 		tag->commit = rev_commit_locate (tag->parent, commits[0]);
 	if (!tag->commit) {
-		fprintf (stderr, "unmatched tag %s\n", tag->name);
+		fprintf (stderr, "Unmatched tag %s\n", tag->name);
 		/* AV: shouldn't we put it on some branch? */
 		tag->commit = rev_commit_build(commits, commits[0], tag->count);
 	}
