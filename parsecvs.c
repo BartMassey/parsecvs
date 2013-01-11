@@ -787,11 +787,7 @@ main (int argc, char **argv)
 #endif /* YYDEBUG */
 	    break;
 	case 'V':
-	    printf("parsecvs version 0.1\n"
-		   "\n"
-		   "Copyright (c) 2006 Keith Packard <keithp@keithp.com>.\n"
-		   "This is free software; see the source for copying conditions. There is NO\n"
-		   "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
+	    printf("%s: version " VERSION "\n", argv[0]);
 	    return 0;
 	case 'w':
 	    commit_time_window = atoi (optarg);
