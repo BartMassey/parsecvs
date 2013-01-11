@@ -105,6 +105,8 @@ load_author_map (char *filename)
 	a->email = atom (email);
 	a->timezone = NULL;
 	if (*++angle) {
+	    while (isspace(*angle))
+		angle++;
 	    while (*angle != '\0') {
 		char *end = angle + strlen(angle) - 1;
 		if (isspace(*end))

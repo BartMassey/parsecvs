@@ -101,6 +101,33 @@ export_filename (rev_file *file, int strip)
     return name;
 }
 
+static const char *utc_offset_timestamp(const time_t *timep, const char *tz)
+{
+    static char outbuf[BUFSIZ];
+
+    struct tm *tm;
+    char tzbuf[BUFSIZ];
+    char *oldtz = getenv("TZ");
+
+    // make a copy in case original is clobbered
+    if (oldtz != NULL)
+	strncpy(tzbuf, oldtz, sizeof(tzbuf));
+
+    setenv("TZ", tz, 1);
+    tzset();  // just in case ...
+
+    tm = localtime(timep);
+    strftime(outbuf, sizeof(outbuf), "%s %z", tm);
+
+    if (oldtz != NULL)
+	setenv("TZ", tzbuf, 1);
+    else
+	unsetenv("TZ");
+    tzset();
+
+    return outbuf;
+}
+
 static int export_total_commits;
 static int export_current_commit;
 static char *export_current_head;
@@ -127,6 +154,8 @@ export_commit(rev_commit *commit, char *branch, int strip)
     cvs_author *author;
     char *full;
     char *email;
+    char *timezone;
+    const char *ts;
     rev_file	*f, *f2;
     int		i, j, i2, j2;
 
@@ -134,20 +163,22 @@ export_commit(rev_commit *commit, char *branch, int strip)
     if (!author) {
 	full = commit->author;
 	email = commit->author;
+	timezone = "UTC";
     } else {
 	full = author->full;
 	email = author->email;
+	timezone = author->timezone ? author->timezone : "UTC";
     }
+    printf("Timezone: '%s'\n", timezone);
 
     printf("commit refs/heads/%s\n", branch);
     printf("mark :%d\n", ++mark);
     commit->mark = mark;
     if (commit->parent)
 	printf("from :%d\n", commit->parent->mark);
-    printf("author %s <%s> %lu +0000\n",
-	       full, email, commit->date);
-    printf("committer %s <%s> %lu +0000\n",
-	       full, email, commit->date);
+    ts = utc_offset_timestamp(&commit->date, timezone);
+    printf("author %s <%s> %s\n", full, email, ts);
+    printf("committer %s <%s> %s\n", full, email, ts);
     printf("data %zd\n%s\n", strlen(commit->log), commit->log);
 
     for (i = 0; i < commit->ndirs; i++) {

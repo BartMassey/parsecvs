@@ -754,9 +754,10 @@ main (int argc, char **argv)
 	    { "version",	    0, 0, 'V' },
 	    { "verbose",	    0, 0, 'v' },
 	    { "commit-time-window", 1, 0, 'w' },
+	    { "author-map",         1, 0, 'A' },
             { "graph",              0, 0, 'g' },
 	};
-	int c = getopt_long(argc, argv, "+hVw:gv", options, NULL);
+	int c = getopt_long(argc, argv, "+hVw:gvA:", options, NULL);
 	if (c < 0)
 	    break;
 	switch (c) {
@@ -767,7 +768,9 @@ main (int argc, char **argv)
                    " -h --help                       This help\n"
 		   " -g --graph                      Dump the commit graph\n"
                    " -v --version                    Print version\n"
-                   " -w --commit-time-window=WINDOW  Time window for commits\n\n"
+                   " -w --commit-time-window=WINDOW  Time window for commits\n"
+		   " -A --authormap                  Author map file\n"
+		   "\n"
 		   "Example: find -name '*,v' | parsecvs\n");
 	    return 0;
 	case 'g':
@@ -785,6 +788,9 @@ main (int argc, char **argv)
 	    return 0;
 	case 'w':
 	    commit_time_window = atoi (optarg);
+	    break;
+	case 'A':
+	    load_author_map (optarg);
 	    break;
 	default: /* error message already emitted */
 	    fprintf(stderr, "Try `%s --help' for more information.\n", argv[0]);
@@ -873,7 +879,6 @@ main (int argc, char **argv)
 	    dump_splits (rl);
 	    break;
 	case ExecuteExport:
-	    load_author_map ("Authors");
 	    export_commits (rl, strip);
 	    break;
 	}
