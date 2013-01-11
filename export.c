@@ -173,13 +173,13 @@ export_commit(rev_commit *commit, char *branch, int strip)
     printf("commit refs/heads/%s\n", branch);
     printf("mark :%d\n", ++mark);
     commit->mark = mark;
-    if (commit->parent)
-	printf("from :%d\n", commit->parent->mark);
     ct = force_dates ? mark * commit_time_window * 2 : commit->date;
     ts = utc_offset_timestamp(&ct, timezone);
     printf("author %s <%s> %s\n", full, email, ts);
     printf("committer %s <%s> %s\n", full, email, ts);
     printf("data %zd\n%s\n", strlen(commit->log), commit->log);
+    if (commit->parent)
+	printf("from :%d\n", commit->parent->mark);
 
     for (i = 0; i < commit->ndirs; i++) {
 	rev_dir	*dir = commit->dirs[i];
@@ -204,9 +204,9 @@ export_commit(rev_commit *commit, char *branch, int strip)
 		}
 	    }
 	    if (!present || changed) {
-		printf("M 10%o %s :%d\n", 
+		printf("M 100%o :%d %s\n", 
 		       (f->mode & 0777) | 0200, 
-		       stripped, f->mark);
+		       f->mark, stripped);
 		if (revision_map) {
 		    dump_number_file(revision_map, stripped, &f->number);
 		    fprintf(revision_map, " :%d\n", f->mark);
@@ -255,7 +255,7 @@ export_commit_recurse (rev_ref *head, rev_commit *commit, int strip)
     export_commit (commit, head->name, strip);
     for (t = all_tags; t; t = t->next)
 	if (t->commit == commit)
-	    printf("reset refs/tags/%s\nmark :%d\n\n", t->name, commit->mark);
+	    printf("reset refs/tags/%s\nfrom :%d\n\n", t->name, commit->mark);
     return 1;
 }
 
@@ -291,7 +291,7 @@ export_commits (rev_list *rl, int strip)
 	if (!h->tail)
 	    if (!export_commit_recurse (h, h->commit, strip))
 		return false;
-	printf("reset refs/heads %s\nmark :%d\n\n", h->name, h->commit->mark);
+	printf("reset refs/heads/%s\nfrom :%d\n\n", h->name, h->commit->mark);
     }
     fprintf (STATUS, "\n");
     return true;
