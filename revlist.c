@@ -802,10 +802,19 @@ rev_tag_search(Tag *tag, rev_commit **commits, rev_list *rl)
 		tag->commit = rev_commit_locate (tag->parent, commits[0]);
 	if (!tag->commit) {
 		fprintf (stderr, "Unmatched tag %s\n", tag->name);
+#if 0
+		/*
+		 * ESR: Keith's code appeared to be trying to create a
+		 * synthetic commit for unmmatched tags. The comment 
+		 * from "AV" below points at one reason this is probably
+		 * not a good idea.  Better to fail cleanly than risk
+		 * doing somethging wacky to the DAG.
+		 */
 		/* AV: shouldn't we put it on some branch? */
 		tag->commit = rev_commit_build(commits, commits[0], tag->count);
+#endif
 	}
-	tag->commit->tagged = true;
+	tag->commit->tagged = (tag->commit != NULL);
 }
 
 static void
