@@ -418,19 +418,6 @@ rev_commit_build (rev_commit **commits, rev_commit *leader, int ncommit)
     rev_dir	**rds;
     rev_file	*first;
 
-#if 0
-    if (rev_mode == ExecuteExport) {
-	reset_commits(commits, ncommit);
-	commit = create_tree(leader);
-	for (n = 0; n < ncommit; n++) {
-		if (commits[n] && commits[n]->file) {
-			commit->file = commits[n]->file;
-			break;
-		}
-	}
-	return commit;
-    }
-#endif
     if (ncommit > sfiles) {
 	free (files);
 	files = 0;
