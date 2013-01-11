@@ -178,6 +178,30 @@ export_commit(rev_commit *commit, char *branch, int strip)
 		       stripped, f->mark);
 	}
     }
+
+    if (commit->parent)
+	for (i = 0; i < commit->parent->ndirs; i++) {
+	    rev_dir	*dir = commit->parent->dirs[i];
+
+	    for (j = 0; j < dir->nfiles; j++) {
+		bool present;
+		f = dir->files[j];
+		present = false;
+		for (i2 = 0; i2 < commit->ndirs; i2++) {
+		    rev_dir	*dir2 = commit->dirs[i2];
+		    for (j2 = 0; j2 < dir2->nfiles; j2++) {
+			f2 = dir2->files[j2];
+			if (strcmp(f->name, f2->name) == 0) {
+			    present = true;
+			}
+		    }
+		}
+		if (!present)
+		    printf("D %s\n", export_filename(f, strip));
+	    }
+	}
+
+
     printf ("\n");
 
 }
