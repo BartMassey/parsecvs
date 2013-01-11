@@ -32,6 +32,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #ifndef MAXPATHLEN
 #define MAXPATHLEN  10240
@@ -126,6 +127,8 @@ typedef struct _rev_dir {
 extern time_t	time_now;
 
 extern int commit_time_window;
+
+extern bool force_dates;
 
 extern int load_current_file, load_total_files;
 

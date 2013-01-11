@@ -55,7 +55,7 @@ load_author_map (char *filename)
     f = fopen (filename, "r");
     if (!f) {
 	fprintf (stderr, "%s: %s\n", filename, strerror (errno));
-	return 0;
+	return 1;
     }
     while (fgets (line, sizeof (line) - 1, f)) {
 	lineno++;

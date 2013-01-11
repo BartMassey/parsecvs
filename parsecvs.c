@@ -734,6 +734,7 @@ typedef struct _rev_filename {
 
 int load_current_file, load_total_files;
 int commit_time_window = 60;
+bool force_dates = false;
 
 int
 main (int argc, char **argv)
@@ -757,7 +758,7 @@ main (int argc, char **argv)
 	    { "author-map",         1, 0, 'A' },
             { "graph",              0, 0, 'g' },
 	};
-	int c = getopt_long(argc, argv, "+hVw:gvA:", options, NULL);
+	int c = getopt_long(argc, argv, "+hVw:gvA:T", options, NULL);
 	if (c < 0)
 	    break;
 	switch (c) {
@@ -770,6 +771,7 @@ main (int argc, char **argv)
                    " -v --version                    Print version\n"
                    " -w --commit-time-window=WINDOW  Time window for commits\n"
 		   " -A --authormap                  Author map file\n"
+		   " -T                              Force deteministic dates\n"
 		   "\n"
 		   "Example: find -name '*,v' | parsecvs\n");
 	    return 0;
@@ -791,6 +793,9 @@ main (int argc, char **argv)
 	    break;
 	case 'A':
 	    load_author_map (optarg);
+	    break;
+	case 'T':
+	    force_dates = true;
 	    break;
 	default: /* error message already emitted */
 	    fprintf(stderr, "Try `%s --help' for more information.\n", argv[0]);

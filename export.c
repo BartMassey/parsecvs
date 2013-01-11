@@ -16,7 +16,6 @@
  *  59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
  */
 
-#include <stdbool.h>
 #include <limits.h>
 #include <openssl/sha.h>
 #include "cvs.h"
@@ -156,6 +155,7 @@ export_commit(rev_commit *commit, char *branch, int strip)
     char *email;
     char *timezone;
     const char *ts;
+    time_t ct;
     rev_file	*f, *f2;
     int		i, j, i2, j2;
 
@@ -169,14 +169,14 @@ export_commit(rev_commit *commit, char *branch, int strip)
 	email = author->email;
 	timezone = author->timezone ? author->timezone : "UTC";
     }
-    printf("Timezone: '%s'\n", timezone);
 
     printf("commit refs/heads/%s\n", branch);
     printf("mark :%d\n", ++mark);
     commit->mark = mark;
     if (commit->parent)
 	printf("from :%d\n", commit->parent->mark);
-    ts = utc_offset_timestamp(&commit->date, timezone);
+    ct = force_dates ? mark * commit_time_window * 2 : commit->date;
+    ts = utc_offset_timestamp(&ct, timezone);
     printf("author %s <%s> %s\n", full, email, ts);
     printf("committer %s <%s> %s\n", full, email, ts);
     printf("data %zd\n%s\n", strlen(commit->log), commit->log);
