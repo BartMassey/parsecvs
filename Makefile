@@ -44,6 +44,9 @@ clean:
 install:
 	cp parsecvs ${HOME}/bin
 
+cppcheck:
+	cppcheck --template gcc --enable=all -UUNUSED --suppress=unusedStructMember *.[ch]
+
 SOURCES = Makefile *.[ch]
 DOCS = README COPYING NEWS parsecvs.asc
 ALL =  $(SOURCES) $(DOCS)

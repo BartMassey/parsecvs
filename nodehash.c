@@ -140,9 +140,9 @@ static int compare(const void *a, const void *b)
 static void try_pair(Node *a, Node *b)
 {
 	int n = a->number.c;
-	int i;
 
 	if (n == b->number.c) {
+		int i;
 		if (n == 2) {
 			a->next = b;
 			b->to = a;

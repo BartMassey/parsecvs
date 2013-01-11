@@ -40,9 +40,9 @@ void
 dump_number_file (FILE *f, char *name, cvs_number *number)
 /* dump a filename/CVS-version pair to a specified file pointer */
 {
-    int i;
     fprintf (f, "%s ", name);
     if (number) {
+	int i;
 	for (i = 0; i < number->c; i++) {
 	    fprintf (f, "%d", number->n[i]);
 	    if (i < number->c - 1) fprintf (f, ".");
@@ -155,7 +155,6 @@ void
 dump_commit_graph (rev_commit *c, rev_ref *branch)
 {
     rev_file	*f;
-    int		i, j;
 
     printf ("\"");
     if (branch)
@@ -197,6 +196,7 @@ dump_commit_graph (rev_commit *c, rev_ref *branch)
 	    dump_number (c->file->name, &c->file->number);
 	    printf ("\\n");
 	} else {
+	    int		i, j;
 	    for (i = 0; i < c->ndirs; i++) {
 		rev_dir *dir = c->dirs[i];
 		for (j = 0; j < dir->nfiles; j++) {

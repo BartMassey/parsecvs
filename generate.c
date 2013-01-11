@@ -483,9 +483,7 @@ static void keyreplace(enum markers marker)
 {
 	const char *target_lockedby = NULL;	// Not wired in yet
 
-	int c;
 	char const *xxp;
-	size_t cs, cw, ls;
 	char *leader = NULL;
 	char date_string[25];
 	uchar *kdelim_ptr = NULL;
@@ -552,6 +550,8 @@ static void keyreplace(enum markers marker)
 #endif
 
 	if (marker == Log) {
+		int c;
+		size_t cs, cw, ls;
 		/*
 		 * "Closing delimiter is processed again in expandline"
 		 * does not apply here, since we consume the input.

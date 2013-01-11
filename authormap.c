@@ -85,6 +85,7 @@ load_author_map (char *filename)
 	    fprintf (stderr, "%s: (%d) missing email address '%s'\n",
 		     filename, lineno, name);
 	    fclose (f);
+	    free(a);
 	    return 0;
 	}
 	email = angle + 1;
@@ -99,6 +100,7 @@ load_author_map (char *filename)
 	    fprintf (stderr, "%s: (%d) malformed email address '%s\n",
 		     filename, lineno, name);
 	    fclose (f);
+	    free(a);
 	    return 0;
 	}
 	*angle = '\0';
