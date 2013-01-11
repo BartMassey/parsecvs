@@ -29,12 +29,13 @@
 cvs_file	*this_file;
 
 rev_execution_mode rev_mode = ExecuteExport;
+bool suppress_keyword_expansion = false;
+FILE *revision_map;
 
 int elide = 0;
 int difffiles = 0;
 int allfiles = 1;
 int verbose = 0;
-FILE *revision_map;
 
 void
 dump_number_file (FILE *f, char *name, cvs_number *number)
@@ -770,6 +771,7 @@ main (int argc, char **argv)
                    "Mandatory arguments to long options are mandatory for short options too.\n"
                    " -h --help                       This help\n"
 		   " -g --graph                      Dump the commit graph\n"
+		   " -k                              Suppress keyword expansion\n"
                    " -v --version                    Print version\n"
                    " -w --commit-time-window=WINDOW  Time window for commits (seconds)\n"
 		   " -A --authormap                  Author map file\n"
@@ -780,6 +782,9 @@ main (int argc, char **argv)
 	    return 0;
 	case 'g':
 	    rev_mode = ExecuteGraph;
+	    break;
+        case 'k':
+	    suppress_keyword_expansion = true;
 	    break;
 	case 'v':
 	    verbose++;

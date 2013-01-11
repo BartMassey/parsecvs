@@ -833,14 +833,14 @@ static void enter_branch(Node *node)
 
 void generate_files(cvs_file *cvs, void (*hook)(Node *node, void *buf, unsigned long len))
 {
-	int expand_override_enabled = 1;
 	int expandflag = Gexpand < EXPANDKO;
 	Node *node = head_node;
 	depth = 0;
 	Gfilename = cvs->name;
-	if (cvs->expand && expand_override_enabled)
-		Gexpand = expand_override(cvs->expand);
-	else	Gexpand = EXPANDKK;
+	if (!suppress_keyword_expansion && cvs->expand)
+	    Gexpand = expand_override(cvs->expand);
+	else
+	    Gexpand = EXPANDKK;
 	Gabspath = NULL;
 	Gline = NULL; Ggap = Ggapsize = Glinemax = 0;
 	stack[0].node = node;

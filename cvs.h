@@ -136,6 +136,8 @@ extern int verbose;
 
 extern FILE *revision_map;
 
+extern bool suppress_keyword_expansion;
+
 typedef struct _rev_commit {
     struct _rev_commit	*parent;
     char		tail;
