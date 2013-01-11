@@ -703,12 +703,6 @@ dump_rev_tree (rev_list *rl)
 #endif
 	    printf ("\t\t}\n");
 	    tail = c->tail;
-#if 0	 
-	    if (time_compare (c->date, 1079499163) <= 0) {
-		printf ("\t\t...\n");
-		break;
-	    }
-#endif     
 	}
 	printf ("\t}\n");
     }
