@@ -103,6 +103,17 @@ load_author_map (char *filename)
 	}
 	*angle = '\0';
 	a->email = atom (email);
+	a->timezone = NULL;
+	if (*++angle) {
+	    while (*angle != '\0') {
+		char *end = angle + strlen(angle) - 1;
+		if (isspace(*end))
+		    *end = '\0';
+		else
+		    break;
+	    }
+	    a->timezone = atom(angle);
+	}
 	bucket = &author_buckets[((unsigned long) name) % AUTHOR_HASH];
 	a->next = *bucket;
 	*bucket = a;

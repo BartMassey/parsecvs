@@ -190,6 +190,7 @@ typedef struct _cvs_author {
     char		*name;
     char		*full;
     char		*email;
+    char		*timezone;
 } cvs_author;
 
 cvs_author * fullname (char *);
