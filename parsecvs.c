@@ -733,7 +733,7 @@ typedef struct _rev_filename {
 } rev_filename;
 
 int load_current_file, load_total_files;
-int commit_time_window = 60;
+int commit_time_window = 300;
 bool force_dates = false;
 
 int
@@ -769,7 +769,7 @@ main (int argc, char **argv)
                    " -h --help                       This help\n"
 		   " -g --graph                      Dump the commit graph\n"
                    " -v --version                    Print version\n"
-                   " -w --commit-time-window=WINDOW  Time window for commits\n"
+                   " -w --commit-time-window=WINDOW  Time window for commits (seconds)\n"
 		   " -A --authormap                  Author map file\n"
 		   " -T                              Force deteministic dates\n"
 		   "\n"

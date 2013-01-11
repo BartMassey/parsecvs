@@ -94,24 +94,21 @@ rev_commit_later (rev_commit *a, rev_commit *b)
     return 0;
 }
 
-/*
- * Commits further than 60 minutes apart are assume to be different
- */
-static int
+static bool
 commit_time_close (time_t a, time_t b)
 {
     long	diff = a - b;
     if (diff < 0) diff = -diff;
-    if (diff < commit_time_window * 60)
-	return 1;
-    return 0;
+    if (diff < commit_time_window)
+	return true;
+    return false;
 }
 
 /*
  * The heart of the merge operation; detect when two
  * commits are "the same"
  */
-static int
+static bool
 rev_commit_match (rev_commit *a, rev_commit *b)
 {
     /*
@@ -127,8 +124,8 @@ rev_commit_match (rev_commit *a, rev_commit *b)
     if (a->log != b->log)
 	return 0;
     if (a->author != b->author)
-	return 0;
-    return 1;
+	return false;
+    return true;
 }
 
 #if UNUSED
