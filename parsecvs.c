@@ -897,7 +897,6 @@ main (int argc, char **argv)
     }
     discard_atoms ();
     discard_tags ();
-    discard_tree ();
     rev_free_dirs ();
     rev_commit_cleanup ();
     free_author_map ();
