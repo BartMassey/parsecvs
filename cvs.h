@@ -81,7 +81,7 @@ typedef struct _cvs_version {
     time_t		date;
     char		*author;
     char		*state;
-    int			dead;
+    bool		dead;
     cvs_branch		*branches;
     cvs_number		parent;	/* next in ,v file */
     char		*commitid;
@@ -163,7 +163,7 @@ typedef struct _rev_ref {
     int			depth;	/* depth in branching tree (1 is trunk) */
     cvs_number		number;
     char		*name;
-    int			shown;
+    bool		shown;
 } rev_ref;
 
 typedef struct _rev_list {

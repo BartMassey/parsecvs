@@ -269,7 +269,7 @@ dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 	    for (o = r; o; o = o->next)
 		if (!o->shown && o->commit == r->commit)
 		{
-		    o->shown = 1;
+		    o->shown = true;
 		    if (n)
 			printf ("\\n");
 		    dump_ref_name (stdout, o);
@@ -280,7 +280,7 @@ dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 	}
     }
     for (r = refs; r; r = r->next)
-	r->shown = 0;
+	r->shown = false;
     for (r = refs; r; r = r->next) {
 	if (!r->shown) {
 	    printf ("\t");
@@ -293,7 +293,7 @@ dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 	    for (o = r; o; o = o->next)
 		if (!o->shown && o->commit == r->commit)
 		{
-		    o->shown = 1;
+		    o->shown = true;
 		    if (n)
 			printf ("\\n");
 		    dump_ref_name (stdout, o);
@@ -311,7 +311,7 @@ dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 	}
     }
     for (r = refs; r; r = r->next)
-	r->shown = 0;
+	r->shown = false;
 }
 
 static void dump_tags(rev_list *rl, char *title, char *shape)
