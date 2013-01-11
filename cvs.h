@@ -402,10 +402,10 @@ rev_head_free (rev_ref *heads, int free_files);
 void
 rev_list_set_tail (rev_list *rl);
 
-int
+bool
 rev_file_later (rev_file *a, rev_file *b);
 
-int
+bool
 rev_commit_later (rev_commit *a, rev_commit *b);
 
 void

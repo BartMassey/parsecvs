@@ -56,7 +56,7 @@ rev_find_head (rev_list *rl, char *name)
  * (which are always unique)
  */
 
-int
+bool
 rev_file_later (rev_file *af, rev_file *bf)
 {
     long	t;
@@ -70,15 +70,15 @@ rev_file_later (rev_file *af, rev_file *bf)
     t = time_compare (af->date, bf->date);
 
     if (t > 0)
-	return 1;
+	return true;
     if (t < 0)
-	return 0;
+	return false;
     if ((uintptr_t) af > (uintptr_t) bf)
-	return 1;
-    return 0;
+	return true;
+    return false;
 }
 
-int
+bool
 rev_commit_later (rev_commit *a, rev_commit *b)
 {
     long	t;
@@ -86,12 +86,12 @@ rev_commit_later (rev_commit *a, rev_commit *b)
     assert (a != b);
     t = time_compare (a->date, b->date);
     if (t > 0)
-	return 1;
+	return true;
     if (t < 0)
-	return 0;
+	return false;
     if ((uintptr_t) a > (uintptr_t) b)
-	return 1;
-    return 0;
+	return true;
+    return true;
 }
 
 static bool
@@ -118,11 +118,11 @@ rev_commit_match (rev_commit *a, rev_commit *b)
     if (a->commitid && b->commitid)
 	return a->commitid == b->commitid;
     if (a->commitid || b->commitid)
-	return 0;
+	return false;
     if (!commit_time_close (a->date, b->date))
-	return 0;
+	return false;
     if (a->log != b->log)
-	return 0;
+	return false;
     if (a->author != b->author)
 	return false;
     return true;
