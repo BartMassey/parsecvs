@@ -118,7 +118,7 @@ static void fatal_error(char const *format,...)
 	exit(1);
 }
 
-void* xmalloc(size_t size)
+static void* xmalloc(size_t size)
 {
         void *ret = malloc(size);
         if (!ret && !size)
@@ -127,7 +127,8 @@ void* xmalloc(size_t size)
                 fatal_system_error("Out of memory, malloc failed");
         return ret;
 }
-void* xrealloc(void *ptr, size_t size)
+
+static void* xrealloc(void *ptr, size_t size)
 {
         void *ret = realloc(ptr, size);
         if (!ret && !size)

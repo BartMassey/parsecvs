@@ -273,7 +273,7 @@ export_ncommit (rev_list *rl)
     return n;
 }
 
-int
+bool
 export_commits (rev_list *rl, int strip)
 {
     rev_ref *h;
@@ -285,11 +285,11 @@ export_commits (rev_list *rl, int strip)
 	export_current_head = h->name;
 	if (!h->tail)
 	    if (!export_commit_recurse (h, h->commit, strip))
-		return 0;
+		return false;
 	printf("reset refs/heads %s\nmark :%d\n\n", h->name, h->commit->mark);
     }
     fprintf (STATUS, "\n");
-    return 1;
+    return true;
 }
 
 #define PROGRESS_LEN	20
@@ -320,3 +320,4 @@ void load_status_next (void)
     fflush (STATUS);
 }
 
+/* end */

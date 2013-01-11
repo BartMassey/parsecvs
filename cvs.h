@@ -419,7 +419,7 @@ export_blob(Node *node, void *buf, unsigned long len);
 void
 export_init(void);
 
-int
+bool
 export_commits (rev_list *rl, int strip);
 
 void
@@ -454,12 +454,5 @@ void hash_branch(cvs_branch *);
 void clean_hash(void);
 void build_branches(void);
 extern Node *head_node;
-
-void reset_commits(rev_commit **, int);
-void discard_tree(void);
-
-extern void *xrealloc(void *ptr, size_t size);
-extern void *xcalloc(size_t nmemb, size_t size);
-extern void *xmalloc(size_t size);
 
 #endif /* _CVS_H_ */
