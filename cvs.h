@@ -115,7 +115,6 @@ typedef struct _rev_file {
     char		*sha1;
     int                 mark;
     mode_t		mode;
-    enum {changed, same, deleted} status;
     struct _rev_file	*link;
 } rev_file;
 

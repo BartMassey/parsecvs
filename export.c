@@ -16,6 +16,7 @@
  *  59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
  */
 
+#include <stdbool.h>
 #include <limits.h>
 #include <openssl/sha.h>
 #include "cvs.h"
@@ -154,27 +155,24 @@ export_commit(rev_commit *commit, char *branch, int strip)
 	
 	for (j = 0; j < dir->nfiles; j++) {
 	    char *stripped;
+	    bool present, changed;
 	    f = dir->files[j];
 	    stripped = export_filename(f, strip);
-	    f->status = changed;
+	    present = false;
+	    changed = false;
 	    if (commit->parent) {
-		f->status = deleted;
 		for (i2 = 0; i2 < commit->parent->ndirs; i2++) {
 		    rev_dir	*dir2 = commit->parent->dirs[i2];
 		    for (j2 = 0; j2 < dir2->nfiles; j2++) {
 			f2 = dir2->files[j2];
 			if (strcmp(f->name, f2->name) == 0) {
-			    if (f->mark == f2->mark)
-				f->status = same;
-			    else
-				f->status = changed;
+			    present = true;
+			    changed = (f->mark != f2->mark);
 			}
 		    }
 		}
 	    }
-	    if (f->status == deleted)
-		printf("D %s\n", stripped);
-	    else if (f->status == changed)
+	    if (!present || changed)
 		printf("M 10%o %s :%d\n", 
 		       (f->mode & 0777) | 0200, 
 		       stripped, f->mark);
