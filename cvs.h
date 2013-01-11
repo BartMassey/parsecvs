@@ -139,8 +139,8 @@ typedef struct _rev_commit {
     char		tail;
     char		seen;
     char		used;
-    char		tailed;
-    char		tagged;
+    bool		tailed;
+    bool		tagged;
     time_t		date;
     char		*log;
     char		*author;

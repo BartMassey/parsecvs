@@ -169,7 +169,7 @@ rev_list_set_tail (rev_list *rl)
 	    }
 	    c->seen++;
 	}
-	head->commit->tagged = 1;
+	head->commit->tagged = true;
     }
 }
 
@@ -337,7 +337,7 @@ rev_commit_date_compare (const void *av, const void *bv)
      * tailed entries sort next
      */
     if (a->tailed != b->tailed)
-	return a->tailed - b->tailed;
+	return (int)a->tailed - (int)b->tailed;
     /*
      * Newest entries sort first
      */
@@ -601,7 +601,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 		if (!c)
 			continue;
 		if (branches[n]->tail) {
-			c->tailed = 1;
+			c->tailed = true;
 			continue;
 		}
 		nlive++;
@@ -693,7 +693,7 @@ rev_branch_merge (rev_ref **branches, int nbranch,
 				 * branch had forked off it but before
 				 * our branch's creation.
 				 */
-				to->tailed = 1;
+				to->tailed = true;
 			} else if (to->file) {
 				nlive++;
 			} else {
@@ -785,7 +785,7 @@ Kill:
     }
     for (n = 0; n < nbranch; n++)
 	if (commits[n])
-	    commits[n]->tailed = 0;
+	    commits[n]->tailed = false;
     free (commits);
     branch->commit = head;
 }
@@ -805,7 +805,7 @@ rev_tag_search(Tag *tag, rev_commit **commits, rev_list *rl)
 		/* AV: shouldn't we put it on some branch? */
 		tag->commit = rev_commit_build(commits, commits[0], tag->count);
 	}
-	tag->commit->tagged = 1;
+	tag->commit->tagged = true;
 }
 
 static void
