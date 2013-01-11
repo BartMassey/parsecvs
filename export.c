@@ -31,12 +31,12 @@ export_init(void)
 static char *sha1_to_hex(const unsigned char *sha1)
 {
     static int bufno;
-    static char hexbuffer[4][50];
+    static char hexbuffer[4][SHA_DIGEST_LENGTH * 2 + 1];
     static const char hex[] = "0123456789abcdef";
     char *buffer = hexbuffer[3 & ++bufno], *buf = buffer;
     int i;
 
-    for (i = 0; i < 20; i++) {
+    for (i = 0; i < SHA_DIGEST_LENGTH; i++) {
 	unsigned int val = *sha1++;
 	*buf++ = hex[val >> 4];
 	*buf++ = hex[val & 0xf];
@@ -49,8 +49,8 @@ static char *sha1_to_hex(const unsigned char *sha1)
 void 
 export_blob(Node *node, void *buf, unsigned long len)
 {
-    char sha1_ascii[41];
-    unsigned char sha1[20];
+    char sha1_ascii[SHA_DIGEST_LENGTH * 2 + 1];
+    unsigned char sha1[SHA_DIGEST_LENGTH];
 
     SHA1(buf, len, sha1);
     strncpy(sha1_ascii, sha1_to_hex(sha1), 41);
