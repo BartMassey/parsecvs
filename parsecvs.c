@@ -34,6 +34,7 @@ int elide = 0;
 int difffiles = 0;
 int allfiles = 1;
 int verbose = 0;
+FILE *revision_map;
 
 void
 dump_number_file (FILE *f, char *name, cvs_number *number)
@@ -756,21 +757,23 @@ main (int argc, char **argv)
 	    { "verbose",	    0, 0, 'v' },
 	    { "commit-time-window", 1, 0, 'w' },
 	    { "author-map",         1, 0, 'A' },
+	    { "revision-map",       1, 0, 'R' },
             { "graph",              0, 0, 'g' },
 	};
-	int c = getopt_long(argc, argv, "+hVw:gvA:T", options, NULL);
+	int c = getopt_long(argc, argv, "+hVw:gvA:R:T", options, NULL);
 	if (c < 0)
 	    break;
 	switch (c) {
 	case 'h':
 	    printf("Usage: parsecvs [OPTIONS] [FILE]...\n"
-		   "Parse RCS files and populate git repository.\n\n"
+		   "Parse RCS files and emit a fast-import stream.\n\n"
                    "Mandatory arguments to long options are mandatory for short options too.\n"
                    " -h --help                       This help\n"
 		   " -g --graph                      Dump the commit graph\n"
                    " -v --version                    Print version\n"
                    " -w --commit-time-window=WINDOW  Time window for commits (seconds)\n"
 		   " -A --authormap                  Author map file\n"
+		   " -R --revision-map               Revision map file\n"
 		   " -T                              Force deteministic dates\n"
 		   "\n"
 		   "Example: find -name '*,v' | parsecvs\n");
@@ -793,6 +796,9 @@ main (int argc, char **argv)
 	    break;
 	case 'A':
 	    load_author_map (optarg);
+	    break;
+	case 'R':
+	    revision_map = fopen(optarg, "w");
 	    break;
 	case 'T':
 	    force_dates = true;
@@ -900,5 +906,7 @@ main (int argc, char **argv)
     rev_free_dirs ();
     rev_commit_cleanup ();
     free_author_map ();
+    if (revision_map)
+	fclose(revision_map);
     return err;
 }

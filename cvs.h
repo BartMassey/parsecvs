@@ -134,6 +134,8 @@ extern int load_current_file, load_total_files;
 
 extern int verbose;
 
+extern FILE *revision_map;
+
 typedef struct _rev_commit {
     struct _rev_commit	*parent;
     char		tail;

@@ -203,10 +203,15 @@ export_commit(rev_commit *commit, char *branch, int strip)
 		    }
 		}
 	    }
-	    if (!present || changed)
+	    if (!present || changed) {
 		printf("M 10%o %s :%d\n", 
 		       (f->mode & 0777) | 0200, 
 		       stripped, f->mark);
+		if (revision_map) {
+		    dump_number_file(revision_map, stripped, &f->number);
+		    fprintf(revision_map, " :%d\n", f->mark);
+		}
+	    }
 	}
     }
 
