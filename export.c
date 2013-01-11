@@ -153,7 +153,7 @@ export_commit(rev_commit *commit, char *branch, int strip)
 		stem[2] = 'i';
 		stem[3] = 't';
 	    }	
-	    printf("%s %s\n", stem, f->sha1);
+	    printf("M %s :%d\n", stem, f->mark);
 	}
     }
     printf ("\n");
