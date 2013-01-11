@@ -114,8 +114,8 @@ export_commit(rev_commit *commit, char *branch, int strip)
     cvs_author *author;
     char *full;
     char *email;
-    rev_file	*f;
-    int		i, j;
+    rev_file	*f, *f2;
+    int		i, j, i2, j2;
 
     author = fullname(commit->author);
     if (!author) {
@@ -152,8 +152,29 @@ export_commit(rev_commit *commit, char *branch, int strip)
 		stem[1] = 'g';
 		stem[2] = 'i';
 		stem[3] = 't';
-	    }	
-	    printf("M %s :%d\n", stem, f->mark);
+	    }
+	    f->status = changed;
+	    if (commit->parent) {
+		f->status = deleted;
+		for (i2 = 0; i2 < commit->parent->ndirs; i2++) {
+		    rev_dir	*dir2 = commit->parent->dirs[i2];
+		    for (j2 = 0; j2 < dir2->nfiles; j2++) {
+			f2 = dir2->files[j2];
+			if (strcmp(f->name, f2->name) == 0) {
+			    if (f->mark == f2->mark)
+				f->status = same;
+			    else
+				f->status = changed;
+			}
+		    }
+		}
+	    }
+	    if (f->status == deleted)
+		printf("D %s\n", stem);
+	    else if (f->status == changed)
+		printf("M 10%o %s :%d\n", 
+		       (f->mode & 0777) | 0200, 
+		       stem, f->mark);
 	}
     }
     printf ("\n");
