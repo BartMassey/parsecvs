@@ -16,6 +16,7 @@
  *  59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
  */
 
+#include <limits.h>
 #include <openssl/sha.h>
 #include "cvs.h"
 
@@ -108,11 +109,13 @@ export_status (void)
 }
 
 static void
-export_commit(rev_commit *commit, char *branch)
+export_commit(rev_commit *commit, char *branch, int strip)
 {
     cvs_author *author;
     char *full;
     char *email;
+    rev_file	*f;
+    int		i, j;
 
     author = fullname(commit->author);
     if (!author) {
@@ -133,6 +136,28 @@ export_commit(rev_commit *commit, char *branch)
     printf("committer %s <%s> %lu +0000\n",
 	       full, email, commit->date);
     printf("data %zd\n%s\n", strlen(commit->log), commit->log);
+
+    for (i = 0; i < commit->ndirs; i++) {
+	rev_dir	*dir = commit->dirs[i];
+	
+	for (j = 0; j < dir->nfiles; j++) {
+	    char stem[PATH_MAX], *end;
+	    f = dir->files[j];
+	    strcpy(stem, f->name + strip);
+	    end = stem + strlen(stem);
+	    if (end > stem + 2 && end[-1] == 'v' && end[-2] == ',')
+		end[-2] = '\0';
+	    if (strcmp(stem, ".cvsignore") == 0)
+	    {
+		stem[1] = 'g';
+		stem[2] = 'i';
+		stem[3] = 't';
+	    }	
+	    printf("%s %s\n", stem, f->sha1);
+	}
+    }
+    printf ("\n");
+
 }
 
 static int
@@ -145,7 +170,7 @@ export_commit_recurse (rev_ref *head, rev_commit *commit, int strip)
 		return 0;
     ++export_current_commit;
     export_status ();
-    export_commit (commit, head->name);
+    export_commit (commit, head->name, strip);
     for (t = all_tags; t; t = t->next)
 	if (t->commit == commit)
 	    printf("reset refs/tags/%s\nmark :%d\n\n", t->name, commit->mark);
