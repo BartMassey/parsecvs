@@ -106,11 +106,12 @@ static const char *utc_offset_timestamp(const time_t *timep, const char *tz)
 
     struct tm *tm;
     char tzbuf[BUFSIZ];
+    /* coverity[tainted_data] */
     char *oldtz = getenv("TZ");
 
     // make a copy in case original is clobbered
     if (oldtz != NULL)
-	strncpy(tzbuf, oldtz, sizeof(tzbuf));
+	strncpy(tzbuf, oldtz, sizeof(tzbuf)-1);
 
     setenv("TZ", tz, 1);
     tzset();  // just in case ...
