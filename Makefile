@@ -6,7 +6,7 @@ VERSION=0.2
 
 GCC_WARNINGS1=-Wall -Wpointer-arith -Wstrict-prototypes
 GCC_WARNINGS2=-Wmissing-prototypes -Wmissing-declarations
-GCC_WARNINGS3=-fno-strict-aliasing -Wno-unused-function -Wno-unused-label
+GCC_WARNINGS3=-Wno-unused-function -Wno-unused-label
 GCC_WARNINGS=$(GCC_WARNINGS1) $(GCC_WARNINGS2) $(GCC_WARNINGS3)
 CFLAGS=-O2 -g $(GCC_WARNINGS) -DVERSION=\"$(VERSION)\"
 
