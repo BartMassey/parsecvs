@@ -30,6 +30,7 @@ cvs_file	*this_file;
 
 rev_execution_mode rev_mode = ExecuteExport;
 bool suppress_keyword_expansion = false;
+bool reposurgeon;
 int verbose = 0;
 FILE *revision_map;
 
@@ -402,9 +403,10 @@ main (int argc, char **argv)
 	    { "commit-time-window", 1, 0, 'w' },
 	    { "author-map",         1, 0, 'A' },
 	    { "revision-map",       1, 0, 'R' },
+	    { "reposurgeon",        1, 0, 'r' },
             { "graph",              0, 0, 'g' },
 	};
-	int c = getopt_long(argc, argv, "+hVw:gvA:R:T", options, NULL);
+	int c = getopt_long(argc, argv, "+hVw:grvA:R:T", options, NULL);
 	if (c < 0)
 	    break;
 	switch (c) {
@@ -419,6 +421,7 @@ main (int argc, char **argv)
                    " -w --commit-time-window=WINDOW  Time window for commits (seconds)\n"
 		   " -A --authormap                  Author map file\n"
 		   " -R --revision-map               Revision map file\n"
+		   " -r --reposurgeon                Issue cvs-revision properties\n"
 		   " -T                              Force deteministic dates\n"
 		   "\n"
 		   "Example: find -name '*,v' | parsecvs\n");
@@ -447,6 +450,9 @@ main (int argc, char **argv)
 	    break;
 	case 'R':
 	    revision_map = fopen(optarg, "w");
+	    break;
+	case 'r':
+	    reposurgeon = true;
 	    break;
 	case 'T':
 	    force_dates = true;

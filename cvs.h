@@ -136,6 +136,8 @@ extern int verbose;
 
 extern FILE *revision_map;
 
+extern bool reposurgeon;
+
 extern bool suppress_keyword_expansion;
 
 typedef struct _rev_commit {
@@ -424,6 +426,12 @@ load_status (char *name);
 
 void 
 load_status_next (void);
+
+void* 
+xmalloc(size_t size);
+
+void* 
+xrealloc(void *ptr, size_t size);
 
 void hash_version(cvs_version *);
 void hash_patch(cvs_patch *);

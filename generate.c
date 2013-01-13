@@ -118,7 +118,7 @@ static void fatal_error(char const *format,...)
 	exit(1);
 }
 
-static void* xmalloc(size_t size)
+void* xmalloc(size_t size)
 {
         void *ret = malloc(size);
         if (!ret && !size)
@@ -128,7 +128,7 @@ static void* xmalloc(size_t size)
         return ret;
 }
 
-static void* xrealloc(void *ptr, size_t size)
+void* xrealloc(void *ptr, size_t size)
 {
         void *ret = realloc(ptr, size);
         if (!ret && !size)

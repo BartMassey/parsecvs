@@ -155,6 +155,8 @@ export_commit(rev_commit *commit, char *branch, int strip)
     char *full;
     char *email;
     char *timezone;
+    char *revpairs = NULL;
+    size_t revpairsize = 0;
     const char *ts;
     time_t ct;
     rev_file	*f, *f2;
@@ -182,6 +184,12 @@ export_commit(rev_commit *commit, char *branch, int strip)
     if (commit->parent)
 	printf("from :%d\n", commit->parent->mark);
 
+    if (reposurgeon)
+    {
+	revpairs = xmalloc((revpairsize = 1024));
+	revpairs[0] = '\0';
+    }
+
     for (i = 0; i < commit->ndirs; i++) {
 	rev_dir	*dir = commit->dirs[i];
 	
@@ -205,17 +213,30 @@ export_commit(rev_commit *commit, char *branch, int strip)
 		}
 	    }
 	    if (!present || changed) {
-		char *fr = stringify_revision(stripped, " ", &f->number);
 		printf("M 100%o :%d %s\n", 
 		       (f->mode & 0777) | 0200, 
 		       f->mark, stripped);
-		if (revision_map)
-		    fprintf(revision_map, "%s :%d\n", fr, f->mark);
+		if (revision_map || reposurgeon) {
+		    char *fr = stringify_revision(stripped, " ", &f->number);
+		    if (revision_map)
+			fprintf(revision_map, "%s :%d\n", fr, f->mark);
+		    if (reposurgeon)
+		    {
+			if (strlen(revpairs) + strlen(fr) + 2 > revpairsize)
+			{
+			    revpairsize += strlen(fr) + 2;
+			    revpairs = xrealloc(revpairs, revpairsize);
+			}
+			strcat(revpairs, fr);
+			strcat(revpairs, "\n");
+		    }
+		}
 	    }
 	}
     }
 
     if (commit->parent)
+    {
 	for (i = 0; i < commit->parent->ndirs; i++) {
 	    rev_dir	*dir = commit->parent->dirs[i];
 
@@ -236,7 +257,13 @@ export_commit(rev_commit *commit, char *branch, int strip)
 		    printf("D %s\n", export_filename(f, strip));
 	    }
 	}
+    }
 
+    if (reposurgeon) 
+    {
+	printf("property cvs-revision %zd %s", strlen(revpairs), revpairs);
+	free(revpairs);
+    }
 
     printf ("\n");
 
