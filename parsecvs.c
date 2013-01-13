@@ -31,6 +31,8 @@ typedef enum _rev_execution_mode {
 } rev_execution_mode;
 
 /* options */
+int commit_time_window = 300;
+bool force_dates = false;
 bool suppress_keyword_expansion = false;
 bool reposurgeon;
 FILE *revision_map;
@@ -386,8 +388,6 @@ typedef struct _rev_filename {
 } rev_filename;
 
 int load_current_file, load_total_files;
-int commit_time_window = 300;
-bool force_dates = false;
 
 int
 main (int argc, char **argv)
