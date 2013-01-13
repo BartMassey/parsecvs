@@ -424,4 +424,6 @@ void clean_hash(void);
 void build_branches(void);
 extern Node *head_node;
 
+extern time_t skew_vulnerable;
+
 #endif /* _CVS_H_ */

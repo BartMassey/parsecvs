@@ -21,6 +21,7 @@
 
 void yyerror (char *msg);
 
+time_t skew_vulnerable = 0;
 %}
 
 %union {
@@ -133,8 +134,11 @@ revision	: NUMBER date author state branches next opt_commitid
 			$$->branches = $5;
 			$$->parent = $6;
 			$$->commitid = $7;
+			if ($$->commitid == NULL && skew_vulnerable < $$->date)
+			    skew_vulnerable = $$->date;
 			hash_version($$);
 			++this_file->nversions;
+			
 		  }
 		;
 date		: DATE NUMBER SEMI
