@@ -307,8 +307,6 @@ void load_status (char *name)
     int	    s;
     int	    l;
 
-    if (rev_mode == ExecuteGraph)
-	return;
     l = strlen (name);
     if (l > 35) name += l - 35;
 
@@ -321,8 +319,6 @@ void load_status (char *name)
 
 void load_status_next (void)
 {
-    if (rev_mode == ExecuteGraph)
-	return;
     fprintf (STATUS, "\n");
     fflush (STATUS);
 }

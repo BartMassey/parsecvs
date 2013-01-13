@@ -26,8 +26,7 @@
 #define MAXPATHLEN  10240
 #endif
 
-cvs_file	*this_file;
-
+/* options */
 rev_execution_mode rev_mode = ExecuteExport;
 bool suppress_keyword_expansion = false;
 bool reposurgeon;
@@ -145,6 +144,8 @@ extern FILE *yyin;
 static int err = 0;
 char *yyfilename;
 extern int yylineno;
+
+cvs_file	*this_file;
 
 static rev_list *
 rev_list_file (char *name, int *nversions)
