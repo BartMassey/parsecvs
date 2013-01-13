@@ -19,7 +19,7 @@ LFLAGS=-l
 
 OBJS=gram.o lex.o parsecvs.o cvsutil.o revdir.o \
 	revlist.o atom.o revcvs.o generate.o export.o \
-	nodehash.o tags.o authormap.o
+	nodehash.o tags.o authormap.o graph.o
 
 parsecvs: $(OBJS)
 	cc $(CFLAGS) -o $@ $(OBJS) $(LIBS)
