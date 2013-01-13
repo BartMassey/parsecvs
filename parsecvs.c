@@ -34,6 +34,27 @@ int verbose = 0;
 FILE *revision_map;
 
 void
+dump_number_file (FILE *f, char *name, cvs_number *number)
+/* dump a filename/CVS-version pair to a specified file pointer */
+{
+    fprintf (f, "%s ", name);
+    if (number) {
+	int i;
+	for (i = 0; i < number->c; i++) {
+	    fprintf (f, "%d", number->n[i]);
+	    if (i < number->c - 1) fprintf (f, ".");
+	}
+    }
+}
+
+void
+dump_number (char *name, cvs_number *number)
+/* dump a filename/CVS-version pair to standard output */
+{
+    dump_number_file (stdout, name, number);
+}
+
+void
 dump_rev_commit (rev_commit *c)
 {
     rev_file	*f;

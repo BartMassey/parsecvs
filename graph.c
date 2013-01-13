@@ -20,27 +20,7 @@
 /* FIXME: never set anywhere - should see what happens if it is */
 static bool difffiles = false;
 
-void
-dump_number_file (FILE *f, char *name, cvs_number *number)
-/* dump a filename/CVS-version pair to a specified file pointer */
-{
-    fprintf (f, "%s ", name);
-    if (number) {
-	int i;
-	for (i = 0; i < number->c; i++) {
-	    fprintf (f, "%d", number->n[i]);
-	    if (i < number->c - 1) fprintf (f, ".");
-	}
-    }
-}
-
-void
-dump_number (char *name, cvs_number *number)
-/* dump a filename/CVS-version pair to standard output */
-{
-    dump_number_file (stdout, name, number);
-}
-
+#ifdef __UNUSED__
 static void dump_symbols (char *name, cvs_symbol *symbols)
 /* dump a list of symbols and their CVS-version values to standard output */
 {
@@ -102,6 +82,7 @@ static void dump_file (cvs_file *file)
     dump_versions ("versions", file->versions);
     dump_patches ("patches", file->patches);
 }
+#endif /* __UNUSED__ */
 
 void
 dump_log (FILE *f, char *log)
@@ -130,13 +111,23 @@ dump_log (FILE *f, char *log)
     }
 }
 
-static void dump_commit_graph (rev_commit *c, rev_ref *branch)
+static void
+dot_ref_name (FILE *f, rev_ref *ref)
+{
+    if (ref->parent) {
+	dot_ref_name (f, ref->parent);
+	fprintf (f, " > ");
+    }
+    fprintf (f, "%s", ref->name);
+}
+
+static void dot_commit_graph (rev_commit *c, rev_ref *branch)
 {
     rev_file	*f;
 
     printf ("\"");
     if (branch)
-	dump_ref_name (stdout, branch);
+	dot_ref_name (stdout, branch);
 //    if (c->tail)
 //	printf ("*** TAIL");
     printf ("\\n");
@@ -184,20 +175,10 @@ static void dump_commit_graph (rev_commit *c, rev_ref *branch)
     printf ("\"");
 }
 
-void
-dump_ref_name (FILE *f, rev_ref *ref)
-{
-    if (ref->parent) {
-	dump_ref_name (f, ref->parent);
-	fprintf (f, " > ");
-    }
-    fprintf (f, "%s", ref->name);
-}
-
-static void dump_tag_name(FILE *f, Tag *tag)
+static void dot_tag_name(FILE *f, Tag *tag)
 {
     if (tag->parent) {
-	dump_ref_name (f, tag->parent);
+	dot_ref_name (f, tag->parent);
 	fprintf (f, " > ");
     }
     fprintf (f, "%s", tag->name);
@@ -223,7 +204,7 @@ static rev_ref *dump_find_branch (rev_list *rl, rev_commit *commit)
     return NULL;
 }
 
-static void dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
+static void dot_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 {
     rev_ref	*r, *o;
     int		n;
@@ -243,7 +224,7 @@ static void dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 		    o->shown = true;
 		    if (n)
 			printf ("\\n");
-		    dump_ref_name (stdout, o);
+		    dot_ref_name (stdout, o);
 		    printf (" (%d)", o->degree);
 		    n++;
 		}
@@ -267,14 +248,14 @@ static void dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 		    o->shown = true;
 		    if (n)
 			printf ("\\n");
-		    dump_ref_name (stdout, o);
+		    dot_ref_name (stdout, o);
 		    printf (" (%d)", o->degree);
 		    n++;
 		}
 	    printf ("\"");
 	    printf (" -> ");
 	    if (r->commit)
-		dump_commit_graph (r->commit, dump_find_branch (rl,
+		dot_commit_graph (r->commit, dump_find_branch (rl,
 								r->commit));
 	    else
 		printf ("LOST");
@@ -285,7 +266,7 @@ static void dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 	r->shown = false;
 }
 
-static void dump_tags(rev_list *rl, char *title, char *shape)
+static void dot_tags(rev_list *rl, char *title, char *shape)
 {
     Tag	*r;
     int n;
@@ -310,12 +291,12 @@ static void dump_tags(rev_list *rl, char *title, char *shape)
 	printf ("\t\"");
 	if (title)
 	    printf ("%s\\n", title);
-	dump_tag_name(stdout, r);
+	dot_tag_name(stdout, r);
 	for (n = i + 1; n < count; n++) {
 	    if (v[n].t->commit == r->commit) {
 		v[n].alias = 1;
 		printf ("\\n");
-		dump_tag_name(stdout, v[n].t);
+		dot_tag_name(stdout, v[n].t);
 	    }
 	}
 	printf ("\" [fontsize=6,fixedsize=false,shape=%s];\n", shape);
@@ -327,22 +308,29 @@ static void dump_tags(rev_list *rl, char *title, char *shape)
 	printf ("\t\"");
 	if (title)
 	    printf ("%s\\n", title);
-	dump_tag_name(stdout, r);
+	dot_tag_name(stdout, r);
 	for (n = i + 1; n < count; n++) {
 	    if (v[n].alias && v[n].t->commit == r->commit) {
 		printf ("\\n");
-		dump_tag_name(stdout, v[n].t);
+		dot_tag_name(stdout, v[n].t);
 	    }
 	}
 	printf ("\" -> ");
 	if (r->commit)
-	    dump_commit_graph (r->commit, dump_find_branch (rl, r->commit));
+	    dot_commit_graph (r->commit, dump_find_branch (rl, r->commit));
 	else
 	    printf ("LOST");
 	printf (" [weight=3];\n");
     }
     free(v);
 }
+
+#ifdef __UNUSED__
+/*
+ * Fossil code, apparently from an experiment in eliding intermediate
+ * graph nodes.
+ */
+bool elide = false;
 
 static rev_commit *
 dump_get_rev_parent (rev_commit *c)
@@ -354,8 +342,11 @@ dump_get_rev_parent (rev_commit *c)
 	c = c->parent;
     return c;
 }
+#endif
 
-static void dump_rev_graph_nodes (rev_list *rl, char *title)
+#define dump_get_rev_parent(c) ((c)->parent)
+
+static void dot_rev_graph_nodes (rev_list *rl, char *title)
 {
     rev_ref	*h;
     rev_commit	*c, *p;
@@ -365,8 +356,8 @@ static void dump_rev_graph_nodes (rev_list *rl, char *title)
     printf ("ranksep=0.1;\n");
     printf ("edge [dir=none];\n");
     printf ("node [shape=box,fontsize=6];\n");
-    dump_refs (rl, rl->heads, title, "ellipse");
-    dump_tags (rl, title, "diamond");
+    dot_refs (rl, rl->heads, title, "ellipse");
+    dot_tags (rl, title, "diamond");
     for (h = rl->heads; h; h = h->next) {
 	if (h->tail)
 	    continue;
@@ -376,9 +367,9 @@ static void dump_rev_graph_nodes (rev_list *rl, char *title)
 	    if (!p)
 		break;
 	    printf ("\t");
-	    dump_commit_graph (c, h);
+	    dot_commit_graph (c, h);
 	    printf (" -> ");
-	    dump_commit_graph (p, tail ? h->parent : h);
+	    dot_commit_graph (p, tail ? h->parent : h);
 	    if (!tail)
 		printf (" [weight=10];");
 	    printf ("\n");
@@ -388,12 +379,12 @@ static void dump_rev_graph_nodes (rev_list *rl, char *title)
     }
 }
 
-static void dump_rev_graph_begin (void)
+static void dot_rev_graph_begin (void)
 {
     printf ("digraph G {\n");
 }
 
-static void dump_rev_graph_end (void)
+static void dot_rev_graph_end (void)
 {
     printf ("}\n");
 }
@@ -401,9 +392,9 @@ static void dump_rev_graph_end (void)
 void
 dump_rev_graph (rev_list *rl, char *title)
 {
-    dump_rev_graph_begin ();
-    dump_rev_graph_nodes (rl, title);
-    dump_rev_graph_end ();
+    dot_rev_graph_begin ();
+    dot_rev_graph_nodes (rl, title);
+    dot_rev_graph_end ();
 }
 
 /* end */
