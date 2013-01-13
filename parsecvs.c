@@ -26,12 +26,16 @@
 #define MAXPATHLEN  10240
 #endif
 
+typedef enum _rev_execution_mode {
+    ExecuteExport, ExecuteGraph, ExecuteSplits
+} rev_execution_mode;
+
 /* options */
-rev_execution_mode rev_mode = ExecuteExport;
 bool suppress_keyword_expansion = false;
 bool reposurgeon;
-int verbose = 0;
 FILE *revision_map;
+static int verbose = 0;
+static rev_execution_mode rev_mode = ExecuteExport;
 
 char *
 stringify_revision (char *name, char *sep, cvs_number *number)
@@ -169,7 +173,9 @@ rev_list_file (char *name, int *nversions)
     fclose (yyin);
     yyfilename = 0;
     rl = rev_list_cvs (this_file);
-	    
+    if (rev_mode == ExecuteExport)
+	generate_files(this_file, export_blob);
+   
     *nversions = this_file->nversions;
     cvs_file_free (this_file);
     return rl;

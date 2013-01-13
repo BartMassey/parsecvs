@@ -32,13 +32,10 @@ export_blob(Node *node, void *buf, unsigned long len)
 {
     node->file->mark = ++mark;
 
-    if (rev_mode == ExecuteExport)
-    {
-	printf("blob\nmark :%d\ndata %zd\n", 
-	       node->file->mark, len);
-	fwrite(buf, len, sizeof(char), stdout);
-	putchar('\n');
-    }
+    printf("blob\nmark :%d\ndata %zd\n", 
+	   node->file->mark, len);
+    fwrite(buf, len, sizeof(char), stdout);
+    putchar('\n');
 }
 
 static char *

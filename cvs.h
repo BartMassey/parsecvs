@@ -131,8 +131,6 @@ extern bool force_dates;
 
 extern int load_current_file, load_total_files;
 
-extern int verbose;
-
 extern FILE *revision_map;
 
 extern bool reposurgeon;
@@ -188,10 +186,6 @@ typedef struct _rev_diff {
     int			nadd;
 } rev_diff;
 
-typedef enum _rev_execution_mode {
-    ExecuteExport, ExecuteGraph, ExecuteSplits
-} rev_execution_mode;
-
 typedef struct _cvs_author {
     struct _cvs_author	*next;
     char		*name;
@@ -203,8 +197,6 @@ typedef struct _cvs_author {
 cvs_author * fullname (char *);
 
 int load_author_map (char *);
-
-extern rev_execution_mode	rev_mode;
 
 extern cvs_file     *this_file;
 
