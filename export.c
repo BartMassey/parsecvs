@@ -205,13 +205,12 @@ export_commit(rev_commit *commit, char *branch, int strip)
 		}
 	    }
 	    if (!present || changed) {
+		char *fr = stringify_revision(stripped, " ", &f->number);
 		printf("M 100%o :%d %s\n", 
 		       (f->mode & 0777) | 0200, 
 		       f->mark, stripped);
-		if (revision_map) {
-		    dump_number_file(revision_map, stripped, &f->number);
-		    fprintf(revision_map, " :%d\n", f->mark);
-		}
+		if (revision_map)
+		    fprintf(revision_map, "%s :%d\n", fr, f->mark);
 	    }
 	}
     }
