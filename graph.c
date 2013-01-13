@@ -17,6 +17,7 @@
  */
 #include "cvs.h"
 
+/* FIXME: never set anywhere - should see what happens if it is */
 static bool difffiles = false;
 
 void
@@ -40,8 +41,7 @@ dump_number (char *name, cvs_number *number)
     dump_number_file (stdout, name, number);
 }
 
-void
-dump_symbols (char *name, cvs_symbol *symbols)
+static void dump_symbols (char *name, cvs_symbol *symbols)
 /* dump a list of symbols and their CVS-version values to standard output */
 {
     printf ("%s\n", name);
@@ -53,8 +53,7 @@ dump_symbols (char *name, cvs_symbol *symbols)
     }
 }
 
-void
-dump_branches (char *name, cvs_branch *branches)
+static void dump_branches (char *name, cvs_branch *branches)
 /* dump a list of branches and their CVS-version roots to standard output */
 {
     printf ("%s", name);
@@ -65,8 +64,7 @@ dump_branches (char *name, cvs_branch *branches)
     printf ("\n");
 }
 
-void
-dump_versions (char *name, cvs_version *versions)
+static void dump_versions (char *name, cvs_version *versions)
 /* dump metadata of a list of versions to standard output */
 {
     printf ("%s\n", name);
@@ -83,8 +81,7 @@ dump_versions (char *name, cvs_version *versions)
     }
 }
 
-void
-dump_patches (char *name, cvs_patch *patches)
+static void dump_patches (char *name, cvs_patch *patches)
 /* dump metadata of a list of patches to standard output */
 {
     printf ("%s\n", name);
@@ -96,8 +93,7 @@ dump_patches (char *name, cvs_patch *patches)
     }
 }
 
-void
-dump_file (cvs_file *file)
+static void dump_file (cvs_file *file)
 /* dump the patch list of a given file to standard output */
 {
     dump_number ("head", &file->head);  printf ("\n");
@@ -134,8 +130,7 @@ dump_log (FILE *f, char *log)
     }
 }
 
-void
-dump_commit_graph (rev_commit *c, rev_ref *branch)
+static void dump_commit_graph (rev_commit *c, rev_ref *branch)
 {
     rev_file	*f;
 
@@ -208,9 +203,7 @@ static void dump_tag_name(FILE *f, Tag *tag)
     fprintf (f, "%s", tag->name);
 }
 
-static
-rev_ref *
-dump_find_branch (rev_list *rl, rev_commit *commit)
+static rev_ref *dump_find_branch (rev_list *rl, rev_commit *commit)
 {
     rev_ref	*h;
     rev_commit	*c;
@@ -230,8 +223,7 @@ dump_find_branch (rev_list *rl, rev_commit *commit)
     return NULL;
 }
 
-void
-dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
+static void dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape)
 {
     rev_ref	*r, *o;
     int		n;
@@ -363,8 +355,7 @@ dump_get_rev_parent (rev_commit *c)
     return c;
 }
 
-void
-dump_rev_graph_nodes (rev_list *rl, char *title)
+static void dump_rev_graph_nodes (rev_list *rl, char *title)
 {
     rev_ref	*h;
     rev_commit	*c, *p;
@@ -397,14 +388,12 @@ dump_rev_graph_nodes (rev_list *rl, char *title)
     }
 }
 
-void
-dump_rev_graph_begin ()
+static void dump_rev_graph_begin (void)
 {
     printf ("digraph G {\n");
 }
 
-void
-dump_rev_graph_end ()
+static void dump_rev_graph_end (void)
 {
     printf ("}\n");
 }

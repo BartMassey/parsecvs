@@ -315,28 +315,10 @@ void
 dump_number (char *name, cvs_number *number);
 
 void
-dump_symbols (char *name, cvs_symbol *symbols);
-
-void
-dump_branches (char *name, cvs_branch *branches);
-
-void
-dump_versions (char *name, cvs_version *versions);
-
-void
-dump_patches (char *name, cvs_patch *patches);
-
-void
 dump_log (FILE *f, char *log);
 
 void
-dump_file (cvs_file *file);
-
-void
 dump_commit (rev_commit *e);
-
-void
-dump_refs (rev_list *rl, rev_ref *refs, char *title, char *shape);
 
 void
 dump_rev_commit (rev_commit *e);
@@ -349,18 +331,6 @@ dump_rev_list (rev_list *rl);
 
 void
 dump_splits (rev_list *rl);
-
-void
-dump_rev_graph_begin (void);
-
-void
-dump_rev_graph_nodes (rev_list *rl, char *title);
-
-void
-dump_rev_graph_end (void);
-
-void
-dump_commit_graph (rev_commit *c, rev_ref *branch);
 
 void
 dump_rev_graph (rev_list *rl, char *title);
