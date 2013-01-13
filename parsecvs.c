@@ -30,12 +30,10 @@ cvs_file	*this_file;
 
 rev_execution_mode rev_mode = ExecuteExport;
 bool suppress_keyword_expansion = false;
+int verbose = 0;
 FILE *revision_map;
 
-int elide = 0;
-int difffiles = 0;
-int allfiles = 1;
-int verbose = 0;
+static bool difffiles = false;
 
 void
 dump_number_file (FILE *f, char *name, cvs_number *number)
@@ -193,18 +191,13 @@ dump_commit_graph (rev_commit *c, rev_ref *branch)
 	}
 	rev_diff_free (diff);
     } else {
-	if (!allfiles) {
-	    dump_number (c->file->name, &c->file->number);
-	    printf ("\\n");
-	} else {
-	    int		i, j;
-	    for (i = 0; i < c->ndirs; i++) {
-		rev_dir *dir = c->dirs[i];
-		for (j = 0; j < dir->nfiles; j++) {
-		     f = dir->files[j];
-		     dump_number (f->name, &f->number);
-		     printf ("\\n");
-		}
+	int		i, j;
+	for (i = 0; i < c->ndirs; i++) {
+	    rev_dir *dir = c->dirs[i];
+	    for (j = 0; j < dir->nfiles; j++) {
+		 f = dir->files[j];
+		 dump_number (f->name, &f->number);
+		 printf ("\\n");
 	    }
 	}
     }
@@ -381,7 +374,7 @@ dump_get_rev_parent (rev_commit *c)
     int	seen = c->seen;
 
     c = c->parent;
-    while (elide && c && c->seen == seen && !c->tail && !c->tagged)
+    while (c && c->seen == seen && !c->tail && !c->tagged)
 	c = c->parent;
     return c;
 }
