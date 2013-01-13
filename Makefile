@@ -13,7 +13,6 @@ CFLAGS=-O2 -g $(GCC_WARNINGS) -DVERSION=\"$(VERSION)\"
 # To enable debugging of the Yacc grammar, uncomment the following line
 #CFLAGS += -DYYDEBUG=1
 
-LIBS=-lssl -lcrypto -lz -lpthread
 YFLAGS=-d -l
 LFLAGS=-l
 
@@ -22,7 +21,7 @@ OBJS=gram.o lex.o parsecvs.o cvsutil.o revdir.o \
 	nodehash.o tags.o authormap.o graph.o
 
 parsecvs: $(OBJS)
-	cc $(CFLAGS) -o $@ $(OBJS) $(LIBS)
+	cc $(CFLAGS) -o $@ $(OBJS)
 
 $(OBJS): cvs.h
 lex.o: y.tab.h
