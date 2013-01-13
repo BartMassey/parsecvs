@@ -33,18 +33,47 @@ bool suppress_keyword_expansion = false;
 int verbose = 0;
 FILE *revision_map;
 
+char *
+stringify_revision (char *name, char *sep, cvs_number *number)
+/* stringify a revision number */
+{
+    static char result[BUFSIZ], digits[32];
+
+    if (name != NULL)
+    {
+	if (strlen(name) >= sizeof(result) - strlen(sep) - 1)
+	{
+	    fprintf(stderr, "Filename too long\n");
+	    exit(1);
+	}
+	strncpy(result, name, sizeof(result) - strlen(sep) - 1);
+	strcat(result, sep);
+    }
+
+    if (number) 
+    {
+	int i;
+	for (i = 0; i < number->c; i++) {
+	    snprintf (digits, sizeof(digits)-1, "%d", number->n[i]);
+	    if (strlen(result) + 1 + strlen(digits) >= sizeof(result))
+	    {
+		fprintf(stderr, "Revision number too long\n");
+		exit(1);
+	    }
+	    strcat(result, digits);
+	    if (i < number->c - 1)
+		strcat (result, ".");
+	}
+    }
+
+    return result;
+}
+
 void
 dump_number_file (FILE *f, char *name, cvs_number *number)
 /* dump a filename/CVS-version pair to a specified file pointer */
 {
-    fprintf (f, "%s ", name);
-    if (number) {
-	int i;
-	for (i = 0; i < number->c; i++) {
-	    fprintf (f, "%d", number->n[i]);
-	    if (i < number->c - 1) fprintf (f, ".");
-	}
-    }
+    fputs(stringify_revision(name, " ", number), f);
 }
 
 void

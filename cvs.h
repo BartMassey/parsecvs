@@ -308,6 +308,9 @@ time_compare (time_t a, time_t b);
 void
 dump_ref_name (FILE *f, rev_ref *ref);
 
+char *
+stringify_revision (char *name, char *sep, cvs_number *number);
+
 void
 dump_number_file (FILE *f, char *name, cvs_number *number);
 
