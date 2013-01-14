@@ -1,13 +1,35 @@
-Note: Building parsecvs requires a copy of libgit and its
-header files to be on your system. For my Debian system,
-this means pulling the Git source and building it. The
-Makefile variable GITDIR should be aimed at an appropriate
-location.
+# git cvs-fast-export
+Copyright © 2013 Keith Packard, Bart Massey and Eric Raymond
+
+This is the current canonical repo for `git
+cvs-fast-export`, formerly `parsecvs`. This tool does what
+its new name implies: exports `cvs` repositories in a format
+suitable for `git fast-import`.
+
+This tool is currently being maintained by Eric Raymond, who
+has rewritten parts of it to support current `git` in a more
+sensible way.
+
+--
+
+Note: The standalone code currently finally did not run
+properly in at least some instances. It is suspected that
+this was due to changes in `libgit` that hadn't been tracked
+in the `parsecvs` code. Fortunately, Eric Raymond's changes to
+support `git fast-import` mooted that problem.
+
+--
+
+Note: Building `parsecvs` formerly required a copy of libgit
+and its header files to be on your system. For my Debian
+system, that meant pulling the Git source and building
+it. The Makefile variable GITDIR should be aimed at an
+appropriate location if you ever try to build old code.
 
 ---
 
-This is my current canonical repo for parsecvs. It merges three
-different Git repos:
+This is the current canonical repo for `parsecvs`. It merges
+three different Git repos:
 
   * The latest copy I could find of Keith Packard's original repo.
   * Kristian Hogsberg's repo from freedesktop.org. This was
@@ -21,64 +43,68 @@ actively look for patches, but if people send them to me I
 will look at getting them in. Further, if it breaks for me,
 I will fix it and push my patches here.
 
-I was in on the original design of parsecvs, and have gotten
+I was in on the original design of `parsecvs`, and have gotten
 a lot of use out of it over the years. Hopefully it will
 remain useful for years to come.
 
-    Bart Massey
-    bart@cs.pdx.edu
-    2011-02-15
+>Bart Massey  
+>bart@cs.pdx.edu   
+>2011-02-15
 
 ---
 
-	    			Parsecvs
-			   keithp@keithp.com
-	  		      April, 2006
+Here is the original `parsecvs` README. Much of this
+information is out-of-date as of 2013, but I preserve it in
+case it might be useful.
 
-This directory contains code which can directly read RCS ,v files and
-generate a git-style rev-list structure from them. Revision lists can be
-merged together to produce a composite revision history for an arbitrary
-collection of files.
+                                        Parsecvs
+                                   keithp@keithp.com
+                                      April, 2006
 
-Optional behaviors are controlled by editing the source and recompiling.
+        This directory contains code which can directly read RCS ,v files and
+        generate a git-style rev-list structure from them. Revision lists can be
+        merged together to produce a composite revision history for an arbitrary
+        collection of files.
 
-If arguments are supplied, parsecvs assumes they're all ,v files and reads
-them in. If no arguments are supplied, parsecvs reads filenames from stdin,
-one per line.
+        Optional behaviors are controlled by editing the source and recompiling.
 
-Working features:
+        If arguments are supplied, `parsecvs` assumes they're all ,v files and reads
+        them in. If no arguments are supplied, `parsecvs` reads filenames from stdin,
+        one per line.
 
-	Attic support. Files found in the Attic are not dealt with specially
-	at all; they should be renamed in the output, and the terminal
-	revision noted so that they don't appear in later revision. I think
-	fixing this will be reasonably straightforward.
+        Working features:
 
-	Disjoint branch resolution. Branches occurring in a subset of the
-	files are not correctly resolved; instead, an entirely disjoint
-	history will be created containing the branch revisions and all
-	parents back to the root. I'm not sure how to fix this; it seems
-	to implicitly assume there will be only a single place to attach as
-	branch parent, which may not be the case. In any case, the right
-	revision will have a superset of the revisions present in the
-	original branch parent; perhaps that will suffice.
+                Attic support. Files found in the Attic are not dealt with specially
+                at all; they should be renamed in the output, and the terminal
+                revision noted so that they don't appear in later revision. I think
+                fixing this will be reasonably straightforward.
 
-	Connection to git. As mentioned above, the code doesn't actually
-	connect to git yet, so while it can generate lovely graphs, it won't
-	do anything useful. I think this is reasonably straight forward as
-	well; we've got a revision history containing the necessary version
-	of every file at each point in time. This could either be done by
-	emitting git commands and sending them to a shell, or by linking
-	against a git library and doing everything internally.
+                Disjoint branch resolution. Branches occurring in a subset of the
+                files are not correctly resolved; instead, an entirely disjoint
+                history will be created containing the branch revisions and all
+                parents back to the root. I'm not sure how to fix this; it seems
+                to implicitly assume there will be only a single place to attach as
+                branch parent, which may not be the case. In any case, the right
+                revision will have a superset of the revisions present in the
+                original branch parent; perhaps that will suffice.
 
-	Author translation. Just as git cvsimport does.
-	
+                Connection to git. As mentioned above, the code doesn't actually
+                connect to git yet, so while it can generate lovely graphs, it won't
+                do anything useful. I think this is reasonably straight forward as
+                well; we've got a revision history containing the necessary version
+                of every file at each point in time. This could either be done by
+                emitting git commands and sending them to a shell, or by linking
+                against a git library and doing everything internally.
 
-Missing features:
+                Author translation. Just as git cvsimport does.
 
-	Reasonable command line syntax. The current lack of command line
-	parsing should be fixed to align with the usual git tools.
 
-	Testing. I'm sure there are plenty of additional bugs to be found;
-	I've tested with valgrind and eliminated memory leaks and other
-	errors.
+        Missing features:
+
+                Reasonable command line syntax. The current lack of command line
+                parsing should be fixed to align with the usual git tools.
+
+                Testing. I'm sure there are plenty of additional bugs to be found;
+                I've tested with valgrind and eliminated memory leaks and other
+                errors.
 
