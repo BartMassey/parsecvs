@@ -10,7 +10,15 @@ This tool is currently being maintained by Eric Raymond, who
 has rewritten parts of it to support current `git` in a more
 sensible way.
 
---
+Below are a bunch of stale notes and old versions of README
+material, preserved for historical reasons. You might just
+want to ignore them.
+
+> Bart Massey  
+> bart@cs.pdx.edu  
+> 2013-01-14
+
+-----
 
 Note: The standalone code currently finally did not run
 properly in at least some instances. It is suspected that
@@ -18,7 +26,7 @@ this was due to changes in `libgit` that hadn't been tracked
 in the `parsecvs` code. Fortunately, Eric Raymond's changes to
 support `git fast-import` mooted that problem.
 
---
+-----
 
 Note: Building `parsecvs` formerly required a copy of libgit
 and its header files to be on your system. For my Debian
@@ -26,7 +34,7 @@ system, that meant pulling the Git source and building
 it. The Makefile variable GITDIR should be aimed at an
 appropriate location if you ever try to build old code.
 
----
+-----
 
 This is the current canonical repo for `parsecvs`. It merges
 three different Git repos:
@@ -51,7 +59,7 @@ remain useful for years to come.
 >bart@cs.pdx.edu   
 >2011-02-15
 
----
+-----
 
 Here is the original `parsecvs` README. Much of this
 information is out-of-date as of 2013, but I preserve it in
