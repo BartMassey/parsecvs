@@ -1,7 +1,15 @@
-# git cvs-fast-export
+# cvs-fast-export
 Copyright © 2013 Keith Packard, Bart Massey and Eric Raymond
 
-This is the current canonical repo for `git
+You may want to look at <https://gitorious.org/cvs-fast-export>,
+which contains Eric Raymond's currently-maintained version of
+`cvs-fast-export`. Probably this GitHub repo should be backed off
+to before Eric's changes, when it was the latest known version
+of `parsecvs`.
+
+-----
+
+This is the former canonical repo for `git
 cvs-fast-export`, formerly `parsecvs`. This tool does what
 its new name implies: exports `cvs` repositories in a format
 suitable for `git fast-import`.
