@@ -429,7 +429,7 @@ main (int argc, char **argv)
 		   " -A --authormap                  Author map file\n"
 		   " -R --revision-map               Revision map file\n"
 		   " -r --reposurgeon                Issue cvs-revision properties\n"
-		   " -T                              Force deteministic dates\n"
+		   " -T                              Force deterministic dates\n"
 		   "\n"
 		   "Example: find -name '*,v' | parsecvs\n");
 	    return 0;
