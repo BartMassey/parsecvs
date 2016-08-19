@@ -1,7 +1,7 @@
 # cvs-fast-export
 Copyright © 2013 Keith Packard, Bart Massey and Eric Raymond
 
-You may want to look at <https://gitorious.org/cvs-fast-export>,
+You may want to look at <https://gitlab.com/esr/cvs-fast-export>,
 which contains Eric Raymond's currently-maintained version of
 `cvs-fast-export`. Probably this GitHub repo should be backed off
 to before Eric's changes, when it was the latest known version
